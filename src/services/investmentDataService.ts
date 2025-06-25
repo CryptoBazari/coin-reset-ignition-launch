@@ -33,7 +33,7 @@ export const fetchCoinData = async (coinId: string): Promise<CoinData> => {
   };
 };
 
-export const fetchBasketAssumptions = async (basket: string) => {
+export const fetchBasketAssumptions = async (basket: 'Bitcoin' | 'Blue Chip' | 'Small-Cap') => {
   const { data: assumptions, error: assumptionsError } = await supabase
     .from('assumptions')
     .select('*')
