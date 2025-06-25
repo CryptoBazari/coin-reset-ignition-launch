@@ -9,7 +9,241 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      assumptions: {
+        Row: {
+          basket: Database["public"]["Enums"]["basket_type"]
+          discount_rate: number
+          hurdle_rate: number
+          id: string
+          target_allocation: number
+        }
+        Insert: {
+          basket: Database["public"]["Enums"]["basket_type"]
+          discount_rate: number
+          hurdle_rate: number
+          id?: string
+          target_allocation: number
+        }
+        Update: {
+          basket?: Database["public"]["Enums"]["basket_type"]
+          discount_rate?: number
+          hurdle_rate?: number
+          id?: string
+          target_allocation?: number
+        }
+        Relationships: []
+      }
+      benchmarks: {
+        Row: {
+          benchmark_id: string
+          cagr_36m: number
+          current_value: number
+          id: string
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          benchmark_id: string
+          cagr_36m: number
+          current_value: number
+          id?: string
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          benchmark_id?: string
+          cagr_36m?: number
+          current_value?: number
+          id?: string
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      coins: {
+        Row: {
+          active_supply: number | null
+          aviv_ratio: number | null
+          basket: Database["public"]["Enums"]["basket_type"]
+          cagr_36m: number | null
+          coin_id: string
+          created_at: string | null
+          current_price: number
+          fundamentals_score: number | null
+          id: string
+          market_cap: number | null
+          name: string
+          price_history: Json | null
+          staking_yield: number | null
+          updated_at: string | null
+          vaulted_supply: number | null
+          volatility: number | null
+        }
+        Insert: {
+          active_supply?: number | null
+          aviv_ratio?: number | null
+          basket: Database["public"]["Enums"]["basket_type"]
+          cagr_36m?: number | null
+          coin_id: string
+          created_at?: string | null
+          current_price: number
+          fundamentals_score?: number | null
+          id?: string
+          market_cap?: number | null
+          name: string
+          price_history?: Json | null
+          staking_yield?: number | null
+          updated_at?: string | null
+          vaulted_supply?: number | null
+          volatility?: number | null
+        }
+        Update: {
+          active_supply?: number | null
+          aviv_ratio?: number | null
+          basket?: Database["public"]["Enums"]["basket_type"]
+          cagr_36m?: number | null
+          coin_id?: string
+          created_at?: string | null
+          current_price?: number
+          fundamentals_score?: number | null
+          id?: string
+          market_cap?: number | null
+          name?: string
+          price_history?: Json | null
+          staking_yield?: number | null
+          updated_at?: string | null
+          vaulted_supply?: number | null
+          volatility?: number | null
+        }
+        Relationships: []
+      }
+      investment_analyses: {
+        Row: {
+          cagr: number | null
+          coin_id: string
+          conditions: string | null
+          created_at: string | null
+          expected_price: number | null
+          id: string
+          investment_amount: number
+          investment_horizon: number | null
+          irr: number | null
+          npv: number | null
+          recommendation: Database["public"]["Enums"]["recommendation_type"]
+          risk_factor: number | null
+          risks: string | null
+          roi: number | null
+          total_portfolio: number
+        }
+        Insert: {
+          cagr?: number | null
+          coin_id: string
+          conditions?: string | null
+          created_at?: string | null
+          expected_price?: number | null
+          id?: string
+          investment_amount: number
+          investment_horizon?: number | null
+          irr?: number | null
+          npv?: number | null
+          recommendation: Database["public"]["Enums"]["recommendation_type"]
+          risk_factor?: number | null
+          risks?: string | null
+          roi?: number | null
+          total_portfolio: number
+        }
+        Update: {
+          cagr?: number | null
+          coin_id?: string
+          conditions?: string | null
+          created_at?: string | null
+          expected_price?: number | null
+          id?: string
+          investment_amount?: number
+          investment_horizon?: number | null
+          irr?: number | null
+          npv?: number | null
+          recommendation?: Database["public"]["Enums"]["recommendation_type"]
+          risk_factor?: number | null
+          risks?: string | null
+          roi?: number | null
+          total_portfolio?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "investment_analyses_coin_id_fkey"
+            columns: ["coin_id"]
+            isOneToOne: false
+            referencedRelation: "coins"
+            referencedColumns: ["coin_id"]
+          },
+        ]
+      }
+      market_sentiment: {
+        Row: {
+          coin_id: string
+          id: string
+          sentiment_score: number | null
+          sentiment_type: Database["public"]["Enums"]["sentiment_type"]
+          timestamp: string | null
+        }
+        Insert: {
+          coin_id: string
+          id?: string
+          sentiment_score?: number | null
+          sentiment_type: Database["public"]["Enums"]["sentiment_type"]
+          timestamp?: string | null
+        }
+        Update: {
+          coin_id?: string
+          id?: string
+          sentiment_score?: number | null
+          sentiment_type?: Database["public"]["Enums"]["sentiment_type"]
+          timestamp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_sentiment_coin_id_fkey"
+            columns: ["coin_id"]
+            isOneToOne: false
+            referencedRelation: "coins"
+            referencedColumns: ["coin_id"]
+          },
+        ]
+      }
+      user_portfolios: {
+        Row: {
+          allocations: Json
+          created_at: string | null
+          holdings: Json
+          id: string
+          portfolio_id: string
+          total_value: number
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          allocations?: Json
+          created_at?: string | null
+          holdings?: Json
+          id?: string
+          portfolio_id: string
+          total_value: number
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          allocations?: Json
+          created_at?: string | null
+          holdings?: Json
+          id?: string
+          portfolio_id?: string
+          total_value?: number
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -18,7 +252,9 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      basket_type: "Bitcoin" | "Blue Chip" | "Small-Cap"
+      recommendation_type: "Buy" | "Buy Less" | "Do Not Buy"
+      sentiment_type: "Bearish" | "Neutral" | "Bullish"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -133,6 +369,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      basket_type: ["Bitcoin", "Blue Chip", "Small-Cap"],
+      recommendation_type: ["Buy", "Buy Less", "Do Not Buy"],
+      sentiment_type: ["Bearish", "Neutral", "Bullish"],
+    },
   },
 } as const
