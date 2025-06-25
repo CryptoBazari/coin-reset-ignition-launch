@@ -7,9 +7,12 @@ import {
   calculateCAGR, 
   calculateROI, 
   calculateRiskFactor,
-  generateCashFlows 
+  analyzeBitcoinMarketState,
+  generateCashFlows,
+  adjustDiscountRateForFed,
+  checkAllocation
 } from '@/utils/financialCalculations';
-import type { CoinData, InvestmentInputs, AnalysisResult } from '@/types/investment';
+import type { CoinData, InvestmentInputs, AnalysisResult, MarketConditions } from '@/types/investment';
 
 export const useInvestmentAnalysis = () => {
   const [loading, setLoading] = useState(false);
@@ -46,6 +49,7 @@ export const useInvestmentAnalysis = () => {
         aviv_ratio: coinDataRaw.aviv_ratio,
         active_supply: coinDataRaw.active_supply,
         vaulted_supply: coinDataRaw.vaulted_supply,
+        cointime_inflation: coinDataRaw.cointime_inflation,
         staking_yield: coinDataRaw.staking_yield
       };
 
@@ -72,6 +76,40 @@ export const useInvestmentAnalysis = () => {
         throw new Error('Failed to fetch benchmark data');
       }
 
+      // Fetch latest market sentiment (simulated for now)
+      const marketSentiment = {
+        sentiment_score: 0, // Neutral
+        smart_money_activity: false
+      };
+
+      // Simulate Fed rate data (4.5% neutral rate)
+      const fedRateChange = 0; // No recent change
+
+      // Analyze Bitcoin market state using Cointime Economics
+      const bitcoinState = analyzeBitcoinMarketState(
+        coinData.aviv_ratio,
+        coinData.active_supply,
+        coinData.vaulted_supply,
+        marketSentiment.smart_money_activity
+      );
+
+      // Create market conditions object
+      const marketConditions: MarketConditions = {
+        bitcoinState,
+        sentimentScore: marketSentiment.sentiment_score,
+        smartMoneyActivity: marketSentiment.smart_money_activity,
+        fedRateChange,
+        avivRatio: coinData.aviv_ratio,
+        activeSupply: coinData.active_supply,
+        vaultedSupply: coinData.vaulted_supply
+      };
+
+      // Adjust discount rate based on Fed policy
+      const adjustedDiscountRate = adjustDiscountRateForFed(
+        assumptions.discount_rate / 100,
+        fedRateChange
+      );
+
       // Generate expected price if not provided
       const expectedPrice = inputs.expectedPrice || 
         coinData.current_price * (1 + (coinData.cagr_36m || 20) / 100) ** (inputs.investmentHorizon || 2);
@@ -86,7 +124,7 @@ export const useInvestmentAnalysis = () => {
       );
 
       // Calculate financial metrics
-      const npv = calculateNPV(cashFlows, assumptions.discount_rate / 100);
+      const npv = calculateNPV(cashFlows, adjustedDiscountRate);
       const irr = calculateIRR(cashFlows);
       const cagr = calculateCAGR(
         inputs.investmentAmount,
@@ -98,18 +136,28 @@ export const useInvestmentAnalysis = () => {
         coinData.basket,
         coinData.volatility || 50,
         coinData.fundamentals_score || 5,
-        coinData.aviv_ratio
+        coinData.aviv_ratio,
+        coinData.active_supply,
+        coinData.vaulted_supply,
+        fedRateChange,
+        marketSentiment.smart_money_activity
       );
 
-      // Generate recommendation
-      const recommendation = generateRecommendation(
+      // Check allocation
+      const basketAllocation = (inputs.totalPortfolio * assumptions.target_allocation / 100);
+      const allocation = checkAllocation(inputs.investmentAmount, basketAllocation, inputs.totalPortfolio);
+
+      // Generate comprehensive recommendation
+      const recommendation = generateAdvancedRecommendation(
         npv,
         irr,
         assumptions.hurdle_rate,
         coinData,
         inputs.investmentAmount,
         inputs.totalPortfolio,
-        assumptions.target_allocation
+        assumptions.target_allocation,
+        marketConditions,
+        allocation
       );
 
       // Store analysis result
@@ -133,6 +181,7 @@ export const useInvestmentAnalysis = () => {
         coin: coinData,
         metrics: { npv, irr, cagr, roi, riskFactor },
         recommendation,
+        marketConditions,
         benchmarkComparison: {
           coinPerformance: coinData.cagr_36m || 0,
           benchmarkPerformance: benchmark.cagr_36m,
@@ -151,55 +200,103 @@ export const useInvestmentAnalysis = () => {
   return { analyzeInvestment, loading, error };
 };
 
-const generateRecommendation = (
+const generateAdvancedRecommendation = (
   npv: number,
   irr: number,
   hurdleRate: number,
   coin: CoinData,
   investmentAmount: number,
   totalPortfolio: number,
-  targetAllocation: number
+  targetAllocation: number,
+  marketConditions: MarketConditions,
+  allocation: { basketPercentage: number; portfolioPercentage: number; overexposed: boolean }
 ): any => {
   const basketAllocation = (totalPortfolio * targetAllocation / 100);
-  const allocationPercentage = (investmentAmount / basketAllocation) * 100;
   
-  // Determine recommendation based on NPV, IRR, and other factors
-  let recommendation: 'Buy' | 'Buy Less' | 'Do Not Buy';
+  let recommendation: 'Buy' | 'Buy Less' | 'Do Not Buy' | 'Sell';
   let conditions = '';
   let risks = '';
-  
-  if (npv > 0 && irr > hurdleRate && allocationPercentage <= 5) {
-    if (coin.basket === 'Bitcoin' && coin.aviv_ratio && coin.aviv_ratio < 0.55) {
+  let marketAnalysis = '';
+
+  // Market analysis based on Cointime Economics
+  if (marketConditions.bitcoinState === 'bearish') {
+    marketAnalysis = `Bitcoin is in bearish state (AVIV: ${marketConditions.avivRatio?.toFixed(2) || 'N/A'}, Active Supply: ${marketConditions.activeSupply?.toFixed(1) || 'N/A'}%). All crypto baskets carry elevated risk.`;
+    
+    if (marketConditions.smartMoneyActivity) {
+      recommendation = 'Sell';
+      conditions = 'Smart money is selling. Consider exiting positions to preserve capital.';
+      risks = 'Major price correction likely. Protect against 50-70% drawdowns.';
+    } else {
+      recommendation = 'Do Not Buy';
+      conditions = 'Wait for Bitcoin AVIV <0.55 or higher vaulted supply (>70%) before investing.';
+      risks = 'High volatility expected. Market may decline further.';
+    }
+  } else if (marketConditions.bitcoinState === 'bullish') {
+    marketAnalysis = `Bitcoin shows bullish signals (AVIV: ${marketConditions.avivRatio?.toFixed(2) || 'N/A'}, Vaulted Supply: ${marketConditions.vaultedSupply?.toFixed(1) || 'N/A'}%). Favorable environment for crypto investments.`;
+    
+    if (npv > 0 && irr > hurdleRate && !allocation.overexposed) {
       recommendation = 'Buy';
-      conditions = 'Strong undervaluation signals. Good entry point.';
-    } else if (coin.basket !== 'Bitcoin' && (coin.fundamentals_score || 0) > 7) {
-      recommendation = 'Buy';
-      conditions = 'Strong fundamentals support investment.';
+      conditions = 'Strong bullish Bitcoin environment supports investment thesis.';
     } else {
       recommendation = 'Buy Less';
-      conditions = 'Neutral valuation. Consider smaller position.';
+      conditions = 'Bullish environment but consider position sizing carefully.';
     }
-  } else if (npv < 0 || irr < hurdleRate || allocationPercentage > 10) {
-    recommendation = 'Do Not Buy';
-    conditions = 'Poor risk-adjusted returns or overallocation risk.';
   } else {
-    recommendation = 'Buy Less';
-    conditions = 'Mixed signals. Proceed with caution.';
+    // Neutral Bitcoin market
+    marketAnalysis = `Bitcoin in neutral state (AVIV: ${marketConditions.avivRatio?.toFixed(2) || 'N/A'}). Mixed signals require careful evaluation.`;
+    
+    if (npv > 0 && irr > hurdleRate && !allocation.overexposed) {
+      if (coin.basket === 'Bitcoin' && marketConditions.avivRatio && marketConditions.avivRatio < 1.0) {
+        recommendation = 'Buy';
+        conditions = 'Good fundamentals with neutral Bitcoin environment.';
+      } else {
+        recommendation = 'Buy Less';
+        conditions = 'Neutral conditions suggest cautious approach.';
+      }
+    } else {
+      recommendation = 'Do Not Buy';
+      conditions = 'Poor risk-adjusted returns or position too large for portfolio.';
+    }
   }
 
-  // Generate risk warnings
+  // Additional risk factors
   const volatilityRisk = (coin.volatility || 50) > 70 ? `High volatility (${coin.volatility}%). ` : '';
-  const regulatoryRisk = coin.basket === 'Small-Cap' ? 'Regulatory uncertainty. ' : '';
-  risks = volatilityRisk + regulatoryRisk + 'Potential for significant drawdowns.';
+  const regulatoryRisk = 'Regulatory uncertainty remains. ';
+  const fedRisk = marketConditions.fedRateChange > 0 ? 'Fed rate hikes increase crypto risk. ' : 
+                  marketConditions.fedRateChange < 0 ? 'Fed rate cuts support crypto. ' : '';
+  
+  risks = volatilityRisk + regulatoryRisk + fedRisk + risks;
+
+  // Rebalancing suggestions
+  const rebalancingActions: string[] = [];
+  if (allocation.overexposed) {
+    rebalancingActions.push(`Reduce position size - currently ${allocation.basketPercentage.toFixed(1)}% of basket allocation`);
+  }
+  
+  if (marketConditions.bitcoinState === 'bearish') {
+    rebalancingActions.push('Consider selling 10-20% of crypto holdings');
+    rebalancingActions.push('Increase stablecoin allocation until Bitcoin AVIV <1.0');
+  }
 
   return {
     recommendation,
-    worthInvesting: npv > 0,
-    goodTiming: coin.aviv_ratio ? coin.aviv_ratio < 1.5 : true,
-    appropriateAmount: allocationPercentage <= 5,
-    riskFactor: calculateRiskFactor(coin.basket, coin.volatility || 50, coin.fundamentals_score || 5, coin.aviv_ratio),
+    worthInvesting: npv > 0 && marketConditions.bitcoinState !== 'bearish',
+    goodTiming: marketConditions.bitcoinState === 'bullish' || (marketConditions.bitcoinState === 'neutral' && marketConditions.sentimentScore < 0),
+    appropriateAmount: !allocation.overexposed,
+    riskFactor: calculateRiskFactor(
+      coin.basket,
+      coin.volatility || 50,
+      coin.fundamentals_score || 5,
+      marketConditions.avivRatio,
+      marketConditions.activeSupply,
+      marketConditions.vaultedSupply,
+      marketConditions.fedRateChange,
+      marketConditions.smartMoneyActivity
+    ),
     shouldDiversify: coin.basket !== 'Bitcoin',
     conditions,
-    risks
+    risks,
+    rebalancingActions,
+    marketAnalysis
   };
 };

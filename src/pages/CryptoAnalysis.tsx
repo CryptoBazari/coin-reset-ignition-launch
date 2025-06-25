@@ -26,12 +26,26 @@ const CryptoAnalysis = () => {
       <div className="max-w-6xl mx-auto space-y-8">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            Cryptocurrency Investment Analyzer
+            Advanced Cryptocurrency Investment Analyzer
           </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          <p className="text-lg text-gray-600 max-w-3xl mx-auto mb-4">
             Make informed investment decisions across Bitcoin, Blue Chip, and Small-Cap cryptocurrencies 
-            using advanced financial metrics and value investing principles.
+            using Cointime Economics, Federal Reserve analysis, and advanced financial metrics.
           </p>
+          <div className="flex justify-center space-x-6 text-sm text-gray-600">
+            <div className="flex items-center">
+              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+              <span>Cointime Economics Integration</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+              <span>Smart Money Analysis</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-2 h-2 bg-purple-500 rounded-full mr-2"></div>
+              <span>Fed Rate Impact Assessment</span>
+            </div>
+          </div>
         </div>
 
         <InvestmentForm onSubmit={handleAnalysis} loading={loading} />
