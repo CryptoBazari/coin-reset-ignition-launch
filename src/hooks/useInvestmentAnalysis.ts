@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -49,7 +48,7 @@ export const useInvestmentAnalysis = () => {
         aviv_ratio: coinDataRaw.aviv_ratio,
         active_supply: coinDataRaw.active_supply,
         vaulted_supply: coinDataRaw.vaulted_supply,
-        cointime_inflation: coinDataRaw.cointime_inflation,
+        cointime_inflation: null, // Set to null since it's not in the database yet
         staking_yield: coinDataRaw.staking_yield
       };
 
