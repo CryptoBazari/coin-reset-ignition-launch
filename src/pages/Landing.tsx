@@ -1,25 +1,15 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, Shield, Target, BarChart3, ArrowRight, CheckCircle } from "lucide-react";
 import { Link } from "react-router-dom";
+import Navbar from "@/components/Navbar";
 
 const Landing = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-purple-100">
       {/* Navigation */}
-      <nav className="container mx-auto px-4 py-6">
-        <div className="flex justify-between items-center">
-          <div className="text-2xl font-bold text-gray-900">CryptoAnalyzer</div>
-          <div className="flex space-x-4">
-            <Link to="/analysis">
-              <Button variant="outline">Try Demo</Button>
-            </Link>
-            <Button>Get Started</Button>
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Hero Section */}
       <div className="container mx-auto px-4 py-16">
