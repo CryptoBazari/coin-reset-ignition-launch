@@ -21,15 +21,33 @@ export const useInvestmentAnalysis = () => {
 
     try {
       // Fetch coin data
-      const { data: coinData, error: coinError } = await supabase
+      const { data: coinDataRaw, error: coinError } = await supabase
         .from('coins')
         .select('*')
         .eq('coin_id', inputs.coinId)
         .single();
 
-      if (coinError || !coinData) {
+      if (coinError || !coinDataRaw) {
         throw new Error('Coin not found');
       }
+
+      // Convert database record to CoinData interface
+      const coinData: CoinData = {
+        id: coinDataRaw.id,
+        coin_id: coinDataRaw.coin_id,
+        name: coinDataRaw.name,
+        basket: coinDataRaw.basket as 'Bitcoin' | 'Blue Chip' | 'Small-Cap',
+        current_price: coinDataRaw.current_price,
+        market_cap: coinDataRaw.market_cap,
+        price_history: coinDataRaw.price_history,
+        cagr_36m: coinDataRaw.cagr_36m,
+        fundamentals_score: coinDataRaw.fundamentals_score,
+        volatility: coinDataRaw.volatility,
+        aviv_ratio: coinDataRaw.aviv_ratio,
+        active_supply: coinDataRaw.active_supply,
+        vaulted_supply: coinDataRaw.vaulted_supply,
+        staking_yield: coinDataRaw.staking_yield
+      };
 
       // Fetch assumptions for the basket
       const { data: assumptions, error: assumptionsError } = await supabase

@@ -35,7 +35,24 @@ export const InvestmentForm: React.FC<InvestmentFormProps> = ({ onSubmit, loadin
       .order('name');
     
     if (data && !error) {
-      setCoins(data);
+      // Convert the database records to match our CoinData interface
+      const convertedCoins: CoinData[] = data.map(coin => ({
+        id: coin.id,
+        coin_id: coin.coin_id,
+        name: coin.name,
+        basket: coin.basket as 'Bitcoin' | 'Blue Chip' | 'Small-Cap',
+        current_price: coin.current_price,
+        market_cap: coin.market_cap,
+        price_history: coin.price_history,
+        cagr_36m: coin.cagr_36m,
+        fundamentals_score: coin.fundamentals_score,
+        volatility: coin.volatility,
+        aviv_ratio: coin.aviv_ratio,
+        active_supply: coin.active_supply,
+        vaulted_supply: coin.vaulted_supply,
+        staking_yield: coin.staking_yield
+      }));
+      setCoins(convertedCoins);
     }
   };
 

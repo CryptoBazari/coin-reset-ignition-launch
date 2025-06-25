@@ -6,7 +6,7 @@ export interface CoinData {
   basket: 'Bitcoin' | 'Blue Chip' | 'Small-Cap';
   current_price: number;
   market_cap?: number;
-  price_history?: number[];
+  price_history?: any; // Changed from number[] to any to match Json type from database
   cagr_36m?: number;
   fundamentals_score?: number;
   volatility?: number;
