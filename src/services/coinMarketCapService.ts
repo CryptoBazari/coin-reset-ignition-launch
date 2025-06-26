@@ -20,8 +20,7 @@ export const fetchCoinListings = async (limit: number = 100): Promise<CoinMarket
     const { data, error } = await supabase.functions.invoke('fetch-market-data', {
       body: { 
         fetchListings: true, 
-        limit,
-        includeLogo: true
+        limit
       }
     });
 
@@ -48,8 +47,7 @@ export const fetchCoinPrices = async (symbols: string[]): Promise<CoinMarketCapC
     
     const { data, error } = await supabase.functions.invoke('fetch-market-data', {
       body: { 
-        coinSymbols: symbols,
-        includeLogo: true
+        coinSymbols: symbols
       }
     });
 
