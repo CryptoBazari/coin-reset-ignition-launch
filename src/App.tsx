@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Landing from "./pages/Landing";
 import CryptoAnalysis from "./pages/CryptoAnalysis";
 import VirtualPortfolio from "./pages/VirtualPortfolio";
+import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -20,6 +21,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/analysis" element={<CryptoAnalysis />} />
+          <Route path="/auth" element={<Auth />} />
           <Route path="/virtual-portfolio" element={<VirtualPortfolio />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

@@ -1,5 +1,7 @@
-import { useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,19 +16,44 @@ import AssetHoldings from '@/components/virtual-portfolio/AssetHoldings';
 import { VirtualPortfolio as VirtualPortfolioType } from '@/types/virtualPortfolio';
 
 const VirtualPortfolio = () => {
+  const navigate = useNavigate();
   const [showCreatePortfolio, setShowCreatePortfolio] = useState(false);
   const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [showTransactionHistory, setShowTransactionHistory] = useState(false);
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
+  const [user, setUser] = useState(null);
   const { toast } = useToast();
+
+  // Check authentication
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate('/auth');
+        return;
+      }
+      setUser(session.user);
+    };
+    checkAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) {
+        navigate('/auth');
+      } else {
+        setUser(session.user);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
 
   // Fetch user's portfolios
   const { data: portfolios, isLoading, refetch } = useQuery({
-    queryKey: ['virtual-portfolios'],
+    queryKey: ['virtual-portfolios', user?.id],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
+      if (!user) return [];
+      
       const { data, error } = await supabase
         .from('virtual_portfolios' as any)
         .select('*')
@@ -35,13 +62,16 @@ const VirtualPortfolio = () => {
 
       if (error) throw error;
       return data as unknown as VirtualPortfolioType[];
-    }
+    },
+    enabled: !!user
   });
 
   // Auto-select first portfolio if none selected
-  if (portfolios && portfolios.length > 0 && !selectedPortfolioId) {
-    setSelectedPortfolioId(portfolios[0].id);
-  }
+  useEffect(() => {
+    if (portfolios && portfolios.length > 0 && !selectedPortfolioId) {
+      setSelectedPortfolioId(portfolios[0].id);
+    }
+  }, [portfolios, selectedPortfolioId]);
 
   const selectedPortfolio = portfolios?.find(p => p.id === selectedPortfolioId);
 
@@ -62,6 +92,19 @@ const VirtualPortfolio = () => {
       description: "Your transaction has been recorded successfully.",
     });
   };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-lg">Checking authentication...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
