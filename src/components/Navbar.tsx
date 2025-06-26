@@ -28,6 +28,14 @@ const Navbar = () => {
               Investment Analyzer
             </Button>
           </Link>
+          <Link to="/virtual-portfolio">
+            <Button 
+              variant={location.pathname === "/virtual-portfolio" ? "default" : "outline"}
+              className="transition-colors"
+            >
+              Virtual Portfolio
+            </Button>
+          </Link>
         </div>
       </div>
     </nav>
