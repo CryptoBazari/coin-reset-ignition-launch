@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { fetchCoinListings, CoinMarketCapCoin } from '@/services/coinMarketCapService';
+import { useToast } from '@/hooks/use-toast';
 
 interface CoinSelectorProps {
   value: string;
@@ -14,13 +15,26 @@ interface CoinSelectorProps {
 
 const CoinSelector = ({ value, onValueChange, placeholder = "Select a cryptocurrency" }: CoinSelectorProps) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const { toast } = useToast();
 
   const { data: coins, isLoading, error } = useQuery({
     queryKey: ['coinmarketcap-listings'],
     queryFn: () => fetchCoinListings(200),
     staleTime: 5 * 60 * 1000, // 5 minutes
-    retry: 1,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
+
+  // Show error toast when API fails
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "API Error",
+        description: "Failed to load cryptocurrency data. Please check your CoinMarketCap API key configuration.",
+        variant: "destructive",
+      });
+    }
+  }, [error, toast]);
 
   console.log('CoinSelector query state:', { isLoading, error, coinsLength: coins?.length });
 
@@ -42,7 +56,7 @@ const CoinSelector = ({ value, onValueChange, placeholder = "Select a cryptocurr
     return (
       <Select disabled>
         <SelectTrigger>
-          <SelectValue placeholder="Loading cryptocurrencies..." />
+          <SelectValue placeholder="Loading cryptocurrencies from CoinMarketCap..." />
         </SelectTrigger>
       </Select>
     );
@@ -53,7 +67,7 @@ const CoinSelector = ({ value, onValueChange, placeholder = "Select a cryptocurr
     return (
       <Select disabled>
         <SelectTrigger>
-          <SelectValue placeholder="Unable to load cryptocurrencies" />
+          <SelectValue placeholder="Unable to load cryptocurrencies - Check API configuration" />
         </SelectTrigger>
       </Select>
     );

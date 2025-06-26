@@ -27,16 +27,18 @@ export const fetchCoinListings = async (limit: number = 100): Promise<CoinMarket
 
     if (error) {
       console.error('Error fetching coin listings:', error);
-      // Return mock data as fallback
-      return getMockCoinData();
+      throw new Error('Failed to fetch coin listings from CoinMarketCap');
     }
 
-    console.log('Successfully fetched coin listings:', data?.data?.length || 0, 'coins');
-    return data?.data || getMockCoinData();
+    if (!data?.data || !Array.isArray(data.data)) {
+      throw new Error('Invalid response format from CoinMarketCap API');
+    }
+
+    console.log('Successfully fetched coin listings:', data.data.length, 'coins');
+    return data.data;
   } catch (error) {
     console.error('Error calling coin listings function:', error);
-    // Return mock data as fallback
-    return getMockCoinData();
+    throw error;
   }
 };
 
@@ -53,64 +55,17 @@ export const fetchCoinPrices = async (symbols: string[]): Promise<CoinMarketCapC
 
     if (error) {
       console.error('Error fetching coin prices:', error);
-      return [];
+      throw new Error('Failed to fetch coin prices from CoinMarketCap');
+    }
+
+    if (!data?.data || !Array.isArray(data.data)) {
+      throw new Error('Invalid response format from CoinMarketCap API');
     }
 
     console.log('Successfully fetched coin prices');
-    return data?.data || [];
+    return data.data;
   } catch (error) {
     console.error('Error calling coin prices function:', error);
-    return [];
+    throw error;
   }
-};
-
-// Mock data as fallback when API is not available
-const getMockCoinData = (): CoinMarketCapCoin[] => {
-  return [
-    {
-      id: 1,
-      symbol: 'BTC',
-      name: 'Bitcoin',
-      current_price: 67000,
-      market_cap: 1300000000000,
-      price_change_24h: 2.5,
-      logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png'
-    },
-    {
-      id: 1027,
-      symbol: 'ETH',
-      name: 'Ethereum',
-      current_price: 3500,
-      market_cap: 420000000000,
-      price_change_24h: 1.8,
-      logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png'
-    },
-    {
-      id: 52,
-      symbol: 'XRP',
-      name: 'XRP',
-      current_price: 0.6,
-      market_cap: 33000000000,
-      price_change_24h: -0.5,
-      logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/52.png'
-    },
-    {
-      id: 5426,
-      symbol: 'SOL',
-      name: 'Solana',
-      current_price: 150,
-      market_cap: 70000000000,
-      price_change_24h: 3.2,
-      logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/5426.png'
-    },
-    {
-      id: 74,
-      symbol: 'DOGE',
-      name: 'Dogecoin',
-      current_price: 0.08,
-      market_cap: 11000000000,
-      price_change_24h: 1.1,
-      logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/74.png'
-    }
-  ];
 };
