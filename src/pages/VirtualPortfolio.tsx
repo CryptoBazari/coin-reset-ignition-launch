@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -55,7 +54,7 @@ const VirtualPortfolio = () => {
       if (!user) return [];
       
       const { data, error } = await supabase
-        .from('virtual_portfolios' as any)
+        .from('virtual_portfolios')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });

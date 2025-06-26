@@ -18,19 +18,19 @@ class PortfolioService {
 
     // Get or create asset
     const { data: existingAsset } = await supabase
-      .from('virtual_assets' as any)
+      .from('virtual_assets')
       .select('*')
       .eq('portfolio_id', portfolioId)
       .eq('coin_id', transactionData.coin_id)
       .eq('category', transactionData.category)
       .single();
 
-    let asset = existingAsset as any;
+    let asset = existingAsset;
 
     if (!asset) {
       // Create new asset
       const { data: newAsset, error: assetError } = await supabase
-        .from('virtual_assets' as any)
+        .from('virtual_assets')
         .insert([{
           portfolio_id: portfolioId,
           coin_id: transactionData.coin_id,
@@ -79,7 +79,7 @@ class PortfolioService {
 
     // Update asset
     const { error: updateError } = await supabase
-      .from('virtual_assets' as any)
+      .from('virtual_assets')
       .update({
         total_amount: newAmount,
         cost_basis: newCostBasis,
@@ -93,7 +93,7 @@ class PortfolioService {
 
     // Insert transaction
     const { error: transactionError } = await supabase
-      .from('virtual_transactions' as any)
+      .from('virtual_transactions')
       .insert([{
         portfolio_id: portfolioId,
         coin_id: transactionData.coin_id,
@@ -118,7 +118,7 @@ class PortfolioService {
 
     // Get transaction details
     const { data: transaction, error: getError } = await supabase
-      .from('virtual_transactions' as any)
+      .from('virtual_transactions')
       .select('*')
       .eq('id', transactionId)
       .single();
@@ -126,30 +126,26 @@ class PortfolioService {
     if (getError) throw getError;
     if (!transaction) throw new Error('Transaction not found');
 
-    const transactionData = transaction as any;
-
     // Get associated asset
     const { data: asset, error: assetError } = await supabase
-      .from('virtual_assets' as any)
+      .from('virtual_assets')
       .select('*')
-      .eq('id', transactionData.asset_id)
+      .eq('id', transaction.asset_id)
       .single();
 
     if (assetError) throw assetError;
     if (!asset) throw new Error('Asset not found');
 
-    const assetData = asset as any;
-
     // Reverse the transaction effects
-    let newAmount = assetData.total_amount;
-    let newCostBasis = assetData.cost_basis;
-    let newRealizedProfit = assetData.realized_profit;
-    let newAveragePrice = assetData.average_price;
+    let newAmount = asset.total_amount;
+    let newCostBasis = asset.cost_basis;
+    let newRealizedProfit = asset.realized_profit;
+    let newAveragePrice = asset.average_price;
 
-    if (transactionData.transaction_type === 'buy') {
+    if (transaction.transaction_type === 'buy') {
       // Reverse buy transaction
-      newAmount -= transactionData.amount;
-      newCostBasis -= transactionData.value;
+      newAmount -= transaction.amount;
+      newCostBasis -= transaction.value;
       
       if (newAmount <= 0) {
         newAmount = 0;
@@ -160,11 +156,11 @@ class PortfolioService {
       }
     } else {
       // Reverse sell transaction
-      const sellProfit = (transactionData.price - assetData.average_price) * transactionData.amount;
+      const sellProfit = (transaction.price - asset.average_price) * transaction.amount;
       newRealizedProfit -= sellProfit;
-      newAmount += transactionData.amount;
+      newAmount += transaction.amount;
       
-      const proportionalCostBasis = (transactionData.amount / (newAmount - transactionData.amount)) * (newCostBasis);
+      const proportionalCostBasis = (transaction.amount / (newAmount - transaction.amount)) * (newCostBasis);
       newCostBasis += proportionalCostBasis;
       newAveragePrice = newAmount > 0 ? newCostBasis / newAmount : 0;
     }
@@ -173,15 +169,15 @@ class PortfolioService {
     if (newAmount <= 0) {
       // Delete asset if no holdings remain
       const { error: deleteAssetError } = await supabase
-        .from('virtual_assets' as any)
+        .from('virtual_assets')
         .delete()
-        .eq('id', assetData.id);
+        .eq('id', asset.id);
 
       if (deleteAssetError) throw deleteAssetError;
     } else {
       // Update asset
       const { error: updateError } = await supabase
-        .from('virtual_assets' as any)
+        .from('virtual_assets')
         .update({
           total_amount: newAmount,
           cost_basis: newCostBasis,
@@ -189,21 +185,21 @@ class PortfolioService {
           realized_profit: newRealizedProfit,
           updated_at: new Date().toISOString()
         })
-        .eq('id', assetData.id);
+        .eq('id', asset.id);
 
       if (updateError) throw updateError;
     }
 
     // Delete transaction
     const { error: deleteError } = await supabase
-      .from('virtual_transactions' as any)
+      .from('virtual_transactions')
       .delete()
       .eq('id', transactionId);
 
     if (deleteError) throw deleteError;
 
     // Update portfolio metrics
-    await this.updatePortfolioMetrics(transactionData.portfolio_id);
+    await this.updatePortfolioMetrics(transaction.portfolio_id);
   }
 
   async updatePortfolioMetrics(portfolioId: string) {
@@ -211,25 +207,23 @@ class PortfolioService {
 
     // Calculate total value and realized profit from assets
     const { data: assets, error: assetsError } = await supabase
-      .from('virtual_assets' as any)
+      .from('virtual_assets')
       .select('*')
       .eq('portfolio_id', portfolioId);
 
     if (assetsError) throw assetsError;
 
-    const assetsData = assets as any[];
-
-    const totalValue = assetsData?.reduce((sum: number, asset: any) => {
+    const totalValue = assets?.reduce((sum: number, asset: any) => {
       return sum + (asset.total_amount * asset.average_price);
     }, 0) || 0;
 
-    const allTimeProfit = assetsData?.reduce((sum: number, asset: any) => {
+    const allTimeProfit = assets?.reduce((sum: number, asset: any) => {
       return sum + asset.realized_profit;
     }, 0) || 0;
 
     // Update portfolio
     const { error: updateError } = await supabase
-      .from('virtual_portfolios' as any)
+      .from('virtual_portfolios')
       .update({
         total_value: totalValue,
         all_time_profit: allTimeProfit,

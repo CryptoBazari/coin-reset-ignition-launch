@@ -14,7 +14,7 @@ const AssetHoldings = ({ portfolioId }: AssetHoldingsProps) => {
     queryKey: ['virtual-assets', portfolioId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('virtual_assets' as any)
+        .from('virtual_assets')
         .select(`
           *,
           virtual_coins (symbol, name)

@@ -28,7 +28,7 @@ const CreatePortfolioDialog = ({ open, onOpenChange, onSuccess }: CreatePortfoli
       if (!user) throw new Error('Not authenticated');
 
       const { error } = await supabase
-        .from('virtual_portfolios' as any)
+        .from('virtual_portfolios')
         .insert([{
           user_id: user.id,
           name: name.trim()

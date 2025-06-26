@@ -244,6 +244,181 @@ export type Database = {
         }
         Relationships: []
       }
+      virtual_assets: {
+        Row: {
+          average_price: number
+          category: string
+          coin_id: string
+          cost_basis: number
+          created_at: string
+          id: string
+          portfolio_id: string
+          realized_profit: number
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          average_price?: number
+          category: string
+          coin_id: string
+          cost_basis?: number
+          created_at?: string
+          id?: string
+          portfolio_id: string
+          realized_profit?: number
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          average_price?: number
+          category?: string
+          coin_id?: string
+          cost_basis?: number
+          created_at?: string
+          id?: string
+          portfolio_id?: string
+          realized_profit?: number
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "virtual_assets_coin_id_fkey"
+            columns: ["coin_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_coins"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "virtual_assets_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_portfolios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      virtual_coins: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          symbol: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          symbol: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          symbol?: string
+        }
+        Relationships: []
+      }
+      virtual_portfolios: {
+        Row: {
+          all_time_profit: number
+          created_at: string
+          id: string
+          name: string
+          total_value: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          all_time_profit?: number
+          created_at?: string
+          id?: string
+          name: string
+          total_value?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          all_time_profit?: number
+          created_at?: string
+          id?: string
+          name?: string
+          total_value?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      virtual_transactions: {
+        Row: {
+          amount: number
+          asset_id: string | null
+          category: string
+          coin_id: string
+          created_at: string
+          fee: number
+          id: string
+          note: string | null
+          portfolio_id: string
+          price: number
+          transaction_date: string
+          transaction_type: string
+          value: number
+        }
+        Insert: {
+          amount: number
+          asset_id?: string | null
+          category: string
+          coin_id: string
+          created_at?: string
+          fee?: number
+          id?: string
+          note?: string | null
+          portfolio_id: string
+          price: number
+          transaction_date?: string
+          transaction_type: string
+          value: number
+        }
+        Update: {
+          amount?: number
+          asset_id?: string | null
+          category?: string
+          coin_id?: string
+          created_at?: string
+          fee?: number
+          id?: string
+          note?: string | null
+          portfolio_id?: string
+          price?: number
+          transaction_date?: string
+          transaction_type?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "virtual_transactions_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "virtual_transactions_coin_id_fkey"
+            columns: ["coin_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_coins"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "virtual_transactions_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_portfolios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

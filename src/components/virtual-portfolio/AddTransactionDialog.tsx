@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -37,7 +36,7 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
     queryKey: ['virtual-coins'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('virtual_coins' as any)
+        .from('virtual_coins')
         .select('*')
         .order('symbol');
       
@@ -99,6 +98,7 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
             Record a buy or sell transaction for your virtual portfolio.
           </DialogDescription>
         </DialogHeader>
+        
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="coin">Cryptocurrency</Label>

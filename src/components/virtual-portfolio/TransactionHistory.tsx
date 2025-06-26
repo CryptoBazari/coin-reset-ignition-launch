@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Edit } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { portfolioService } from '@/services/portfolioService';
@@ -23,7 +23,7 @@ const TransactionHistory = ({ open, onOpenChange, portfolioId, onTransactionUpda
     queryKey: ['virtual-transactions', portfolioId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('virtual_transactions' as any)
+        .from('virtual_transactions')
         .select(`
           *,
           virtual_coins (symbol, name)
