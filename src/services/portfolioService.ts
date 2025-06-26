@@ -1,4 +1,5 @@
 
+import { supabase } from '@/integrations/supabase/client';
 import { virtualCoinService } from './virtualCoinService';
 import { virtualAssetService } from './virtualAssetService';
 import { virtualTransactionService } from './virtualTransactionService';
