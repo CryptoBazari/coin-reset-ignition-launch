@@ -36,3 +36,25 @@ export const fetchRealBlockchainData = async (contractAddress: string, action = 
     return null;
   }
 };
+
+export const fetchEthereumData = async (contractAddress: string, module = 'stats', action = 'tokensupply') => {
+  try {
+    const { data, error } = await supabase.functions.invoke('fetch-etherscan-data', {
+      body: { 
+        module,
+        action,
+        contractaddress: contractAddress
+      }
+    });
+
+    if (error) {
+      console.error('Error fetching Ethereum data:', error);
+      return null;
+    }
+
+    return data?.data || null;
+  } catch (error) {
+    console.error('Error calling Etherscan function:', error);
+    return null;
+  }
+};
