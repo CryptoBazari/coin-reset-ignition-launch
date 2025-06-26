@@ -1,94 +1,113 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { TransactionData } from '@/types/portfolio';
 
 class VirtualAssetService {
   async findOrCreateAsset(portfolioId: string, coinId: string, category: string) {
-    console.log('Finding or creating asset:', { portfolioId, coinId, category });
+    console.log('VirtualAssetService: Finding or creating asset:', { portfolioId, coinId, category });
     
-    const { data: existingAsset } = await supabase
-      .from('virtual_assets')
-      .select('*')
-      .eq('portfolio_id', portfolioId)
-      .eq('coin_id', coinId)
-      .eq('category', category)
-      .maybeSingle();
-
-    if (existingAsset) {
-      console.log('Found existing asset:', existingAsset);
-      return existingAsset;
+    // Validate inputs
+    if (!portfolioId || !coinId || !category) {
+      throw new Error('Missing required parameters for asset creation');
     }
 
-    console.log('Creating new asset');
-    const { data: newAsset, error: assetError } = await supabase
-      .from('virtual_assets')
-      .insert([{
-        portfolio_id: portfolioId,
-        coin_id: coinId,
-        category,
-        total_amount: 0,
-        average_price: 0,
-        cost_basis: 0,
-        realized_profit: 0
-      }])
-      .select()
-      .single();
+    try {
+      const { data: existingAsset, error: findError } = await supabase
+        .from('virtual_assets')
+        .select('*')
+        .eq('portfolio_id', portfolioId)
+        .eq('coin_id', coinId)
+        .eq('category', category)
+        .maybeSingle();
 
-    if (assetError) {
-      console.error('Error creating asset:', assetError);
-      throw assetError;
+      if (findError) {
+        console.error('VirtualAssetService: Error finding existing asset:', findError);
+        throw findError;
+      }
+
+      if (existingAsset) {
+        console.log('VirtualAssetService: Found existing asset:', existingAsset.id);
+        return existingAsset;
+      }
+
+      console.log('VirtualAssetService: Creating new asset');
+      const { data: newAsset, error: createError } = await supabase
+        .from('virtual_assets')
+        .insert([{
+          portfolio_id: portfolioId,
+          coin_id: coinId,
+          category,
+          total_amount: 0,
+          average_price: 0,
+          cost_basis: 0,
+          realized_profit: 0
+        }])
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('VirtualAssetService: Error creating asset:', createError);
+        throw createError;
+      }
+      
+      console.log('VirtualAssetService: Created new asset:', newAsset.id);
+      return newAsset;
+    } catch (error) {
+      console.error('VirtualAssetService: Error in findOrCreateAsset:', error);
+      throw error;
     }
-    
-    console.log('Created new asset:', newAsset);
-    return newAsset;
   }
 
   async updateAssetForTransaction(assetId: string, currentAsset: any, transactionData: TransactionData) {
-    console.log('Updating asset for transaction:', { assetId, currentAsset, transactionData });
+    console.log('VirtualAssetService: Updating asset for transaction:', { assetId, transactionData });
     
-    let newTotalAmount: number;
-    let newCostBasis: number;
-    let newAveragePrice: number;
-    let newRealizedProfit = currentAsset.realized_profit;
+    try {
+      let newTotalAmount: number;
+      let newCostBasis: number;
+      let newAveragePrice: number;
+      let newRealizedProfit = currentAsset.realized_profit;
 
-    if (transactionData.transaction_type === 'buy') {
-      newTotalAmount = currentAsset.total_amount + transactionData.amount;
-      newCostBasis = currentAsset.cost_basis + transactionData.value + transactionData.fee;
-      newAveragePrice = newTotalAmount > 0 ? newCostBasis / newTotalAmount : 0;
-    } else {
-      // Sell transaction
-      newTotalAmount = Math.max(0, currentAsset.total_amount - transactionData.amount);
-      const sellValue = transactionData.value - transactionData.fee;
-      const costBasisReduction = currentAsset.average_price * transactionData.amount;
-      newCostBasis = Math.max(0, currentAsset.cost_basis - costBasisReduction);
-      newRealizedProfit = currentAsset.realized_profit + (sellValue - costBasisReduction);
-      newAveragePrice = currentAsset.average_price; // Keep same average price
+      if (transactionData.transaction_type === 'buy') {
+        newTotalAmount = currentAsset.total_amount + transactionData.amount;
+        newCostBasis = currentAsset.cost_basis + transactionData.value + transactionData.fee;
+        newAveragePrice = newTotalAmount > 0 ? newCostBasis / newTotalAmount : 0;
+      } else {
+        // Sell transaction
+        newTotalAmount = Math.max(0, currentAsset.total_amount - transactionData.amount);
+        const sellValue = transactionData.value - transactionData.fee;
+        const costBasisReduction = currentAsset.average_price * transactionData.amount;
+        newCostBasis = Math.max(0, currentAsset.cost_basis - costBasisReduction);
+        newRealizedProfit = currentAsset.realized_profit + (sellValue - costBasisReduction);
+        newAveragePrice = currentAsset.average_price; // Keep same average price
+      }
+
+      console.log('VirtualAssetService: Calculated new asset values:', {
+        newTotalAmount,
+        newCostBasis,
+        newAveragePrice,
+        newRealizedProfit
+      });
+
+      const { error: updateError } = await supabase
+        .from('virtual_assets')
+        .update({
+          total_amount: newTotalAmount,
+          cost_basis: newCostBasis,
+          average_price: newAveragePrice,
+          realized_profit: newRealizedProfit,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', assetId);
+
+      if (updateError) {
+        console.error('VirtualAssetService: Error updating asset:', updateError);
+        throw updateError;
+      }
+      
+      console.log('VirtualAssetService: Asset updated successfully');
+    } catch (error) {
+      console.error('VirtualAssetService: Error in updateAssetForTransaction:', error);
+      throw error;
     }
-
-    console.log('Calculated new asset values:', {
-      newTotalAmount,
-      newCostBasis,
-      newAveragePrice,
-      newRealizedProfit
-    });
-
-    const { error: updateError } = await supabase
-      .from('virtual_assets')
-      .update({
-        total_amount: newTotalAmount,
-        cost_basis: newCostBasis,
-        average_price: newAveragePrice,
-        realized_profit: newRealizedProfit,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', assetId);
-
-    if (updateError) {
-      console.error('Error updating asset:', updateError);
-      throw updateError;
-    }
-    
-    console.log('Asset updated successfully');
   }
 
   async reverseAssetForTransaction(asset: any, transaction: any) {

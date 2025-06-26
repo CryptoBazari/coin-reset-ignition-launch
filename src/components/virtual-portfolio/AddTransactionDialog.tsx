@@ -34,6 +34,7 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
   const { toast } = useToast();
 
   const handleCoinSelect = (coinId: string, coinData: CoinMarketCapCoin) => {
+    console.log('Coin selected:', { coinId, coinData });
     setFormData(prev => ({
       ...prev,
       coinId,
@@ -45,16 +46,25 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.coinId || !formData.amount || !formData.price) return;
+    if (!formData.coinSymbol || !formData.amount || !formData.price) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields (coin, amount, price).",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsLoading(true);
+    console.log('Starting transaction submission with data:', formData);
+
     try {
       const amount = parseFloat(formData.amount);
       const price = parseFloat(formData.price);
       const fee = formData.fee ? parseFloat(formData.fee) : 0;
       const value = amount * price;
 
-      console.log('Submitting transaction:', {
+      console.log('Parsed transaction data:', {
         coinSymbol: formData.coinSymbol,
         coinName: formData.coinName,
         transactionType: formData.transactionType,
@@ -65,12 +75,14 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
         fee
       });
 
-      // Create a virtual coin entry if it doesn't exist - without coinmarketcap_id
+      // Ensure the virtual coin exists first
+      console.log('Ensuring virtual coin exists...');
       await portfolioService.ensureVirtualCoin({
         symbol: formData.coinSymbol,
         name: formData.coinName
       });
 
+      console.log('Adding transaction to portfolio...');
       await portfolioService.addTransaction(portfolioId, {
         coin_symbol: formData.coinSymbol,
         transaction_type: formData.transactionType,
@@ -82,6 +94,9 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
         note: formData.note || null
       });
 
+      console.log('Transaction added successfully');
+
+      // Reset form
       setFormData({
         coinId: '',
         coinSymbol: '',
@@ -102,10 +117,19 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
       onSuccess();
       onOpenChange(false);
     } catch (error) {
-      console.error('Error adding transaction:', error);
+      console.error('Detailed error adding transaction:', error);
+      
+      // More specific error handling
+      let errorMessage = 'Failed to add transaction';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
       toast({
         title: "Error",
-        description: `Failed to add transaction: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -119,7 +143,7 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
         <DialogHeader>
           <DialogTitle>Add Transaction</DialogTitle>
           <DialogDescription>
-            Record a buy or sell transaction for your virtual portfolio using live market data.
+            Record a transaction for your virtual portfolio. Choose your preferred category classification.
           </DialogDescription>
         </DialogHeader>
         
@@ -148,7 +172,7 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
             </div>
 
             <div>
-              <Label htmlFor="category">Category</Label>
+              <Label htmlFor="category">Your Category</Label>
               <Select value={formData.category} onValueChange={(value: 'Bitcoin' | 'Blue Chip' | 'Small-Cap') => setFormData(prev => ({ ...prev, category: value }))}>
                 <SelectTrigger>
                   <SelectValue />
@@ -223,7 +247,7 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
               </p>
               {formData.coinSymbol && (
                 <p className="text-xs text-gray-500 mt-1">
-                  {formData.coinSymbol} - {formData.coinName}
+                  {formData.coinSymbol} - {formData.coinName} (Category: {formData.category})
                 </p>
               )}
             </div>
@@ -233,7 +257,7 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading || !formData.coinId || !formData.amount || !formData.price}>
+            <Button type="submit" disabled={isLoading || !formData.coinSymbol || !formData.amount || !formData.price}>
               {isLoading ? 'Adding...' : 'Add Transaction'}
             </Button>
           </div>
