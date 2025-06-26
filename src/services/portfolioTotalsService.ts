@@ -12,18 +12,38 @@ class PortfolioTotalsService {
 
     if (error) throw error;
 
+    console.log('Assets for portfolio calculation:', assets);
+
     // Calculate total value using current market values (average_price * total_amount)
     const totalValue = assets.reduce((sum, asset) => {
       const currentValue = asset.total_amount * asset.average_price;
+      console.log(`Asset ${asset.id}: amount=${asset.total_amount}, price=${asset.average_price}, value=${currentValue}`);
       return sum + currentValue;
     }, 0);
 
-    // Calculate total realized profit
-    const allTimeProfit = assets.reduce((sum, asset) => {
+    // Calculate total cost basis (what was actually invested)
+    const totalCostBasis = assets.reduce((sum, asset) => {
+      return sum + asset.cost_basis;
+    }, 0);
+
+    // Calculate total realized profit from all assets
+    const totalRealizedProfit = assets.reduce((sum, asset) => {
       return sum + asset.realized_profit;
     }, 0);
 
-    console.log('Calculated portfolio totals:', { totalValue, allTimeProfit });
+    // Calculate unrealized profit/loss (current value - cost basis)
+    const unrealizedProfitLoss = totalValue - totalCostBasis;
+
+    // Total profit/loss = realized + unrealized
+    const allTimeProfit = totalRealizedProfit + unrealizedProfitLoss;
+
+    console.log('Calculated portfolio totals:', { 
+      totalValue, 
+      totalCostBasis,
+      totalRealizedProfit,
+      unrealizedProfitLoss,
+      allTimeProfit 
+    });
 
     const { error: updateError } = await supabase
       .from('virtual_portfolios')
@@ -35,6 +55,8 @@ class PortfolioTotalsService {
       .eq('id', portfolioId);
 
     if (updateError) throw updateError;
+
+    console.log('Portfolio totals updated successfully');
   }
 }
 

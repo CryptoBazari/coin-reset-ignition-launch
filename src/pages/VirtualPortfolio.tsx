@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -53,13 +54,20 @@ const VirtualPortfolio = () => {
     queryFn: async () => {
       if (!user) return [];
       
+      console.log('Fetching portfolios for user:', user.id);
+      
       const { data, error } = await supabase
         .from('virtual_portfolios')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching portfolios:', error);
+        throw error;
+      }
+      
+      console.log('Fetched portfolios:', data);
       return data as unknown as VirtualPortfolioType[];
     },
     enabled: !!user
@@ -69,6 +77,7 @@ const VirtualPortfolio = () => {
   useEffect(() => {
     if (portfolios && portfolios.length > 0 && !selectedPortfolioId) {
       setSelectedPortfolioId(portfolios[0].id);
+      console.log('Auto-selected portfolio:', portfolios[0].id);
     }
   }, [portfolios, selectedPortfolioId]);
 
@@ -84,7 +93,8 @@ const VirtualPortfolio = () => {
   };
 
   const handleTransactionAdded = () => {
-    refetch();
+    console.log('Transaction added, refreshing data...');
+    refetch(); // This will refetch the portfolios data
     setShowAddTransaction(false);
     toast({
       title: "Transaction Added",

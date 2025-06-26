@@ -16,17 +16,24 @@ const AssetHoldings = ({ portfolioId }: AssetHoldingsProps) => {
   const { data: assets, isLoading } = useQuery({
     queryKey: ['virtual-assets', portfolioId],
     queryFn: async () => {
+      console.log('Fetching assets for portfolio:', portfolioId);
+      
       const { data, error } = await supabase
         .from('virtual_assets')
         .select(`
           *,
-          virtual_coins (symbol, name, coinmarketcap_id)
+          virtual_coins (symbol, name)
         `)
         .eq('portfolio_id', portfolioId)
-        .gt('total_amount', 0)
+        .gt('total_amount', 0.00000001) // More lenient threshold for crypto amounts
         .order('cost_basis', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching assets:', error);
+        throw error;
+      }
+      
+      console.log('Fetched assets:', data);
       return data as unknown as VirtualAsset[];
     }
   });
@@ -37,6 +44,7 @@ const AssetHoldings = ({ portfolioId }: AssetHoldingsProps) => {
     queryFn: async () => {
       if (!assets || assets.length === 0) return [];
       const symbols = assets.map(asset => asset.virtual_coins.symbol);
+      console.log('Fetching live prices for symbols:', symbols);
       return await fetchCoinPrices(symbols);
     },
     enabled: !!assets && assets.length > 0,
@@ -111,6 +119,16 @@ const AssetHoldings = ({ portfolioId }: AssetHoldingsProps) => {
             const unrealizedPnL = currentValue - asset.cost_basis;
             const unrealizedPnLPercent = asset.cost_basis > 0 ? (unrealizedPnL / asset.cost_basis) * 100 : 0;
             const priceChange = livePrice ? ((livePrice - asset.average_price) / asset.average_price) * 100 : 0;
+
+            console.log('Asset calculation:', {
+              symbol: asset.virtual_coins.symbol,
+              total_amount: asset.total_amount,
+              currentPrice,
+              currentValue,
+              cost_basis: asset.cost_basis,
+              unrealizedPnL,
+              realized_profit: asset.realized_profit
+            });
 
             return (
               <div key={asset.id} className="border rounded-lg p-4">
