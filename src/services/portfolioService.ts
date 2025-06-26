@@ -14,57 +14,77 @@ class PortfolioService {
   async addTransaction(portfolioId: string, transactionData: TransactionData) {
     console.log('Adding transaction:', { portfolioId, transactionData });
 
-    // First ensure the coin exists
-    const coinId = await this.ensureVirtualCoin({
-      symbol: transactionData.coin_symbol,
-      name: transactionData.coin_symbol,
-    });
+    try {
+      // First ensure the coin exists
+      const coinId = await this.ensureVirtualCoin({
+        symbol: transactionData.coin_symbol,
+        name: transactionData.coin_symbol,
+      });
 
-    // Find or create asset
-    const asset = await virtualAssetService.findOrCreateAsset(
-      portfolioId, 
-      coinId, 
-      transactionData.category
-    );
+      console.log('Coin ensured with ID:', coinId);
 
-    // Update asset based on transaction
-    await virtualAssetService.updateAssetForTransaction(asset.id, asset, transactionData);
+      // Find or create asset
+      const asset = await virtualAssetService.findOrCreateAsset(
+        portfolioId, 
+        coinId, 
+        transactionData.category
+      );
 
-    // Add transaction record
-    await virtualTransactionService.createTransaction(
-      portfolioId, 
-      coinId, 
-      asset.id, 
-      transactionData
-    );
+      console.log('Asset found/created:', asset);
 
-    // Update portfolio totals
-    await portfolioTotalsService.updatePortfolioTotals(portfolioId);
+      // Update asset based on transaction
+      await virtualAssetService.updateAssetForTransaction(asset.id, asset, transactionData);
+
+      console.log('Asset updated for transaction');
+
+      // Add transaction record
+      await virtualTransactionService.createTransaction(
+        portfolioId, 
+        coinId, 
+        asset.id, 
+        transactionData
+      );
+
+      console.log('Transaction record created');
+
+      // Update portfolio totals
+      await portfolioTotalsService.updatePortfolioTotals(portfolioId);
+
+      console.log('Portfolio totals updated');
+    } catch (error) {
+      console.error('Error in addTransaction:', error);
+      throw error;
+    }
   }
 
   async deleteTransaction(transactionId: string) {
     console.log('Deleting transaction:', transactionId);
     
-    // Get transaction details first
-    const transaction = await virtualTransactionService.getTransaction(transactionId);
+    try {
+      // Get transaction details first
+      const transaction = await virtualTransactionService.getTransaction(transactionId);
 
-    // Get asset details
-    const { data: asset, error: assetError } = await supabase
-      .from('virtual_assets')
-      .select('*')
-      .eq('id', transaction.asset_id)
-      .single();
+      // Get asset details
+      const { data: asset, error: assetError } = await supabase
+        .from('virtual_assets')
+        .select('*')
+        .eq('id', transaction.asset_id)
+        .single();
 
-    if (assetError) throw assetError;
+      if (assetError) throw assetError;
 
-    // Reverse the transaction effects
-    await virtualAssetService.reverseAssetForTransaction(asset, transaction);
+      // Reverse the transaction effects
+      await virtualAssetService.reverseAssetForTransaction(asset, transaction);
 
-    // Delete transaction
-    await virtualTransactionService.deleteTransaction(transactionId);
+      // Delete transaction
+      await virtualTransactionService.deleteTransaction(transactionId);
 
-    // Update portfolio totals
-    await portfolioTotalsService.updatePortfolioTotals(transaction.portfolio_id);
+      // Update portfolio totals
+      await portfolioTotalsService.updatePortfolioTotals(transaction.portfolio_id);
+    } catch (error) {
+      console.error('Error in deleteTransaction:', error);
+      throw error;
+    }
   }
 
   async updatePortfolioTotals(portfolioId: string) {

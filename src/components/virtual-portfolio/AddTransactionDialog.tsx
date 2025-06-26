@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -53,6 +54,17 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
       const fee = formData.fee ? parseFloat(formData.fee) : 0;
       const value = amount * price;
 
+      console.log('Submitting transaction:', {
+        coinSymbol: formData.coinSymbol,
+        coinName: formData.coinName,
+        transactionType: formData.transactionType,
+        category: formData.category,
+        amount,
+        price,
+        value,
+        fee
+      });
+
       // Create a virtual coin entry if it doesn't exist - without coinmarketcap_id
       await portfolioService.ensureVirtualCoin({
         symbol: formData.coinSymbol,
@@ -81,12 +93,19 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
         fee: '',
         note: ''
       });
+      
+      toast({
+        title: "Success",
+        description: "Transaction added successfully!",
+      });
+      
       onSuccess();
+      onOpenChange(false);
     } catch (error) {
       console.error('Error adding transaction:', error);
       toast({
         title: "Error",
-        description: "Failed to add transaction. Please try again.",
+        description: `Failed to add transaction: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive",
       });
     } finally {

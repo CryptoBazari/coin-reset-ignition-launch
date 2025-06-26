@@ -4,6 +4,8 @@ import { TransactionData } from '@/types/portfolio';
 
 class VirtualAssetService {
   async findOrCreateAsset(portfolioId: string, coinId: string, category: string) {
+    console.log('Finding or creating asset:', { portfolioId, coinId, category });
+    
     const { data: existingAsset } = await supabase
       .from('virtual_assets')
       .select('*')
@@ -13,9 +15,11 @@ class VirtualAssetService {
       .maybeSingle();
 
     if (existingAsset) {
+      console.log('Found existing asset:', existingAsset);
       return existingAsset;
     }
 
+    console.log('Creating new asset');
     const { data: newAsset, error: assetError } = await supabase
       .from('virtual_assets')
       .insert([{
@@ -30,11 +34,18 @@ class VirtualAssetService {
       .select()
       .single();
 
-    if (assetError) throw assetError;
+    if (assetError) {
+      console.error('Error creating asset:', assetError);
+      throw assetError;
+    }
+    
+    console.log('Created new asset:', newAsset);
     return newAsset;
   }
 
   async updateAssetForTransaction(assetId: string, currentAsset: any, transactionData: TransactionData) {
+    console.log('Updating asset for transaction:', { assetId, currentAsset, transactionData });
+    
     let newTotalAmount: number;
     let newCostBasis: number;
     let newAveragePrice: number;
@@ -72,10 +83,17 @@ class VirtualAssetService {
       })
       .eq('id', assetId);
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      console.error('Error updating asset:', updateError);
+      throw updateError;
+    }
+    
+    console.log('Asset updated successfully');
   }
 
   async reverseAssetForTransaction(asset: any, transaction: any) {
+    console.log('Reversing asset for transaction:', { asset, transaction });
+    
     let newTotalAmount: number;
     let newCostBasis: number;
     let newAveragePrice: number;
@@ -107,7 +125,12 @@ class VirtualAssetService {
       })
       .eq('id', asset.id);
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      console.error('Error reversing asset:', updateError);
+      throw updateError;
+    }
+    
+    console.log('Asset reversed successfully');
   }
 }
 
