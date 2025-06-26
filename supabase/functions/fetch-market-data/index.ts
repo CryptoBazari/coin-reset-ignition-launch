@@ -12,6 +12,7 @@ interface CoinMarketCapResponse {
       id: number;
       name: string;
       symbol: string;
+      logo?: string;
       quote: {
         USD: {
           price: number;
@@ -30,6 +31,7 @@ interface CoinListingResponse {
     id: number;
     name: string;
     symbol: string;
+    logo?: string;
     quote: {
       USD: {
         price: number;
@@ -47,7 +49,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { coinSymbols, fetchListings, limit } = await req.json();
+    const { coinSymbols, fetchListings, limit, includeLogo } = await req.json();
     
     const coinMarketCapApiKey = Deno.env.get('COINMARKETCAP_API_KEY');
     
@@ -67,9 +69,14 @@ Deno.serve(async (req) => {
     if (fetchListings) {
       // Fetch cryptocurrency listings
       const listingLimit = limit || 100;
-      const listingsUrl = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest?limit=${listingLimit}&sort=market_cap`;
+      let listingsUrl = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest?limit=${listingLimit}&sort=market_cap`;
       
-      console.log(`Fetching crypto listings with limit: ${listingLimit}`);
+      // Add logo parameter if requested
+      if (includeLogo) {
+        listingsUrl += '&aux=logo';
+      }
+      
+      console.log(`Fetching crypto listings with limit: ${listingLimit}, includeLogo: ${includeLogo}`);
       
       const listingsResponse = await fetch(listingsUrl, {
         headers: {
@@ -93,6 +100,7 @@ Deno.serve(async (req) => {
         current_price: coin.quote.USD.price,
         market_cap: coin.quote.USD.market_cap,
         price_change_24h: coin.quote.USD.percent_change_24h,
+        logo: coin.logo || `https://s2.coinmarketcap.com/static/img/coins/64x64/${coin.id}.png`
       }));
     } else {
       // Fetch specific coin data by symbols
@@ -101,9 +109,14 @@ Deno.serve(async (req) => {
       }
 
       const symbolsParam = coinSymbols.join(',');
-      const quotesUrl = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${symbolsParam}`;
+      let quotesUrl = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${symbolsParam}`;
       
-      console.log(`Fetching data for symbols: ${symbolsParam}`);
+      // Add logo parameter if requested
+      if (includeLogo) {
+        quotesUrl += '&aux=logo';
+      }
+      
+      console.log(`Fetching data for symbols: ${symbolsParam}, includeLogo: ${includeLogo}`);
       
       const quotesResponse = await fetch(quotesUrl, {
         headers: {
@@ -128,6 +141,7 @@ Deno.serve(async (req) => {
         price_change_24h: coinData.quote.USD.percent_change_24h,
         price_change_7d: coinData.quote.USD.percent_change_7d,
         price_change_30d: coinData.quote.USD.percent_change_30d,
+        logo: coinData.logo || `https://s2.coinmarketcap.com/static/img/coins/64x64/${coinData.id}.png`
       }));
     }
 

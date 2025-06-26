@@ -10,6 +10,7 @@ export interface CoinMarketCapCoin {
   price_change_24h: number;
   price_change_7d?: number;
   price_change_30d?: number;
+  logo?: string;
 }
 
 export const fetchCoinListings = async (limit: number = 100): Promise<CoinMarketCapCoin[]> => {
@@ -17,7 +18,8 @@ export const fetchCoinListings = async (limit: number = 100): Promise<CoinMarket
     const { data, error } = await supabase.functions.invoke('fetch-market-data', {
       body: { 
         fetchListings: true, 
-        limit 
+        limit,
+        includeLogo: true
       }
     });
 
@@ -36,7 +38,10 @@ export const fetchCoinListings = async (limit: number = 100): Promise<CoinMarket
 export const fetchCoinPrices = async (symbols: string[]): Promise<CoinMarketCapCoin[]> => {
   try {
     const { data, error } = await supabase.functions.invoke('fetch-market-data', {
-      body: { coinSymbols: symbols }
+      body: { 
+        coinSymbols: symbols,
+        includeLogo: true
+      }
     });
 
     if (error) {

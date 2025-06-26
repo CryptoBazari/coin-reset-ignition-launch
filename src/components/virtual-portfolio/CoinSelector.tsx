@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { fetchCoinListings, CoinMarketCapCoin } from '@/services/coinMarketCapService';
 
 interface CoinSelectorProps {
@@ -57,7 +58,15 @@ const CoinSelector = ({ value, onValueChange, placeholder = "Select a cryptocurr
           {filteredCoins.slice(0, 50).map(coin => (
             <SelectItem key={coin.id} value={coin.id.toString()}>
               <div className="flex items-center justify-between w-full">
-                <span>{coin.symbol} - {coin.name}</span>
+                <div className="flex items-center gap-2">
+                  <Avatar className="h-6 w-6">
+                    <AvatarImage src={coin.logo} alt={coin.symbol} />
+                    <AvatarFallback className="text-xs bg-gray-200">
+                      {coin.symbol.slice(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span>{coin.symbol} - {coin.name}</span>
+                </div>
                 <span className="text-sm text-gray-500 ml-2">
                   ${coin.current_price.toLocaleString(undefined, {
                     minimumFractionDigits: 2,
