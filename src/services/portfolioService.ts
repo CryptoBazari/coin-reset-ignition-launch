@@ -18,7 +18,7 @@ class PortfolioService {
 
     // Get or create asset
     const { data: existingAsset } = await supabase
-      .from('virtual_assets')
+      .from('virtual_assets' as any)
       .select('*')
       .eq('portfolio_id', portfolioId)
       .eq('coin_id', transactionData.coin_id)
@@ -30,7 +30,7 @@ class PortfolioService {
     if (!asset) {
       // Create new asset
       const { data: newAsset, error: assetError } = await supabase
-        .from('virtual_assets')
+        .from('virtual_assets' as any)
         .insert([{
           portfolio_id: portfolioId,
           coin_id: transactionData.coin_id,
@@ -79,7 +79,7 @@ class PortfolioService {
 
     // Update asset
     const { error: updateError } = await supabase
-      .from('virtual_assets')
+      .from('virtual_assets' as any)
       .update({
         total_amount: newAmount,
         cost_basis: newCostBasis,
@@ -93,7 +93,7 @@ class PortfolioService {
 
     // Insert transaction
     const { error: transactionError } = await supabase
-      .from('virtual_transactions')
+      .from('virtual_transactions' as any)
       .insert([{
         portfolio_id: portfolioId,
         coin_id: transactionData.coin_id,
@@ -118,7 +118,7 @@ class PortfolioService {
 
     // Get transaction details
     const { data: transaction, error: getError } = await supabase
-      .from('virtual_transactions')
+      .from('virtual_transactions' as any)
       .select('*')
       .eq('id', transactionId)
       .single();
@@ -128,7 +128,7 @@ class PortfolioService {
 
     // Get associated asset
     const { data: asset, error: assetError } = await supabase
-      .from('virtual_assets')
+      .from('virtual_assets' as any)
       .select('*')
       .eq('id', transaction.asset_id)
       .single();
@@ -169,7 +169,7 @@ class PortfolioService {
     if (newAmount <= 0) {
       // Delete asset if no holdings remain
       const { error: deleteAssetError } = await supabase
-        .from('virtual_assets')
+        .from('virtual_assets' as any)
         .delete()
         .eq('id', asset.id);
 
@@ -177,7 +177,7 @@ class PortfolioService {
     } else {
       // Update asset
       const { error: updateError } = await supabase
-        .from('virtual_assets')
+        .from('virtual_assets' as any)
         .update({
           total_amount: newAmount,
           cost_basis: newCostBasis,
@@ -192,7 +192,7 @@ class PortfolioService {
 
     // Delete transaction
     const { error: deleteError } = await supabase
-      .from('virtual_transactions')
+      .from('virtual_transactions' as any)
       .delete()
       .eq('id', transactionId);
 
@@ -207,23 +207,23 @@ class PortfolioService {
 
     // Calculate total value and realized profit from assets
     const { data: assets, error: assetsError } = await supabase
-      .from('virtual_assets')
+      .from('virtual_assets' as any)
       .select('*')
       .eq('portfolio_id', portfolioId);
 
     if (assetsError) throw assetsError;
 
-    const totalValue = assets?.reduce((sum, asset) => {
+    const totalValue = assets?.reduce((sum: number, asset: any) => {
       return sum + (asset.total_amount * asset.average_price);
     }, 0) || 0;
 
-    const allTimeProfit = assets?.reduce((sum, asset) => {
+    const allTimeProfit = assets?.reduce((sum: number, asset: any) => {
       return sum + asset.realized_profit;
     }, 0) || 0;
 
     // Update portfolio
     const { error: updateError } = await supabase
-      .from('virtual_portfolios')
+      .from('virtual_portfolios' as any)
       .update({
         total_value: totalValue,
         all_time_profit: allTimeProfit,

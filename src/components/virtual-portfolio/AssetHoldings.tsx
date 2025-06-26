@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
+import { VirtualAsset } from '@/types/virtualPortfolio';
 
 interface AssetHoldingsProps {
   portfolioId: string;
@@ -13,7 +14,7 @@ const AssetHoldings = ({ portfolioId }: AssetHoldingsProps) => {
     queryKey: ['virtual-assets', portfolioId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('virtual_assets')
+        .from('virtual_assets' as any)
         .select(`
           *,
           virtual_coins (symbol, name)
@@ -23,7 +24,7 @@ const AssetHoldings = ({ portfolioId }: AssetHoldingsProps) => {
         .order('cost_basis', { ascending: false });
 
       if (error) throw error;
-      return data;
+      return data as VirtualAsset[];
     }
   });
 

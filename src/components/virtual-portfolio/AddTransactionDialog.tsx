@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -10,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { portfolioService } from '@/services/portfolioService';
+import { VirtualCoin } from '@/types/virtualPortfolio';
 
 interface AddTransactionDialogProps {
   open: boolean;
@@ -36,12 +36,12 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
     queryKey: ['virtual-coins'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('virtual_coins')
+        .from('virtual_coins' as any)
         .select('*')
         .order('symbol');
       
       if (error) throw error;
-      return data;
+      return data as VirtualCoin[];
     }
   });
 

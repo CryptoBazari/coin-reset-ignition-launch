@@ -7,6 +7,7 @@ import { Trash2, Edit } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { portfolioService } from '@/services/portfolioService';
+import { VirtualTransaction } from '@/types/virtualPortfolio';
 
 interface TransactionHistoryProps {
   open: boolean;
@@ -22,7 +23,7 @@ const TransactionHistory = ({ open, onOpenChange, portfolioId, onTransactionUpda
     queryKey: ['virtual-transactions', portfolioId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('virtual_transactions')
+        .from('virtual_transactions' as any)
         .select(`
           *,
           virtual_coins (symbol, name)
@@ -31,7 +32,7 @@ const TransactionHistory = ({ open, onOpenChange, portfolioId, onTransactionUpda
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data;
+      return data as VirtualTransaction[];
     },
     enabled: open
   });

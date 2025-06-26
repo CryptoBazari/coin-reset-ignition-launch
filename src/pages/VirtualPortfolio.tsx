@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Navbar from '@/components/Navbar';
@@ -12,6 +11,7 @@ import CreatePortfolioDialog from '@/components/virtual-portfolio/CreatePortfoli
 import AddTransactionDialog from '@/components/virtual-portfolio/AddTransactionDialog';
 import TransactionHistory from '@/components/virtual-portfolio/TransactionHistory';
 import AssetHoldings from '@/components/virtual-portfolio/AssetHoldings';
+import { VirtualPortfolio as VirtualPortfolioType } from '@/types/virtualPortfolio';
 
 const VirtualPortfolio = () => {
   const [showCreatePortfolio, setShowCreatePortfolio] = useState(false);
@@ -28,13 +28,13 @@ const VirtualPortfolio = () => {
       if (!user) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
-        .from('virtual_portfolios')
+        .from('virtual_portfolios' as any)
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data;
+      return data as VirtualPortfolioType[];
     }
   });
 
