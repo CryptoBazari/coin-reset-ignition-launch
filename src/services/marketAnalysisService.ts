@@ -1,6 +1,6 @@
 
 import { analyzeBitcoinMarketState } from '@/utils/financialCalculations';
-import type { CoinData, MarketConditions } from '@/types/investment';
+import type { CoinData, MarketConditions, MarketDataResult } from '@/types/investment';
 import { fetchRealMarketData } from './realDataService';
 
 interface MarketDataResult {

@@ -1,4 +1,3 @@
-
 export interface CoinData {
   id: string;
   coin_id: string;
@@ -81,4 +80,10 @@ export interface MarketSentiment {
   sentiment_score: number;
   sentiment_type: 'Bearish' | 'Neutral' | 'Bullish';
   smart_money_activity: boolean;
+}
+
+export interface MarketDataResult {
+  fedRateChange: number;
+  marketSentiment: { sentiment_score: number; smart_money_activity: boolean };
+  realMarketData?: any;
 }

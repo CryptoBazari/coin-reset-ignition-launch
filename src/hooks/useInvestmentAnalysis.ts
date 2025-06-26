@@ -1,9 +1,10 @@
+
 import { useState } from 'react';
 import { fetchCoinData, fetchBasketAssumptions, fetchBenchmarkData, storeAnalysisResult } from '@/services/investmentDataService';
 import { calculateFinancialMetrics, calculateAllocation, calculateExpectedPrice, calculateAdjustedDiscountRate } from '@/services/investmentCalculationService';
 import { generateAdvancedRecommendation } from '@/services/recommendationService';
 import { createMarketConditions, getMarketData } from '@/services/marketAnalysisService';
-import type { InvestmentInputs, AnalysisResult } from '@/types/investment';
+import type { InvestmentInputs, AnalysisResult, MarketDataResult } from '@/types/investment';
 
 export const useInvestmentAnalysis = () => {
   const [loading, setLoading] = useState(false);
@@ -25,7 +26,7 @@ export const useInvestmentAnalysis = () => {
       const benchmark = await fetchBenchmarkData(benchmarkId);
 
       // Get market data (now uses real APIs when available)
-      const marketDataResult = await getMarketData();
+      const marketDataResult: MarketDataResult = await getMarketData();
       const { fedRateChange, marketSentiment, realMarketData } = marketDataResult;
 
       // Update coin data with real market data if available
