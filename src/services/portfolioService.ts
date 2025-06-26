@@ -20,6 +20,8 @@ export interface TransactionData {
 
 class PortfolioService {
   async ensureVirtualCoin(coinData: VirtualCoinData) {
+    console.log('Ensuring virtual coin exists:', coinData);
+    
     // Check if coin already exists
     const { data: existingCoin } = await supabase
       .from('virtual_coins')
@@ -28,29 +30,43 @@ class PortfolioService {
       .maybeSingle();
 
     if (existingCoin) {
+      console.log('Coin already exists:', existingCoin.id);
       return existingCoin.id;
     }
 
-    // Create new coin
+    // Create new coin - only include coinmarketcap_id if the column exists
+    const insertData: any = {
+      symbol: coinData.symbol,
+      name: coinData.name
+    };
+
+    // Only add coinmarketcap_id if provided
+    if (coinData.coinmarketcap_id) {
+      insertData.coinmarketcap_id = coinData.coinmarketcap_id;
+    }
+
     const { data: newCoin, error } = await supabase
       .from('virtual_coins')
-      .insert([{
-        symbol: coinData.symbol,
-        name: coinData.name,
-        coinmarketcap_id: coinData.coinmarketcap_id
-      }])
+      .insert([insertData])
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error creating virtual coin:', error);
+      throw error;
+    }
+    
+    console.log('Created new coin:', newCoin.id);
     return newCoin.id;
   }
 
   async addTransaction(portfolioId: string, transactionData: TransactionData) {
+    console.log('Adding transaction:', { portfolioId, transactionData });
+
     // First ensure the coin exists
     const coinId = await this.ensureVirtualCoin({
       symbol: transactionData.coin_symbol,
-      name: transactionData.coin_symbol, // Will be updated with real name from API
+      name: transactionData.coin_symbol,
     });
 
     // Find or create asset
@@ -112,6 +128,13 @@ class PortfolioService {
       newAveragePrice = currentAsset.average_price; // Keep same average price
     }
 
+    console.log('Calculated new asset values:', {
+      newTotalAmount,
+      newCostBasis,
+      newAveragePrice,
+      newRealizedProfit
+    });
+
     // Update asset
     const { error: updateError } = await supabase
       .from('virtual_assets')
@@ -149,6 +172,8 @@ class PortfolioService {
   }
 
   async updatePortfolioTotals(portfolioId: string) {
+    console.log('Updating portfolio totals for:', portfolioId);
+    
     const { data: assets, error } = await supabase
       .from('virtual_assets')
       .select('*')
@@ -156,13 +181,18 @@ class PortfolioService {
 
     if (error) throw error;
 
+    // Calculate total value using current market values (average_price * total_amount)
     const totalValue = assets.reduce((sum, asset) => {
-      return sum + (asset.total_amount * asset.average_price);
+      const currentValue = asset.total_amount * asset.average_price;
+      return sum + currentValue;
     }, 0);
 
+    // Calculate total realized profit
     const allTimeProfit = assets.reduce((sum, asset) => {
       return sum + asset.realized_profit;
     }, 0);
+
+    console.log('Calculated portfolio totals:', { totalValue, allTimeProfit });
 
     const { error: updateError } = await supabase
       .from('virtual_portfolios')
@@ -177,6 +207,8 @@ class PortfolioService {
   }
 
   async deleteTransaction(transactionId: string) {
+    console.log('Deleting transaction:', transactionId);
+    
     // Get transaction details first
     const { data: transaction, error: fetchError } = await supabase
       .from('virtual_transactions')

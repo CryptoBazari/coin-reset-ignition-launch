@@ -15,11 +15,14 @@ interface CoinSelectorProps {
 const CoinSelector = ({ value, onValueChange, placeholder = "Select a cryptocurrency" }: CoinSelectorProps) => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { data: coins, isLoading } = useQuery({
+  const { data: coins, isLoading, error } = useQuery({
     queryKey: ['coinmarketcap-listings'],
     queryFn: () => fetchCoinListings(200),
     staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 1,
   });
+
+  console.log('CoinSelector query state:', { isLoading, error, coinsLength: coins?.length });
 
   const filteredCoins = coins?.filter(coin => 
     coin.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -27,8 +30,10 @@ const CoinSelector = ({ value, onValueChange, placeholder = "Select a cryptocurr
   ) || [];
 
   const handleValueChange = (coinId: string) => {
+    console.log('Coin selected:', coinId);
     const selectedCoin = coins?.find(coin => coin.id.toString() === coinId);
     if (selectedCoin) {
+      console.log('Selected coin data:', selectedCoin);
       onValueChange(coinId, selectedCoin);
     }
   };
@@ -38,6 +43,17 @@ const CoinSelector = ({ value, onValueChange, placeholder = "Select a cryptocurr
       <Select disabled>
         <SelectTrigger>
           <SelectValue placeholder="Loading cryptocurrencies..." />
+        </SelectTrigger>
+      </Select>
+    );
+  }
+
+  if (error || !coins || coins.length === 0) {
+    console.error('CoinSelector error or no data:', error);
+    return (
+      <Select disabled>
+        <SelectTrigger>
+          <SelectValue placeholder="Unable to load cryptocurrencies" />
         </SelectTrigger>
       </Select>
     );
@@ -54,7 +70,7 @@ const CoinSelector = ({ value, onValueChange, placeholder = "Select a cryptocurr
         <SelectTrigger>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
-        <SelectContent className="max-h-60">
+        <SelectContent className="max-h-60 bg-white border border-gray-200 shadow-lg z-50">
           {filteredCoins.slice(0, 50).map(coin => (
             <SelectItem key={coin.id} value={coin.id.toString()}>
               <div className="flex items-center justify-between w-full">

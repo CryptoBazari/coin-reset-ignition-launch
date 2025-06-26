@@ -15,9 +15,20 @@ interface PortfolioOverviewProps {
 }
 
 const PortfolioOverview = ({ portfolio }: PortfolioOverviewProps) => {
-  const profitPercentage = portfolio.total_value > 0 
-    ? ((portfolio.all_time_profit / (portfolio.total_value - portfolio.all_time_profit)) * 100)
+  // Calculate the initial investment (total_value - all_time_profit)
+  const initialInvestment = portfolio.total_value - portfolio.all_time_profit;
+  
+  // Calculate profit percentage based on initial investment
+  const profitPercentage = initialInvestment > 0 
+    ? (portfolio.all_time_profit / initialInvestment) * 100
     : 0;
+
+  console.log('Portfolio calculations:', {
+    total_value: portfolio.total_value,
+    all_time_profit: portfolio.all_time_profit,
+    initialInvestment,
+    profitPercentage
+  });
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
