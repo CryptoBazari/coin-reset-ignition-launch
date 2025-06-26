@@ -1,13 +1,6 @@
-
 import { analyzeBitcoinMarketState } from '@/utils/financialCalculations';
 import type { CoinData, MarketConditions, MarketDataResult } from '@/types/investment';
 import { fetchRealMarketData } from './realDataService';
-
-interface MarketDataResult {
-  fedRateChange: number;
-  marketSentiment: { sentiment_score: number; smart_money_activity: boolean };
-  realMarketData?: any;
-}
 
 export const createMarketConditions = (
   coinData: CoinData,
