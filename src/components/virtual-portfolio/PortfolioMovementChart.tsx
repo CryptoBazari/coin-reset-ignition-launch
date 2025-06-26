@@ -32,23 +32,50 @@ const PortfolioMovementChart = ({ portfolioId }: PortfolioMovementChartProps) =>
       // Calculate cumulative portfolio value over time
       const movementPoints = [];
       let cumulativeInvestment = 0;
-      let cumulativeValue = 0;
+      let holdings = new Map(); // Track holdings by coin
 
-      transactions.forEach((transaction, index) => {
+      transactions.forEach((transaction) => {
+        const coinSymbol = transaction.virtual_coins.symbol;
+        
         if (transaction.transaction_type === 'buy') {
           cumulativeInvestment += transaction.value + transaction.fee;
-          cumulativeValue += transaction.value;
+          
+          // Update holdings
+          const currentHolding = holdings.get(coinSymbol) || { amount: 0, avgPrice: 0 };
+          const newTotalAmount = currentHolding.amount + transaction.amount;
+          const newAvgPrice = newTotalAmount > 0 ? 
+            ((currentHolding.amount * currentHolding.avgPrice) + (transaction.amount * transaction.price)) / newTotalAmount : 
+            transaction.price;
+          
+          holdings.set(coinSymbol, {
+            amount: newTotalAmount,
+            avgPrice: newAvgPrice
+          });
         } else {
-          // For sell transactions, we need to calculate profit/loss
-          const profit = transaction.value - (transaction.amount * transaction.price);
-          cumulativeValue += profit;
+          // For sell transactions
+          const currentHolding = holdings.get(coinSymbol) || { amount: 0, avgPrice: 0 };
+          const newAmount = Math.max(0, currentHolding.amount - transaction.amount);
+          holdings.set(coinSymbol, {
+            amount: newAmount,
+            avgPrice: currentHolding.avgPrice
+          });
         }
+
+        // Calculate current portfolio value based on transaction prices
+        let currentValue = 0;
+        holdings.forEach((holding, symbol) => {
+          if (holding.amount > 0) {
+            // Use the transaction price as current price for simplification
+            // In a real scenario, you'd fetch current market prices
+            currentValue += holding.amount * transaction.price;
+          }
+        });
 
         movementPoints.push({
           date: transaction.transaction_date,
           investment: cumulativeInvestment,
-          value: cumulativeValue,
-          profit: cumulativeValue - cumulativeInvestment,
+          value: currentValue,
+          profit: currentValue - cumulativeInvestment,
           transaction: `${transaction.transaction_type.toUpperCase()} ${transaction.amount} ${transaction.virtual_coins.symbol}`
         });
       });
