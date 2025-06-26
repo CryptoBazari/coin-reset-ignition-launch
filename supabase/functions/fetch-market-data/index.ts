@@ -67,9 +67,9 @@ Deno.serve(async (req) => {
     let transformedData;
 
     if (fetchListings) {
-      // Fetch cryptocurrency listings
-      const listingLimit = limit || 100;
-      let listingsUrl = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest?limit=${listingLimit}&sort=market_cap`;
+      // Fetch cryptocurrency listings with better defaults
+      const listingLimit = Math.min(limit || 30, 200); // Cap at 200 to avoid rate limits
+      let listingsUrl = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest?limit=${listingLimit}&sort=market_cap&convert=USD`;
       
       // Add logo parameter if requested
       if (includeLogo) {
@@ -77,21 +77,58 @@ Deno.serve(async (req) => {
       }
       
       console.log(`Fetching crypto listings with limit: ${listingLimit}, includeLogo: ${includeLogo}`);
+      console.log(`Request URL: ${listingsUrl}`);
       
       const listingsResponse = await fetch(listingsUrl, {
         headers: {
           'X-CMC_PRO_API_KEY': coinMarketCapApiKey,
           'Accept': 'application/json',
+          'Accept-Encoding': 'deflate, gzip',
         },
       });
 
+      console.log(`CoinMarketCap API Response Status: ${listingsResponse.status}`);
+      
       if (!listingsResponse.ok) {
-        console.error(`CoinMarketCap API error: ${listingsResponse.status}`);
+        const errorText = await listingsResponse.text();
+        console.error(`CoinMarketCap API error: ${listingsResponse.status} - ${errorText}`);
+        
+        // More specific error messages
+        if (listingsResponse.status === 400) {
+          return new Response(
+            JSON.stringify({ error: 'Invalid request to CoinMarketCap API. Check API key and parameters.' }),
+            { 
+              status: 400, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        } else if (listingsResponse.status === 401) {
+          return new Response(
+            JSON.stringify({ error: 'Unauthorized - Invalid CoinMarketCap API key' }),
+            { 
+              status: 401, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        } else if (listingsResponse.status === 429) {
+          return new Response(
+            JSON.stringify({ error: 'Rate limit exceeded for CoinMarketCap API' }),
+            { 
+              status: 429, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+        
         throw new Error(`CoinMarketCap API error: ${listingsResponse.status}`);
       }
 
       const listingsData: CoinListingResponse = await listingsResponse.json();
-      console.log('Successfully fetched CoinMarketCap listings');
+      console.log(`Successfully fetched ${listingsData.data?.length || 0} coin listings`);
+
+      if (!listingsData.data || !Array.isArray(listingsData.data)) {
+        throw new Error('Invalid response format from CoinMarketCap API');
+      }
 
       transformedData = listingsData.data.map(coin => ({
         id: coin.id,
@@ -109,7 +146,7 @@ Deno.serve(async (req) => {
       }
 
       const symbolsParam = coinSymbols.join(',');
-      let quotesUrl = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${symbolsParam}`;
+      let quotesUrl = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${symbolsParam}&convert=USD`;
       
       // Add logo parameter if requested
       if (includeLogo) {
@@ -122,11 +159,13 @@ Deno.serve(async (req) => {
         headers: {
           'X-CMC_PRO_API_KEY': coinMarketCapApiKey,
           'Accept': 'application/json',
+          'Accept-Encoding': 'deflate, gzip',
         },
       });
 
       if (!quotesResponse.ok) {
-        console.error(`CoinMarketCap API error: ${quotesResponse.status}`);
+        const errorText = await quotesResponse.text();
+        console.error(`CoinMarketCap API error: ${quotesResponse.status} - ${errorText}`);
         throw new Error(`CoinMarketCap API error: ${quotesResponse.status}`);
       }
 
