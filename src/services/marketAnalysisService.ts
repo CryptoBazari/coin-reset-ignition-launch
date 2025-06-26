@@ -1,6 +1,8 @@
+
 import { analyzeBitcoinMarketState } from '@/utils/financialCalculations';
 import type { CoinData, MarketConditions, MarketDataResult } from '@/types/investment';
 import { fetchRealMarketData } from './realDataService';
+import { fetchFedFundsRate } from './alphaVantageService';
 
 export const createMarketConditions = (
   coinData: CoinData,
@@ -34,8 +36,16 @@ export const getMarketData = async (): Promise<MarketDataResult> => {
     if (realData && realData.length > 0) {
       console.log('Using real market data from CoinMarketCap');
       
-      // Extract Fed rate data (simulated for now until you add Fed API)
-      const fedRateChange = 0; // Neutral rate - will be real when Fed API is added
+      // Fetch real Fed rate data from Alpha Vantage
+      const fedRateData = await fetchFedFundsRate();
+      let fedRateChange = 0;
+      
+      if (fedRateData && fedRateData.length >= 2) {
+        const currentRate = parseFloat(fedRateData[0].value);
+        const previousRate = parseFloat(fedRateData[1].value);
+        fedRateChange = currentRate - previousRate;
+        console.log(`Fed rate change: ${fedRateChange.toFixed(2)}%`);
+      }
       
       // Extract market sentiment from price changes (basic sentiment analysis)
       const btcData = realData.find(coin => coin.symbol === 'BTC');
