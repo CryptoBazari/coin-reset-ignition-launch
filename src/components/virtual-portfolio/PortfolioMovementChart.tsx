@@ -4,6 +4,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
+import { fetchCoinPrices } from '@/services/coinMarketCapService';
 
 interface PortfolioMovementChartProps {
   portfolioId: string;
@@ -29,54 +30,74 @@ const PortfolioMovementChart = ({ portfolioId }: PortfolioMovementChartProps) =>
         return [];
       }
 
-      // Calculate cumulative portfolio value over time
+      // Get current market prices for accurate valuation
+      const uniqueSymbols = [...new Set(transactions.map(t => t.virtual_coins.symbol))];
+      let currentPrices = new Map();
+      
+      try {
+        const liveData = await fetchCoinPrices(uniqueSymbols);
+        liveData.forEach(coin => {
+          currentPrices.set(coin.symbol, coin.current_price);
+        });
+        console.log('Fetched current prices for chart:', Object.fromEntries(currentPrices));
+      } catch (error) {
+        console.warn('Could not fetch current prices for chart:', error);
+      }
+
+      // Calculate portfolio movement over time
       const movementPoints = [];
-      let cumulativeInvestment = 0;
-      let holdings = new Map(); // Track holdings by coin
+      let cumulativeCostBasis = 0; // Total money invested
+      let holdings = new Map(); // Track holdings by coin symbol
 
       transactions.forEach((transaction) => {
         const coinSymbol = transaction.virtual_coins.symbol;
         
         if (transaction.transaction_type === 'buy') {
-          cumulativeInvestment += transaction.value + transaction.fee;
+          // Add to cost basis (money invested)
+          cumulativeCostBasis += transaction.value + transaction.fee;
           
           // Update holdings
-          const currentHolding = holdings.get(coinSymbol) || { amount: 0, avgPrice: 0 };
-          const newTotalAmount = currentHolding.amount + transaction.amount;
-          const newAvgPrice = newTotalAmount > 0 ? 
-            ((currentHolding.amount * currentHolding.avgPrice) + (transaction.amount * transaction.price)) / newTotalAmount : 
-            transaction.price;
-          
+          const currentHolding = holdings.get(coinSymbol) || { amount: 0, totalCost: 0 };
           holdings.set(coinSymbol, {
-            amount: newTotalAmount,
-            avgPrice: newAvgPrice
+            amount: currentHolding.amount + transaction.amount,
+            totalCost: currentHolding.totalCost + transaction.value + transaction.fee
           });
         } else {
-          // For sell transactions
-          const currentHolding = holdings.get(coinSymbol) || { amount: 0, avgPrice: 0 };
-          const newAmount = Math.max(0, currentHolding.amount - transaction.amount);
+          // Sell transaction - reduce cost basis proportionally
+          const currentHolding = holdings.get(coinSymbol) || { amount: 0, totalCost: 0 };
+          const sellRatio = Math.min(transaction.amount / currentHolding.amount, 1);
+          const costReduction = currentHolding.totalCost * sellRatio;
+          
+          cumulativeCostBasis -= costReduction;
+          
           holdings.set(coinSymbol, {
-            amount: newAmount,
-            avgPrice: currentHolding.avgPrice
+            amount: Math.max(0, currentHolding.amount - transaction.amount),
+            totalCost: Math.max(0, currentHolding.totalCost - costReduction)
           });
         }
 
-        // Calculate current portfolio value based on transaction prices
-        let currentValue = 0;
+        // Calculate current market value using live prices
+        let currentMarketValue = 0;
         holdings.forEach((holding, symbol) => {
           if (holding.amount > 0) {
-            // Use the transaction price as current price for simplification
-            // In a real scenario, you'd fetch current market prices
-            currentValue += holding.amount * transaction.price;
+            const currentPrice = currentPrices.get(symbol) || transaction.price;
+            currentMarketValue += holding.amount * currentPrice;
           }
         });
 
+        // Calculate profit/loss
+        const profitLoss = currentMarketValue - cumulativeCostBasis;
+        const profitLossPercent = cumulativeCostBasis > 0 ? (profitLoss / cumulativeCostBasis) * 100 : 0;
+
         movementPoints.push({
           date: transaction.transaction_date,
-          investment: cumulativeInvestment,
-          value: currentValue,
-          profit: currentValue - cumulativeInvestment,
-          transaction: `${transaction.transaction_type.toUpperCase()} ${transaction.amount} ${transaction.virtual_coins.symbol}`
+          costBasis: cumulativeCostBasis,
+          marketValue: currentMarketValue,
+          profitLoss: profitLoss,
+          profitLossPercent: profitLossPercent,
+          transaction: `${transaction.transaction_type.toUpperCase()} ${transaction.amount} ${transaction.virtual_coins.symbol}`,
+          transactionPrice: transaction.price,
+          currentPrice: currentPrices.get(coinSymbol) || transaction.price
         });
       });
 
@@ -90,12 +111,15 @@ const PortfolioMovementChart = ({ portfolioId }: PortfolioMovementChartProps) =>
       return (
         <div className="bg-white p-3 border rounded-lg shadow-lg">
           <p className="font-medium">{format(new Date(label), 'MMM dd, yyyy')}</p>
-          <p className="text-sm text-blue-600">Investment: ${data.investment.toFixed(2)}</p>
-          <p className="text-sm text-green-600">Value: ${data.value.toFixed(2)}</p>
-          <p className={`text-sm ${data.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            P&L: ${data.profit >= 0 ? '+' : ''}${data.profit.toFixed(2)}
+          <p className="text-sm text-blue-600">Start Capital: ${data.costBasis.toFixed(2)}</p>
+          <p className="text-sm text-green-600">Market Value: ${data.marketValue.toFixed(2)}</p>
+          <p className={`text-sm font-medium ${data.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            P&L: ${data.profitLoss >= 0 ? '+' : ''}${data.profitLoss.toFixed(2)} ({data.profitLossPercent >= 0 ? '+' : ''}{data.profitLossPercent.toFixed(2)}%)
           </p>
           <p className="text-xs text-gray-500 mt-1">{data.transaction}</p>
+          <p className="text-xs text-gray-400">
+            Transaction: ${data.transactionPrice.toFixed(4)} | Current: ${data.currentPrice.toFixed(4)}
+          </p>
         </div>
       );
     }
@@ -136,6 +160,9 @@ const PortfolioMovementChart = ({ portfolioId }: PortfolioMovementChartProps) =>
     <Card>
       <CardHeader>
         <CardTitle>Portfolio Value Movement</CardTitle>
+        <p className="text-sm text-gray-500">
+          Blue line shows total invested capital, green line shows current market value
+        </p>
       </CardHeader>
       <CardContent>
         <div className="h-64">
@@ -152,18 +179,18 @@ const PortfolioMovementChart = ({ portfolioId }: PortfolioMovementChartProps) =>
               <Tooltip content={<CustomTooltip />} />
               <Line 
                 type="monotone" 
-                dataKey="investment" 
+                dataKey="costBasis" 
                 stroke="#2563EB" 
                 strokeWidth={2}
-                name="Investment"
+                name="Start Capital (Cost Basis)"
                 strokeDasharray="5 5"
               />
               <Line 
                 type="monotone" 
-                dataKey="value" 
+                dataKey="marketValue" 
                 stroke="#16A34A" 
                 strokeWidth={2}
-                name="Portfolio Value"
+                name="Current Market Value"
               />
             </LineChart>
           </ResponsiveContainer>
