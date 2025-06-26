@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -41,7 +42,7 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
         .order('symbol');
       
       if (error) throw error;
-      return data as VirtualCoin[];
+      return data as unknown as VirtualCoin[];
     }
   });
 

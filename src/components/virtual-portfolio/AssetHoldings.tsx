@@ -24,7 +24,7 @@ const AssetHoldings = ({ portfolioId }: AssetHoldingsProps) => {
         .order('cost_basis', { ascending: false });
 
       if (error) throw error;
-      return data as VirtualAsset[];
+      return data as unknown as VirtualAsset[];
     }
   });
 

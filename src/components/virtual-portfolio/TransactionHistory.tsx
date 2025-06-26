@@ -32,7 +32,7 @@ const TransactionHistory = ({ open, onOpenChange, portfolioId, onTransactionUpda
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as VirtualTransaction[];
+      return data as unknown as VirtualTransaction[];
     },
     enabled: open
   });

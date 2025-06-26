@@ -25,7 +25,7 @@ class PortfolioService {
       .eq('category', transactionData.category)
       .single();
 
-    let asset = existingAsset;
+    let asset = existingAsset as any;
 
     if (!asset) {
       // Create new asset
@@ -126,26 +126,30 @@ class PortfolioService {
     if (getError) throw getError;
     if (!transaction) throw new Error('Transaction not found');
 
+    const transactionData = transaction as any;
+
     // Get associated asset
     const { data: asset, error: assetError } = await supabase
       .from('virtual_assets' as any)
       .select('*')
-      .eq('id', transaction.asset_id)
+      .eq('id', transactionData.asset_id)
       .single();
 
     if (assetError) throw assetError;
     if (!asset) throw new Error('Asset not found');
 
-    // Reverse the transaction effects
-    let newAmount = asset.total_amount;
-    let newCostBasis = asset.cost_basis;
-    let newRealizedProfit = asset.realized_profit;
-    let newAveragePrice = asset.average_price;
+    const assetData = asset as any;
 
-    if (transaction.transaction_type === 'buy') {
+    // Reverse the transaction effects
+    let newAmount = assetData.total_amount;
+    let newCostBasis = assetData.cost_basis;
+    let newRealizedProfit = assetData.realized_profit;
+    let newAveragePrice = assetData.average_price;
+
+    if (transactionData.transaction_type === 'buy') {
       // Reverse buy transaction
-      newAmount -= transaction.amount;
-      newCostBasis -= transaction.value;
+      newAmount -= transactionData.amount;
+      newCostBasis -= transactionData.value;
       
       if (newAmount <= 0) {
         newAmount = 0;
@@ -156,11 +160,11 @@ class PortfolioService {
       }
     } else {
       // Reverse sell transaction
-      const sellProfit = (transaction.price - asset.average_price) * transaction.amount;
+      const sellProfit = (transactionData.price - assetData.average_price) * transactionData.amount;
       newRealizedProfit -= sellProfit;
-      newAmount += transaction.amount;
+      newAmount += transactionData.amount;
       
-      const proportionalCostBasis = (transaction.amount / (newAmount - transaction.amount)) * (newCostBasis);
+      const proportionalCostBasis = (transactionData.amount / (newAmount - transactionData.amount)) * (newCostBasis);
       newCostBasis += proportionalCostBasis;
       newAveragePrice = newAmount > 0 ? newCostBasis / newAmount : 0;
     }
@@ -171,7 +175,7 @@ class PortfolioService {
       const { error: deleteAssetError } = await supabase
         .from('virtual_assets' as any)
         .delete()
-        .eq('id', asset.id);
+        .eq('id', assetData.id);
 
       if (deleteAssetError) throw deleteAssetError;
     } else {
@@ -185,7 +189,7 @@ class PortfolioService {
           realized_profit: newRealizedProfit,
           updated_at: new Date().toISOString()
         })
-        .eq('id', asset.id);
+        .eq('id', assetData.id);
 
       if (updateError) throw updateError;
     }
@@ -199,7 +203,7 @@ class PortfolioService {
     if (deleteError) throw deleteError;
 
     // Update portfolio metrics
-    await this.updatePortfolioMetrics(transaction.portfolio_id);
+    await this.updatePortfolioMetrics(transactionData.portfolio_id);
   }
 
   async updatePortfolioMetrics(portfolioId: string) {
@@ -213,11 +217,13 @@ class PortfolioService {
 
     if (assetsError) throw assetsError;
 
-    const totalValue = assets?.reduce((sum: number, asset: any) => {
+    const assetsData = assets as any[];
+
+    const totalValue = assetsData?.reduce((sum: number, asset: any) => {
       return sum + (asset.total_amount * asset.average_price);
     }, 0) || 0;
 
-    const allTimeProfit = assets?.reduce((sum: number, asset: any) => {
+    const allTimeProfit = assetsData?.reduce((sum: number, asset: any) => {
       return sum + asset.realized_profit;
     }, 0) || 0;
 
