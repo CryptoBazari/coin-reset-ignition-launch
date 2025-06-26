@@ -1,6 +1,13 @@
+
 import { analyzeBitcoinMarketState } from '@/utils/financialCalculations';
 import type { CoinData, MarketConditions } from '@/types/investment';
 import { fetchRealMarketData } from './realDataService';
+
+interface MarketDataResult {
+  fedRateChange: number;
+  marketSentiment: { sentiment_score: number; smart_money_activity: boolean };
+  realMarketData?: any;
+}
 
 export const createMarketConditions = (
   coinData: CoinData,
@@ -26,7 +33,7 @@ export const createMarketConditions = (
   };
 };
 
-export const getMarketData = async () => {
+export const getMarketData = async (): Promise<MarketDataResult> => {
   // Try to fetch real data first
   try {
     const realData = await fetchRealMarketData(['BTC', 'ETH', 'SOL', 'ADA']);
@@ -58,7 +65,7 @@ export const getMarketData = async () => {
   return getSimulatedMarketData();
 };
 
-export const getSimulatedMarketData = () => {
+export const getSimulatedMarketData = (): MarketDataResult => {
   // Simulate Fed rate data (4.5% neutral rate)
   const fedRateChange = 0; // No recent change
 
