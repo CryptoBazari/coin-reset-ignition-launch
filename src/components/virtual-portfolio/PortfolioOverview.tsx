@@ -1,6 +1,8 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, DollarSign, PieChart } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Portfolio {
   id: string;
@@ -15,18 +17,32 @@ interface PortfolioOverviewProps {
 }
 
 const PortfolioOverview = ({ portfolio }: PortfolioOverviewProps) => {
-  // Calculate the initial investment (total_value - all_time_profit)
-  const initialInvestment = portfolio.total_value - portfolio.all_time_profit;
-  
-  // Calculate profit percentage based on initial investment
-  const profitPercentage = initialInvestment > 0 
-    ? (portfolio.all_time_profit / initialInvestment) * 100
+  // Fetch the total cost basis from all assets to calculate proper return percentage
+  const { data: costBasisData } = useQuery({
+    queryKey: ['portfolio-cost-basis', portfolio.id],
+    queryFn: async () => {
+      const { data: assets, error } = await supabase
+        .from('virtual_assets')
+        .select('cost_basis')
+        .eq('portfolio_id', portfolio.id);
+
+      if (error) throw error;
+
+      const totalCostBasis = assets.reduce((sum, asset) => sum + asset.cost_basis, 0);
+      return { totalCostBasis };
+    }
+  });
+
+  // Calculate the return percentage based on cost basis (ROI)
+  const totalCostBasis = costBasisData?.totalCostBasis || 0;
+  const profitPercentage = totalCostBasis > 0 
+    ? (portfolio.all_time_profit / totalCostBasis) * 100
     : 0;
 
   console.log('Portfolio calculations:', {
     total_value: portfolio.total_value,
     all_time_profit: portfolio.all_time_profit,
-    initialInvestment,
+    totalCostBasis,
     profitPercentage
   });
 
@@ -44,6 +60,9 @@ const PortfolioOverview = ({ portfolio }: PortfolioOverviewProps) => {
               maximumFractionDigits: 2
             })}
           </div>
+          <p className="text-xs text-muted-foreground">
+            Current market value
+          </p>
         </CardContent>
       </Card>
 
@@ -66,12 +85,15 @@ const PortfolioOverview = ({ portfolio }: PortfolioOverviewProps) => {
               maximumFractionDigits: 2
             })}
           </div>
+          <p className="text-xs text-muted-foreground">
+            Realized + Unrealized
+          </p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Return %</CardTitle>
+          <CardTitle className="text-sm font-medium">Return (ROI)</CardTitle>
           <PieChart className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
@@ -81,6 +103,9 @@ const PortfolioOverview = ({ portfolio }: PortfolioOverviewProps) => {
             {profitPercentage >= 0 ? '+' : ''}
             {profitPercentage.toFixed(2)}%
           </div>
+          <p className="text-xs text-muted-foreground">
+            {totalCostBasis > 0 ? `Cost basis: $${totalCostBasis.toFixed(2)}` : 'No investments yet'}
+          </p>
         </CardContent>
       </Card>
 
