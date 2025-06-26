@@ -1,15 +1,15 @@
+
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { portfolioService } from '@/services/portfolioService';
-import { VirtualCoin } from '@/types/virtualPortfolio';
+import CoinSelector from './CoinSelector';
+import { CoinMarketCapCoin } from '@/services/coinMarketCapService';
 
 interface AddTransactionDialogProps {
   open: boolean;
@@ -21,8 +21,10 @@ interface AddTransactionDialogProps {
 const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: AddTransactionDialogProps) => {
   const [formData, setFormData] = useState({
     coinId: '',
+    coinSymbol: '',
+    coinName: '',
     transactionType: 'buy' as 'buy' | 'sell',
-    category: 'Bitcoin' as 'Bitcoin' | 'Blue Chip' | 'Small-Cap',
+    category: 'Blue Chip' as 'Bitcoin' | 'Blue Chip' | 'Small-Cap',
     amount: '',
     price: '',
     fee: '',
@@ -31,19 +33,15 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // Fetch available coins
-  const { data: coins } = useQuery({
-    queryKey: ['virtual-coins'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('virtual_coins')
-        .select('*')
-        .order('symbol');
-      
-      if (error) throw error;
-      return data as unknown as VirtualCoin[];
-    }
-  });
+  const handleCoinSelect = (coinId: string, coinData: CoinMarketCapCoin) => {
+    setFormData(prev => ({
+      ...prev,
+      coinId,
+      coinSymbol: coinData.symbol,
+      coinName: coinData.name,
+      price: coinData.current_price.toString()
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,8 +54,15 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
       const fee = formData.fee ? parseFloat(formData.fee) : 0;
       const value = amount * price;
 
+      // Create a virtual coin entry if it doesn't exist
+      await portfolioService.ensureVirtualCoin({
+        symbol: formData.coinSymbol,
+        name: formData.coinName,
+        coinmarketcap_id: parseInt(formData.coinId)
+      });
+
       await portfolioService.addTransaction(portfolioId, {
-        coin_id: formData.coinId,
+        coin_symbol: formData.coinSymbol,
         transaction_type: formData.transactionType,
         category: formData.category,
         amount,
@@ -69,8 +74,10 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
 
       setFormData({
         coinId: '',
+        coinSymbol: '',
+        coinName: '',
         transactionType: 'buy',
-        category: 'Bitcoin',
+        category: 'Blue Chip',
         amount: '',
         price: '',
         fee: '',
@@ -95,25 +102,18 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
         <DialogHeader>
           <DialogTitle>Add Transaction</DialogTitle>
           <DialogDescription>
-            Record a buy or sell transaction for your virtual portfolio.
+            Record a buy or sell transaction for your virtual portfolio using live market data.
           </DialogDescription>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="coin">Cryptocurrency</Label>
-            <Select value={formData.coinId} onValueChange={(value) => setFormData(prev => ({ ...prev, coinId: value }))}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a cryptocurrency" />
-              </SelectTrigger>
-              <SelectContent>
-                {coins?.map(coin => (
-                  <SelectItem key={coin.id} value={coin.id}>
-                    {coin.symbol} - {coin.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <CoinSelector
+              value={formData.coinId}
+              onValueChange={handleCoinSelect}
+              placeholder="Select a cryptocurrency"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -204,6 +204,11 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
                   maximumFractionDigits: 2
                 })}
               </p>
+              {formData.coinSymbol && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {formData.coinSymbol} - {formData.coinName}
+                </p>
+              )}
             </div>
           )}
 

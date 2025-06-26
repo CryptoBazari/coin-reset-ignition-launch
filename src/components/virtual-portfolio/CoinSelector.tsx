@@ -1,0 +1,76 @@
+
+import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { fetchCoinListings, CoinMarketCapCoin } from '@/services/coinMarketCapService';
+
+interface CoinSelectorProps {
+  value: string;
+  onValueChange: (coinId: string, coinData: CoinMarketCapCoin) => void;
+  placeholder?: string;
+}
+
+const CoinSelector = ({ value, onValueChange, placeholder = "Select a cryptocurrency" }: CoinSelectorProps) => {
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const { data: coins, isLoading } = useQuery({
+    queryKey: ['coinmarketcap-listings'],
+    queryFn: () => fetchCoinListings(200),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  const filteredCoins = coins?.filter(coin => 
+    coin.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    coin.symbol.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
+
+  const handleValueChange = (coinId: string) => {
+    const selectedCoin = coins?.find(coin => coin.id.toString() === coinId);
+    if (selectedCoin) {
+      onValueChange(coinId, selectedCoin);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Select disabled>
+        <SelectTrigger>
+          <SelectValue placeholder="Loading cryptocurrencies..." />
+        </SelectTrigger>
+      </Select>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <Input
+        placeholder="Search cryptocurrency..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+      />
+      <Select value={value} onValueChange={handleValueChange}>
+        <SelectTrigger>
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent className="max-h-60">
+          {filteredCoins.slice(0, 50).map(coin => (
+            <SelectItem key={coin.id} value={coin.id.toString()}>
+              <div className="flex items-center justify-between w-full">
+                <span>{coin.symbol} - {coin.name}</span>
+                <span className="text-sm text-gray-500 ml-2">
+                  ${coin.current_price.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: coin.current_price < 1 ? 6 : 2
+                  })}
+                </span>
+              </div>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+};
+
+export default CoinSelector;

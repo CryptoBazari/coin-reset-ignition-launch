@@ -25,6 +25,21 @@ interface CoinMarketCapResponse {
   };
 }
 
+interface CoinListingResponse {
+  data: Array<{
+    id: number;
+    name: string;
+    symbol: string;
+    quote: {
+      USD: {
+        price: number;
+        market_cap: number;
+        percent_change_24h: number;
+      };
+    };
+  }>;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -32,7 +47,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { coinSymbols } = await req.json();
+    const { coinSymbols, fetchListings, limit } = await req.json();
     
     const coinMarketCapApiKey = Deno.env.get('COINMARKETCAP_API_KEY');
     
@@ -47,37 +62,74 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fetch data from CoinMarketCap
-    const symbolsParam = coinSymbols.join(',');
-    const cmcUrl = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${symbolsParam}`;
-    
-    console.log(`Fetching data for symbols: ${symbolsParam}`);
-    
-    const cmcResponse = await fetch(cmcUrl, {
-      headers: {
-        'X-CMC_PRO_API_KEY': coinMarketCapApiKey,
-        'Accept': 'application/json',
-      },
-    });
+    let transformedData;
 
-    if (!cmcResponse.ok) {
-      console.error(`CoinMarketCap API error: ${cmcResponse.status}`);
-      throw new Error(`CoinMarketCap API error: ${cmcResponse.status}`);
+    if (fetchListings) {
+      // Fetch cryptocurrency listings
+      const listingLimit = limit || 100;
+      const listingsUrl = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest?limit=${listingLimit}&sort=market_cap`;
+      
+      console.log(`Fetching crypto listings with limit: ${listingLimit}`);
+      
+      const listingsResponse = await fetch(listingsUrl, {
+        headers: {
+          'X-CMC_PRO_API_KEY': coinMarketCapApiKey,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!listingsResponse.ok) {
+        console.error(`CoinMarketCap API error: ${listingsResponse.status}`);
+        throw new Error(`CoinMarketCap API error: ${listingsResponse.status}`);
+      }
+
+      const listingsData: CoinListingResponse = await listingsResponse.json();
+      console.log('Successfully fetched CoinMarketCap listings');
+
+      transformedData = listingsData.data.map(coin => ({
+        id: coin.id,
+        symbol: coin.symbol,
+        name: coin.name,
+        current_price: coin.quote.USD.price,
+        market_cap: coin.quote.USD.market_cap,
+        price_change_24h: coin.quote.USD.percent_change_24h,
+      }));
+    } else {
+      // Fetch specific coin data by symbols
+      if (!coinSymbols || !Array.isArray(coinSymbols)) {
+        throw new Error('coinSymbols must be provided as an array');
+      }
+
+      const symbolsParam = coinSymbols.join(',');
+      const quotesUrl = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${symbolsParam}`;
+      
+      console.log(`Fetching data for symbols: ${symbolsParam}`);
+      
+      const quotesResponse = await fetch(quotesUrl, {
+        headers: {
+          'X-CMC_PRO_API_KEY': coinMarketCapApiKey,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!quotesResponse.ok) {
+        console.error(`CoinMarketCap API error: ${quotesResponse.status}`);
+        throw new Error(`CoinMarketCap API error: ${quotesResponse.status}`);
+      }
+
+      const quotesData: CoinMarketCapResponse = await quotesResponse.json();
+      console.log('Successfully fetched CoinMarketCap quotes');
+
+      transformedData = Object.entries(quotesData.data).map(([symbol, coinData]) => ({
+        symbol: symbol,
+        name: coinData.name,
+        current_price: coinData.quote.USD.price,
+        market_cap: coinData.quote.USD.market_cap,
+        price_change_24h: coinData.quote.USD.percent_change_24h,
+        price_change_7d: coinData.quote.USD.percent_change_7d,
+        price_change_30d: coinData.quote.USD.percent_change_30d,
+      }));
     }
-
-    const cmcData: CoinMarketCapResponse = await cmcResponse.json();
-    console.log('Successfully fetched CoinMarketCap data');
-
-    // Transform data to match our format
-    const transformedData = Object.entries(cmcData.data).map(([symbol, coinData]) => ({
-      symbol: symbol,
-      name: coinData.name,
-      current_price: coinData.quote.USD.price,
-      market_cap: coinData.quote.USD.market_cap,
-      price_change_24h: coinData.quote.USD.percent_change_24h,
-      price_change_7d: coinData.quote.USD.percent_change_7d,
-      price_change_30d: coinData.quote.USD.percent_change_30d,
-    }));
 
     return new Response(
       JSON.stringify({ data: transformedData }),

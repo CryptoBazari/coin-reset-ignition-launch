@@ -1,39 +1,77 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
+export interface VirtualCoinData {
+  symbol: string;
+  name: string;
+  coinmarketcap_id?: number;
+}
+
 export interface TransactionData {
-  coin_id: string;
+  coin_symbol: string;
   transaction_type: 'buy' | 'sell';
   category: 'Bitcoin' | 'Blue Chip' | 'Small-Cap';
   amount: number;
   price: number;
   value: number;
-  fee?: number;
-  note?: string | null;
+  fee: number;
+  note: string | null;
 }
 
 class PortfolioService {
-  async addTransaction(portfolioId: string, transactionData: TransactionData) {
-    console.log('Adding transaction:', { portfolioId, transactionData });
+  async ensureVirtualCoin(coinData: VirtualCoinData) {
+    // Check if coin already exists
+    const { data: existingCoin } = await supabase
+      .from('virtual_coins')
+      .select('id')
+      .eq('symbol', coinData.symbol)
+      .maybeSingle();
 
-    // Get or create asset
+    if (existingCoin) {
+      return existingCoin.id;
+    }
+
+    // Create new coin
+    const { data: newCoin, error } = await supabase
+      .from('virtual_coins')
+      .insert([{
+        symbol: coinData.symbol,
+        name: coinData.name,
+        coinmarketcap_id: coinData.coinmarketcap_id
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return newCoin.id;
+  }
+
+  async addTransaction(portfolioId: string, transactionData: TransactionData) {
+    // First ensure the coin exists
+    const coinId = await this.ensureVirtualCoin({
+      symbol: transactionData.coin_symbol,
+      name: transactionData.coin_symbol, // Will be updated with real name from API
+    });
+
+    // Find or create asset
     const { data: existingAsset } = await supabase
       .from('virtual_assets')
       .select('*')
       .eq('portfolio_id', portfolioId)
-      .eq('coin_id', transactionData.coin_id)
+      .eq('coin_id', coinId)
       .eq('category', transactionData.category)
-      .single();
+      .maybeSingle();
 
-    let asset = existingAsset;
+    let assetId: string;
 
-    if (!asset) {
-      // Create new asset
+    if (existingAsset) {
+      assetId = existingAsset.id;
+    } else {
       const { data: newAsset, error: assetError } = await supabase
         .from('virtual_assets')
         .insert([{
           portfolio_id: portfolioId,
-          coin_id: transactionData.coin_id,
+          coin_id: coinId,
           category: transactionData.category,
           total_amount: 0,
           average_price: 0,
@@ -44,184 +82,88 @@ class PortfolioService {
         .single();
 
       if (assetError) throw assetError;
-      asset = newAsset;
+      assetId = newAsset.id;
     }
 
-    // Calculate new asset values based on transaction type
-    let newAmount = asset.total_amount;
-    let newCostBasis = asset.cost_basis;
-    let newRealizedProfit = asset.realized_profit;
-    let newAveragePrice = asset.average_price;
+    // Calculate new values based on transaction type
+    const currentAsset = existingAsset || {
+      total_amount: 0,
+      average_price: 0,
+      cost_basis: 0,
+      realized_profit: 0
+    };
+
+    let newTotalAmount: number;
+    let newCostBasis: number;
+    let newAveragePrice: number;
+    let newRealizedProfit = currentAsset.realized_profit;
 
     if (transactionData.transaction_type === 'buy') {
-      newAmount += transactionData.amount;
-      newCostBasis += transactionData.value;
-      newAveragePrice = newAmount > 0 ? newCostBasis / newAmount : 0;
+      newTotalAmount = currentAsset.total_amount + transactionData.amount;
+      newCostBasis = currentAsset.cost_basis + transactionData.value + transactionData.fee;
+      newAveragePrice = newTotalAmount > 0 ? newCostBasis / newTotalAmount : 0;
     } else {
       // Sell transaction
-      if (newAmount < transactionData.amount) {
-        throw new Error('Insufficient holdings for sell transaction');
-      }
-      
-      const sellProfit = (transactionData.price - asset.average_price) * transactionData.amount;
-      newRealizedProfit += sellProfit;
-      
-      const proportionalCostBasis = (transactionData.amount / newAmount) * newCostBasis;
-      newCostBasis -= proportionalCostBasis;
-      newAmount -= transactionData.amount;
-      
-      if (newAmount <= 0) {
-        newAmount = 0;
-        newCostBasis = 0;
-        newAveragePrice = 0;
-      }
+      newTotalAmount = Math.max(0, currentAsset.total_amount - transactionData.amount);
+      const sellValue = transactionData.value - transactionData.fee;
+      const costBasisReduction = currentAsset.average_price * transactionData.amount;
+      newCostBasis = Math.max(0, currentAsset.cost_basis - costBasisReduction);
+      newRealizedProfit = currentAsset.realized_profit + (sellValue - costBasisReduction);
+      newAveragePrice = currentAsset.average_price; // Keep same average price
     }
 
     // Update asset
     const { error: updateError } = await supabase
       .from('virtual_assets')
       .update({
-        total_amount: newAmount,
+        total_amount: newTotalAmount,
         cost_basis: newCostBasis,
         average_price: newAveragePrice,
         realized_profit: newRealizedProfit,
         updated_at: new Date().toISOString()
       })
-      .eq('id', asset.id);
+      .eq('id', assetId);
 
     if (updateError) throw updateError;
 
-    // Insert transaction
+    // Add transaction record
     const { error: transactionError } = await supabase
       .from('virtual_transactions')
       .insert([{
         portfolio_id: portfolioId,
-        coin_id: transactionData.coin_id,
-        asset_id: asset.id,
+        coin_id: coinId,
+        asset_id: assetId,
         transaction_type: transactionData.transaction_type,
         category: transactionData.category,
         amount: transactionData.amount,
         price: transactionData.price,
         value: transactionData.value,
-        fee: transactionData.fee || 0,
+        fee: transactionData.fee,
         note: transactionData.note
       }]);
 
     if (transactionError) throw transactionError;
 
-    // Update portfolio metrics
-    await this.updatePortfolioMetrics(portfolioId);
+    // Update portfolio totals
+    await this.updatePortfolioTotals(portfolioId);
   }
 
-  async deleteTransaction(transactionId: string) {
-    console.log('Deleting transaction:', transactionId);
-
-    // Get transaction details
-    const { data: transaction, error: getError } = await supabase
-      .from('virtual_transactions')
-      .select('*')
-      .eq('id', transactionId)
-      .single();
-
-    if (getError) throw getError;
-    if (!transaction) throw new Error('Transaction not found');
-
-    // Get associated asset
-    const { data: asset, error: assetError } = await supabase
-      .from('virtual_assets')
-      .select('*')
-      .eq('id', transaction.asset_id)
-      .single();
-
-    if (assetError) throw assetError;
-    if (!asset) throw new Error('Asset not found');
-
-    // Reverse the transaction effects
-    let newAmount = asset.total_amount;
-    let newCostBasis = asset.cost_basis;
-    let newRealizedProfit = asset.realized_profit;
-    let newAveragePrice = asset.average_price;
-
-    if (transaction.transaction_type === 'buy') {
-      // Reverse buy transaction
-      newAmount -= transaction.amount;
-      newCostBasis -= transaction.value;
-      
-      if (newAmount <= 0) {
-        newAmount = 0;
-        newCostBasis = 0;
-        newAveragePrice = 0;
-      } else {
-        newAveragePrice = newCostBasis / newAmount;
-      }
-    } else {
-      // Reverse sell transaction
-      const sellProfit = (transaction.price - asset.average_price) * transaction.amount;
-      newRealizedProfit -= sellProfit;
-      newAmount += transaction.amount;
-      
-      const proportionalCostBasis = (transaction.amount / (newAmount - transaction.amount)) * (newCostBasis);
-      newCostBasis += proportionalCostBasis;
-      newAveragePrice = newAmount > 0 ? newCostBasis / newAmount : 0;
-    }
-
-    // Update or delete asset
-    if (newAmount <= 0) {
-      // Delete asset if no holdings remain
-      const { error: deleteAssetError } = await supabase
-        .from('virtual_assets')
-        .delete()
-        .eq('id', asset.id);
-
-      if (deleteAssetError) throw deleteAssetError;
-    } else {
-      // Update asset
-      const { error: updateError } = await supabase
-        .from('virtual_assets')
-        .update({
-          total_amount: newAmount,
-          cost_basis: newCostBasis,
-          average_price: newAveragePrice,
-          realized_profit: newRealizedProfit,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', asset.id);
-
-      if (updateError) throw updateError;
-    }
-
-    // Delete transaction
-    const { error: deleteError } = await supabase
-      .from('virtual_transactions')
-      .delete()
-      .eq('id', transactionId);
-
-    if (deleteError) throw deleteError;
-
-    // Update portfolio metrics
-    await this.updatePortfolioMetrics(transaction.portfolio_id);
-  }
-
-  async updatePortfolioMetrics(portfolioId: string) {
-    console.log('Updating portfolio metrics for:', portfolioId);
-
-    // Calculate total value and realized profit from assets
-    const { data: assets, error: assetsError } = await supabase
+  async updatePortfolioTotals(portfolioId: string) {
+    const { data: assets, error } = await supabase
       .from('virtual_assets')
       .select('*')
       .eq('portfolio_id', portfolioId);
 
-    if (assetsError) throw assetsError;
+    if (error) throw error;
 
-    const totalValue = assets?.reduce((sum: number, asset: any) => {
+    const totalValue = assets.reduce((sum, asset) => {
       return sum + (asset.total_amount * asset.average_price);
-    }, 0) || 0;
+    }, 0);
 
-    const allTimeProfit = assets?.reduce((sum: number, asset: any) => {
+    const allTimeProfit = assets.reduce((sum, asset) => {
       return sum + asset.realized_profit;
-    }, 0) || 0;
+    }, 0);
 
-    // Update portfolio
     const { error: updateError } = await supabase
       .from('virtual_portfolios')
       .update({
@@ -232,6 +174,71 @@ class PortfolioService {
       .eq('id', portfolioId);
 
     if (updateError) throw updateError;
+  }
+
+  async deleteTransaction(transactionId: string) {
+    // Get transaction details first
+    const { data: transaction, error: fetchError } = await supabase
+      .from('virtual_transactions')
+      .select('*')
+      .eq('id', transactionId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    // Reverse the transaction effects
+    const { data: asset, error: assetError } = await supabase
+      .from('virtual_assets')
+      .select('*')
+      .eq('id', transaction.asset_id)
+      .single();
+
+    if (assetError) throw assetError;
+
+    let newTotalAmount: number;
+    let newCostBasis: number;
+    let newAveragePrice: number;
+    let newRealizedProfit = asset.realized_profit;
+
+    if (transaction.transaction_type === 'buy') {
+      // Reverse a buy
+      newTotalAmount = Math.max(0, asset.total_amount - transaction.amount);
+      newCostBasis = Math.max(0, asset.cost_basis - transaction.value - transaction.fee);
+      newAveragePrice = newTotalAmount > 0 ? newCostBasis / newTotalAmount : 0;
+    } else {
+      // Reverse a sell
+      newTotalAmount = asset.total_amount + transaction.amount;
+      const costBasisIncrease = asset.average_price * transaction.amount;
+      newCostBasis = asset.cost_basis + costBasisIncrease;
+      const sellValue = transaction.value - transaction.fee;
+      newRealizedProfit = asset.realized_profit - (sellValue - costBasisIncrease);
+      newAveragePrice = asset.average_price;
+    }
+
+    // Update asset
+    const { error: updateError } = await supabase
+      .from('virtual_assets')
+      .update({
+        total_amount: newTotalAmount,
+        cost_basis: newCostBasis,
+        average_price: newAveragePrice,
+        realized_profit: newRealizedProfit,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', asset.id);
+
+    if (updateError) throw updateError;
+
+    // Delete transaction
+    const { error: deleteError } = await supabase
+      .from('virtual_transactions')
+      .delete()
+      .eq('id', transactionId);
+
+    if (deleteError) throw deleteError;
+
+    // Update portfolio totals
+    await this.updatePortfolioTotals(transaction.portfolio_id);
   }
 }
 
