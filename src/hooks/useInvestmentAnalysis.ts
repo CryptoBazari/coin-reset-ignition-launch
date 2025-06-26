@@ -1,9 +1,8 @@
-
 import { useState } from 'react';
 import { fetchCoinData, fetchBasketAssumptions, fetchBenchmarkData, storeAnalysisResult } from '@/services/investmentDataService';
 import { calculateFinancialMetrics, calculateAllocation, calculateExpectedPrice, calculateAdjustedDiscountRate } from '@/services/investmentCalculationService';
 import { generateAdvancedRecommendation } from '@/services/recommendationService';
-import { createMarketConditions, getSimulatedMarketData } from '@/services/marketAnalysisService';
+import { createMarketConditions, getMarketData } from '@/services/marketAnalysisService';
 import type { InvestmentInputs, AnalysisResult } from '@/types/investment';
 
 export const useInvestmentAnalysis = () => {
@@ -25,8 +24,29 @@ export const useInvestmentAnalysis = () => {
       const benchmarkId = coinData.basket === 'Bitcoin' ? 'SP500' : 'BTC';
       const benchmark = await fetchBenchmarkData(benchmarkId);
 
-      // Get market data
-      const { fedRateChange, marketSentiment } = getSimulatedMarketData();
+      // Get market data (now uses real APIs when available)
+      const marketDataResult = await getMarketData();
+      const { fedRateChange, marketSentiment, realMarketData } = marketDataResult;
+
+      // Update coin data with real market data if available
+      if (realMarketData) {
+        const coinSymbolMap = {
+          'BTC': 'BTC',
+          'ETH': 'ETH', 
+          'SOL': 'SOL',
+          'ADA': 'ADA'
+        };
+        
+        const realCoinData = realMarketData.find(coin => 
+          coin.symbol === coinSymbolMap[inputs.coinId as keyof typeof coinSymbolMap]
+        );
+        
+        if (realCoinData) {
+          console.log(`Updating ${coinData.name} with real market data`);
+          coinData.current_price = realCoinData.current_price;
+          coinData.market_cap = realCoinData.market_cap;
+        }
+      }
 
       // Create market conditions object
       const marketConditions = createMarketConditions(coinData, marketSentiment, fedRateChange);
