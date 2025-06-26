@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -54,11 +53,10 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
       const fee = formData.fee ? parseFloat(formData.fee) : 0;
       const value = amount * price;
 
-      // Create a virtual coin entry if it doesn't exist
+      // Create a virtual coin entry if it doesn't exist - without coinmarketcap_id
       await portfolioService.ensureVirtualCoin({
         symbol: formData.coinSymbol,
-        name: formData.coinName,
-        coinmarketcap_id: parseInt(formData.coinId)
+        name: formData.coinName
       });
 
       await portfolioService.addTransaction(portfolioId, {

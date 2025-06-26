@@ -1,10 +1,8 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface VirtualCoinData {
   symbol: string;
   name: string;
-  coinmarketcap_id?: number;
 }
 
 export interface TransactionData {
@@ -34,16 +32,11 @@ class PortfolioService {
       return existingCoin.id;
     }
 
-    // Create new coin - only include coinmarketcap_id if the column exists
-    const insertData: any = {
+    // Create new coin - only include fields that exist in the table
+    const insertData = {
       symbol: coinData.symbol,
       name: coinData.name
     };
-
-    // Only add coinmarketcap_id if provided
-    if (coinData.coinmarketcap_id) {
-      insertData.coinmarketcap_id = coinData.coinmarketcap_id;
-    }
 
     const { data: newCoin, error } = await supabase
       .from('virtual_coins')
