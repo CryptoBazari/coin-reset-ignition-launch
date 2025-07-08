@@ -9,6 +9,9 @@ import PortfolioAllocationChart from './PortfolioAllocationChart';
 import PortfolioMovementChart from './PortfolioMovementChart';
 import PortfolioMetrics from './PortfolioMetrics';
 import QuickActions from './QuickActions';
+import PortfolioComparison from './PortfolioComparison';
+import AdvancedAnalytics from './AdvancedAnalytics';
+import AnalyticsSummary from './AnalyticsSummary';
 
 interface PortfolioDashboardProps {
   portfolios: VirtualPortfolio[];
@@ -57,6 +60,18 @@ const PortfolioDashboard = ({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <PortfolioAllocationChart portfolioId={selectedPortfolio.id} />
         <PortfolioMovementChart portfolioId={selectedPortfolio.id} />
+      </div>
+
+      {/* Analytics Summary */}
+      <AnalyticsSummary portfolioId={selectedPortfolio.id} />
+
+      {/* Advanced Analytics Section */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <PortfolioComparison 
+          portfolios={portfolios}
+          currentPortfolioId={selectedPortfolio.id}
+        />
+        <AdvancedAnalytics portfolioId={selectedPortfolio.id} />
       </div>
 
       {/* Asset Holdings */}
