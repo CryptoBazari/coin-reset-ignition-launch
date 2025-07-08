@@ -147,6 +147,7 @@ const VirtualPortfolio = () => {
               selectedPortfolioId={selectedPortfolioId}
               onSelectPortfolio={setSelectedPortfolioId}
               onShowTransactionHistory={() => setShowTransactionHistory(true)}
+              onAddTransaction={() => setShowAddTransaction(true)}
             />
           )
         )}

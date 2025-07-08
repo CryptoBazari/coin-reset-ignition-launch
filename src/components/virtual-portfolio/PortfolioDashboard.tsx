@@ -7,6 +7,8 @@ import AssetHoldings from './AssetHoldings';
 import PortfolioSelection from './PortfolioSelection';
 import PortfolioAllocationChart from './PortfolioAllocationChart';
 import PortfolioMovementChart from './PortfolioMovementChart';
+import PortfolioMetrics from './PortfolioMetrics';
+import QuickActions from './QuickActions';
 
 interface PortfolioDashboardProps {
   portfolios: VirtualPortfolio[];
@@ -14,6 +16,7 @@ interface PortfolioDashboardProps {
   selectedPortfolioId: string | null;
   onSelectPortfolio: (portfolioId: string) => void;
   onShowTransactionHistory: () => void;
+  onAddTransaction: () => void;
 }
 
 const PortfolioDashboard = ({ 
@@ -21,7 +24,8 @@ const PortfolioDashboard = ({
   selectedPortfolio, 
   selectedPortfolioId, 
   onSelectPortfolio, 
-  onShowTransactionHistory 
+  onShowTransactionHistory,
+  onAddTransaction
 }: PortfolioDashboardProps) => {
   return (
     <div className="space-y-6">
@@ -30,6 +34,20 @@ const PortfolioDashboard = ({
         portfolios={portfolios}
         selectedPortfolioId={selectedPortfolioId}
         onSelectPortfolio={onSelectPortfolio}
+      />
+
+      {/* Enhanced Portfolio Metrics */}
+      <PortfolioMetrics
+        totalValue={selectedPortfolio.total_value}
+        allTimeProfit={selectedPortfolio.all_time_profit}
+        dayChange={0} // TODO: Calculate from real data
+        dayChangePercent={0} // TODO: Calculate from real data
+      />
+
+      {/* Quick Actions */}
+      <QuickActions
+        onAddTransaction={onAddTransaction}
+        onShowTransactionHistory={onShowTransactionHistory}
       />
 
       {/* Portfolio Overview */}
@@ -43,14 +61,6 @@ const PortfolioDashboard = ({
 
       {/* Asset Holdings */}
       <AssetHoldings portfolioId={selectedPortfolio.id} />
-
-      {/* Action Buttons */}
-      <div className="flex gap-4">
-        <Button onClick={onShowTransactionHistory} variant="outline" className="flex items-center gap-2">
-          <History className="h-4 w-4" />
-          Transaction History
-        </Button>
-      </div>
     </div>
   );
 };
