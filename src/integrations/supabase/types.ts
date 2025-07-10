@@ -885,6 +885,10 @@ export type Database = {
         Args: { target_user_id?: string }
         Returns: Json
       }
+      get_user_subscription_details: {
+        Args: { target_user_id: string }
+        Returns: Json
+      }
       has_active_subscription: {
         Args: { user_uuid?: string }
         Returns: boolean

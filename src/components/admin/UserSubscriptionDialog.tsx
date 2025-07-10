@@ -58,9 +58,10 @@ const UserSubscriptionDialog = ({ isOpen, onClose, userId, userEmail }: UserSubs
 
       if (error) throw error;
 
-      if (data?.result) {
-        setSubscriptions(data.result.subscriptions || []);
-        setPayments(data.result.payments || []);
+      if (data && typeof data === 'object' && 'result' in data) {
+        const result = data.result as any;
+        setSubscriptions(result?.subscriptions || []);
+        setPayments(result?.payments || []);
       }
     } catch (error) {
       console.error('Error fetching user details:', error);
@@ -86,14 +87,14 @@ const UserSubscriptionDialog = ({ isOpen, onClose, userId, userEmail }: UserSubs
 
       if (error) throw error;
 
-      if (data?.success) {
+      if (data && typeof data === 'object' && 'success' in data && (data as any).success) {
         toast({
           title: "Success",
           description: `Subscription extended by ${extendDays} days`,
         });
         await fetchUserDetails();
       } else {
-        throw new Error(data?.error || 'Failed to extend subscription');
+        throw new Error((data as any)?.error || 'Failed to extend subscription');
       }
     } catch (error) {
       console.error('Error extending subscription:', error);
@@ -118,14 +119,14 @@ const UserSubscriptionDialog = ({ isOpen, onClose, userId, userEmail }: UserSubs
 
       if (error) throw error;
 
-      if (data?.success) {
+      if (data && typeof data === 'object' && 'success' in data && (data as any).success) {
         toast({
           title: "Success",
           description: "Subscription cancelled successfully",
         });
         await fetchUserDetails();
       } else {
-        throw new Error(data?.error || 'Failed to cancel subscription');
+        throw new Error((data as any)?.error || 'Failed to cancel subscription');
       }
     } catch (error) {
       console.error('Error cancelling subscription:', error);

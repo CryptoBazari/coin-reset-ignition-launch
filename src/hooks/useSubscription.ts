@@ -182,7 +182,7 @@ export const useSubscription = () => {
       
       if (error) throw error;
       
-      return data?.result || null;
+      return (data as any)?.result || null;
     } catch (error) {
       console.error('Error getting subscription time remaining:', error);
       throw error;

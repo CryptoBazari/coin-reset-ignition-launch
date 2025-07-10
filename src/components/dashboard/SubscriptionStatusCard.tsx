@@ -33,8 +33,8 @@ const SubscriptionStatusCard = () => {
       
       if (error) throw error;
       
-      if (data?.result) {
-        setSubscriptionInfo(data.result);
+      if (data && typeof data === 'object' && 'result' in data) {
+        setSubscriptionInfo((data as any).result);
       }
     } catch (error) {
       console.error('Error fetching subscription details:', error);

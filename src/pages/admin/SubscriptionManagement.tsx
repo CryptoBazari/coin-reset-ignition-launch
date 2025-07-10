@@ -122,8 +122,8 @@ const SubscriptionManagement = () => {
       if (paymentsResult.error) throw paymentsResult.error;
       if (subscriptionsResult.error) throw subscriptionsResult.error;
 
-      const paymentsCleaned = paymentsResult.data?.expired_payments || 0;
-      const subscriptionsCleaned = subscriptionsResult.data?.expired_subscriptions || 0;
+      const paymentsCleaned = (paymentsResult.data as any)?.expired_payments || 0;
+      const subscriptionsCleaned = (subscriptionsResult.data as any)?.expired_subscriptions || 0;
 
       toast({
         title: "Cleanup Complete",
