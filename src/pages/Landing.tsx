@@ -15,13 +15,18 @@ const Landing = () => {
     // Check if user is already authenticated and redirect to dashboard
     const checkAuth = async () => {
       try {
+        console.log('Landing: Checking auth status...');
         const { data: { session } } = await supabase.auth.getSession();
+        console.log('Landing: Session found:', !!session?.user);
+        
         if (session?.user) {
-          navigate('/dashboard');
+          console.log('Landing: User authenticated, redirecting to dashboard...');
+          navigate('/dashboard', { replace: true });
           return;
         }
+        console.log('Landing: No user found, showing landing page');
       } catch (error) {
-        console.error('Error checking auth:', error);
+        console.error('Landing: Error checking auth:', error);
       } finally {
         setLoading(false);
       }
