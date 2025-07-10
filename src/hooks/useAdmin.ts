@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
+import { toast } from '@/components/ui/use-toast';
 
 interface AdminUser {
   id: string;
@@ -42,15 +43,31 @@ export const useAdmin = () => {
   const checkAdminStatus = async () => {
     try {
       console.log('Checking admin status...');
+      toast({
+        title: "Checking Admin Status",
+        description: "Refreshing your admin permissions...",
+      });
+      
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user || null);
-      console.log('Current user:', session?.user?.email);
+      console.log('Current user:', session?.user?.email, session?.user?.id);
       
       if (session?.user) {
         await checkAdminUser(session.user);
+      } else {
+        toast({
+          title: "No User Session",
+          description: "Please sign in again.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Error checking admin status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to check admin status.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -58,12 +75,16 @@ export const useAdmin = () => {
 
   const checkAdminUser = async (user: User) => {
     try {
+      console.log('Checking admin status for user:', user.id, user.email);
+      
       const { data, error } = await supabase
         .from('admin_users')
         .select('*')
         .eq('user_id', user.id)
         .eq('is_active', true)
         .single();
+
+      console.log('Admin query result:', { data, error });
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error fetching admin data:', error);
@@ -75,10 +96,26 @@ export const useAdmin = () => {
         setAdminData(data);
         setIsAdmin(true);
         console.log('Set isAdmin to true for user:', user.email);
+        toast({
+          title: "Admin Access Granted",
+          description: "You now have admin privileges!",
+        });
       } else {
         console.log('No admin data found for user:', user.email);
+        // Let's also check if user exists in admin table but with wrong user_id
+        const { data: allAdminUsers } = await supabase
+          .from('admin_users')
+          .select('*')
+          .eq('email', user.email);
+        
+        console.log('All admin users with this email:', allAdminUsers);
         setAdminData(null);
         setIsAdmin(false);
+        toast({
+          title: "No Admin Access",
+          description: "Your account does not have admin privileges.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Error checking admin user:', error);
