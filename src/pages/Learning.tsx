@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Clock, User, BookOpen } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Clock, User, BookOpen, TrendingUp, Newspaper } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 
 interface LearningCourse {
@@ -89,14 +91,27 @@ const Learning = () => {
         </div>
 
         {courses.length === 0 ? (
-          <div className="text-center py-12">
-            <BookOpen className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-muted-foreground mb-2">
-              No courses available yet
-            </h3>
-            <p className="text-muted-foreground">
-              We're working on creating amazing learning content for you. Check back soon!
+          <div className="text-center py-16">
+            <BookOpen className="h-16 w-16 text-muted-foreground mx-auto mb-6" />
+            <h3 className="text-2xl font-semibold text-foreground mb-3">Learning Content Coming Soon</h3>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              We're creating comprehensive courses on cryptocurrency trading, analysis, 
+              and investment strategies. Check back soon!
             </p>
+            <div className="flex gap-4 justify-center">
+              <Button asChild>
+                <Link to="/analysis">
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Try Analysis
+                </Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link to="/news">
+                  <Newspaper className="h-4 w-4 mr-2" />
+                  Read News
+                </Link>
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

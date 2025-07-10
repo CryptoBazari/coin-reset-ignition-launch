@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, User } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Calendar, User, Newspaper, BookOpen, TrendingUp } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import Navbar from '@/components/Navbar';
 
@@ -68,13 +70,27 @@ const News = () => {
         </div>
 
         {articles.length === 0 ? (
-          <div className="text-center py-12">
-            <h3 className="text-xl font-semibold text-muted-foreground mb-2">
-              No news articles yet
-            </h3>
-            <p className="text-muted-foreground">
-              Check back soon for the latest crypto news and updates!
+          <div className="text-center py-16">
+            <Newspaper className="h-16 w-16 text-muted-foreground mx-auto mb-6" />
+            <h3 className="text-2xl font-semibold text-foreground mb-3">No News Yet</h3>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              Our team is working hard to bring you the latest crypto news and insights. 
+              Check back soon for updates!
             </p>
+            <div className="flex gap-4 justify-center">
+              <Button asChild>
+                <Link to="/learning">
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Explore Learning
+                </Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link to="/analysis">
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Try Analysis
+                </Link>
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

@@ -3,7 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, Globe, Twitter, MessageCircle, Users, Calendar, TrendingUp } from 'lucide-react';
+import { ExternalLink, Globe, Twitter, MessageCircle, Users, Calendar, TrendingUp, BookOpen, Newspaper } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import Navbar from '@/components/Navbar';
 
@@ -96,14 +97,27 @@ const CryptoList = () => {
         </div>
 
         {listings.length === 0 ? (
-          <div className="text-center py-12">
-            <TrendingUp className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-muted-foreground mb-2">
-              No crypto listings yet
-            </h3>
-            <p className="text-muted-foreground">
-              We're working on curating the best upcoming crypto projects. Stay tuned!
+          <div className="text-center py-16">
+            <TrendingUp className="h-16 w-16 text-muted-foreground mx-auto mb-6" />
+            <h3 className="text-2xl font-semibold text-foreground mb-3">Crypto Listings Coming Soon</h3>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              We're curating the best upcoming crypto projects and listings. 
+              Check back soon for exciting new opportunities!
             </p>
+            <div className="flex gap-4 justify-center">
+              <Button asChild>
+                <Link to="/analysis">
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Analyze Crypto
+                </Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link to="/learning">
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Learn More
+                </Link>
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

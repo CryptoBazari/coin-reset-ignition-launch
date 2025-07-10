@@ -19,6 +19,7 @@ import CryptoListingsManagement from "./pages/admin/CryptoListingsManagement";
 import SubscriptionManagement from "./pages/admin/SubscriptionManagement";
 import PaymentManagement from "./pages/admin/PaymentManagement";
 import NotFound from "./pages/NotFound";
+import Dashboard from "./pages/Dashboard";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,7 @@ const App = () => (
           <Route path="/admin/crypto-listings" element={<CryptoListingsManagement />} />
           <Route path="/admin/subscriptions" element={<SubscriptionManagement />} />
           <Route path="/admin/payments" element={<PaymentManagement />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
