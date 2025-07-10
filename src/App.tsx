@@ -13,6 +13,9 @@ import Learning from "./pages/Learning";
 import CryptoList from "./pages/CryptoList";
 import AdminAccess from "./pages/AdminAccess";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import NewsManagement from "./pages/admin/NewsManagement";
+import LearningManagement from "./pages/admin/LearningManagement";
+import CryptoListingsManagement from "./pages/admin/CryptoListingsManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +36,9 @@ const App = () => (
           <Route path="/crypto-list" element={<CryptoList />} />
           <Route path="/admin-access" element={<AdminAccess />} />
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/news" element={<NewsManagement />} />
+          <Route path="/admin/learning" element={<LearningManagement />} />
+          <Route path="/admin/crypto-listings" element={<CryptoListingsManagement />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
