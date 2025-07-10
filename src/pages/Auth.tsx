@@ -30,29 +30,75 @@ const Auth = () => {
       const accessToken = searchParams.get('access_token');
       const refreshToken = searchParams.get('refresh_token');
       const type = searchParams.get('type');
+      const error = searchParams.get('error');
+      const errorDescription = searchParams.get('error_description');
+      
+      // Handle auth errors from URL
+      if (error) {
+        console.error('Auth error from URL:', error, errorDescription);
+        toast({
+          title: "Authentication Error",
+          description: errorDescription || "The authentication link is invalid or has expired. Please request a new password reset.",
+          variant: "destructive",
+        });
+        // Clear error params from URL
+        const url = new URL(window.location.href);
+        url.searchParams.delete('error');
+        url.searchParams.delete('error_description');
+        window.history.replaceState({}, '', url.toString());
+        return;
+      }
       
       if (accessToken && refreshToken && type === 'recovery') {
+        console.log('Processing password reset token...');
+        
+        // Clear any existing session first
+        try {
+          await supabase.auth.signOut({ scope: 'global' });
+          cleanupAuthState();
+        } catch (err) {
+          console.log('No existing session to clear');
+        }
+        
         // This is a password reset link
         setIsPasswordReset(true);
+        
         // Set the session for password update
-        const { error } = await supabase.auth.setSession({
+        const { error: sessionError } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
         });
-        if (error) {
-          console.error('Error setting session:', error);
+        
+        if (sessionError) {
+          console.error('Error setting session:', sessionError);
           toast({
             title: "Invalid reset link",
-            description: "The password reset link is invalid or has expired.",
+            description: "The password reset link is invalid or has expired. Please request a new password reset.",
             variant: "destructive",
+          });
+          setIsPasswordReset(false);
+          // Clear tokens from URL
+          const url = new URL(window.location.href);
+          url.searchParams.delete('access_token');
+          url.searchParams.delete('refresh_token');
+          url.searchParams.delete('type');
+          window.history.replaceState({}, '', url.toString());
+        } else {
+          console.log('Password reset session set successfully');
+          toast({
+            title: "Reset link verified",
+            description: "Please enter your new password below.",
           });
         }
         return;
       }
       
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session && !isPasswordReset) {
-        navigate('/virtual-portfolio');
+      // Check for existing session only if not in password reset mode
+      if (!isPasswordReset) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          navigate('/virtual-portfolio');
+        }
       }
     };
     checkAuth();
@@ -153,17 +199,17 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      // Use the current URL without any hash or query parameters
-      const currentUrl = window.location.origin + window.location.pathname;
+      // Always redirect to the auth page for password reset
+      const redirectUrl = `${window.location.origin}/auth`;
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: currentUrl
+        redirectTo: redirectUrl
       });
 
       if (error) throw error;
 
       toast({
         title: "Password reset email sent",
-        description: "Check your email for a link to reset your password.",
+        description: "Check your email for a link to reset your password. The link will expire in 1 hour.",
       });
       setShowForgotPassword(false);
       setResetEmail('');
