@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_users: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          is_active: boolean
+          permissions: string[] | null
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          is_active?: boolean
+          permissions?: string[] | null
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          is_active?: boolean
+          permissions?: string[] | null
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       assumptions: {
         Row: {
           basket: Database["public"]["Enums"]["basket_type"]
@@ -122,6 +155,120 @@ export type Database = {
         }
         Relationships: []
       }
+      crypto_listings: {
+        Row: {
+          circulating_supply: string | null
+          created_at: string
+          description: string | null
+          discord_url: string | null
+          ico_price: string | null
+          id: string
+          is_published: boolean
+          listing_date: string | null
+          listing_exchange: string | null
+          logo_url: string | null
+          name: string
+          symbol: string
+          telegram_url: string | null
+          total_supply: string | null
+          twitter_url: string | null
+          updated_at: string
+          website_url: string | null
+        }
+        Insert: {
+          circulating_supply?: string | null
+          created_at?: string
+          description?: string | null
+          discord_url?: string | null
+          ico_price?: string | null
+          id?: string
+          is_published?: boolean
+          listing_date?: string | null
+          listing_exchange?: string | null
+          logo_url?: string | null
+          name: string
+          symbol: string
+          telegram_url?: string | null
+          total_supply?: string | null
+          twitter_url?: string | null
+          updated_at?: string
+          website_url?: string | null
+        }
+        Update: {
+          circulating_supply?: string | null
+          created_at?: string
+          description?: string | null
+          discord_url?: string | null
+          ico_price?: string | null
+          id?: string
+          is_published?: boolean
+          listing_date?: string | null
+          listing_exchange?: string | null
+          logo_url?: string | null
+          name?: string
+          symbol?: string
+          telegram_url?: string | null
+          total_supply?: string | null
+          twitter_url?: string | null
+          updated_at?: string
+          website_url?: string | null
+        }
+        Relationships: []
+      }
+      crypto_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          payment_address_id: string
+          status: Database["public"]["Enums"]["payment_status"]
+          subscription_id: string | null
+          transaction_hash: string | null
+          updated_at: string
+          user_id: string
+          verified_at: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          payment_address_id: string
+          status?: Database["public"]["Enums"]["payment_status"]
+          subscription_id?: string | null
+          transaction_hash?: string | null
+          updated_at?: string
+          user_id: string
+          verified_at?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          payment_address_id?: string
+          status?: Database["public"]["Enums"]["payment_status"]
+          subscription_id?: string | null
+          transaction_hash?: string | null
+          updated_at?: string
+          user_id?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crypto_payments_payment_address_id_fkey"
+            columns: ["payment_address_id"]
+            isOneToOne: false
+            referencedRelation: "payment_addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crypto_payments_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "user_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       investment_analyses: {
         Row: {
           cagr: number | null
@@ -184,6 +331,51 @@ export type Database = {
           },
         ]
       }
+      learning_courses: {
+        Row: {
+          author: string
+          content: string
+          cover_image_url: string | null
+          created_at: string
+          description: string | null
+          difficulty_level: string | null
+          estimated_duration: number | null
+          id: string
+          is_published: boolean
+          published_at: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          author: string
+          content: string
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          difficulty_level?: string | null
+          estimated_duration?: number | null
+          id?: string
+          is_published?: boolean
+          published_at?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          author?: string
+          content?: string
+          cover_image_url?: string | null
+          created_at?: string
+          description?: string | null
+          difficulty_level?: string | null
+          estimated_duration?: number | null
+          id?: string
+          is_published?: boolean
+          published_at?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       market_sentiment: {
         Row: {
           coin_id: string
@@ -215,6 +407,114 @@ export type Database = {
             referencedColumns: ["coin_id"]
           },
         ]
+      }
+      news: {
+        Row: {
+          author: string
+          content: string
+          cover_image_url: string | null
+          created_at: string
+          excerpt: string | null
+          id: string
+          is_published: boolean
+          published_at: string | null
+          tags: string[] | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          author: string
+          content: string
+          cover_image_url?: string | null
+          created_at?: string
+          excerpt?: string | null
+          id?: string
+          is_published?: boolean
+          published_at?: string | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          author?: string
+          content?: string
+          cover_image_url?: string | null
+          created_at?: string
+          excerpt?: string | null
+          id?: string
+          is_published?: boolean
+          published_at?: string | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      payment_addresses: {
+        Row: {
+          address: string
+          created_at: string
+          id: string
+          is_active: boolean
+          network: Database["public"]["Enums"]["crypto_network"]
+          token: Database["public"]["Enums"]["crypto_token"]
+          updated_at: string
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          network: Database["public"]["Enums"]["crypto_network"]
+          token: Database["public"]["Enums"]["crypto_token"]
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          network?: Database["public"]["Enums"]["crypto_network"]
+          token?: Database["public"]["Enums"]["crypto_token"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      subscription_plans: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration_months: number
+          id: string
+          is_active: boolean
+          name: string
+          price_btc: number | null
+          price_usdt: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration_months: number
+          id?: string
+          is_active?: boolean
+          name: string
+          price_btc?: number | null
+          price_usdt?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration_months?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          price_btc?: number | null
+          price_usdt?: number | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       user_portfolios: {
         Row: {
@@ -248,6 +548,47 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      user_subscriptions: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          plan_id: string
+          starts_at: string | null
+          status: Database["public"]["Enums"]["subscription_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          plan_id: string
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["subscription_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          plan_id?: string
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["subscription_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       virtual_assets: {
         Row: {
@@ -429,12 +770,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_active_subscription: {
+        Args: { user_uuid?: string }
+        Returns: boolean
+      }
+      is_admin: {
+        Args: { user_uuid?: string }
+        Returns: boolean
+      }
     }
     Enums: {
       basket_type: "Bitcoin" | "Blue Chip" | "Small-Cap"
+      crypto_network: "bitcoin" | "ethereum" | "arbitrum"
+      crypto_token: "btc" | "usdt"
+      payment_status: "pending" | "confirmed" | "failed" | "expired"
       recommendation_type: "Buy" | "Buy Less" | "Do Not Buy"
       sentiment_type: "Bearish" | "Neutral" | "Bullish"
+      subscription_status: "active" | "expired" | "pending" | "cancelled"
+      user_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -563,8 +916,13 @@ export const Constants = {
   public: {
     Enums: {
       basket_type: ["Bitcoin", "Blue Chip", "Small-Cap"],
+      crypto_network: ["bitcoin", "ethereum", "arbitrum"],
+      crypto_token: ["btc", "usdt"],
+      payment_status: ["pending", "confirmed", "failed", "expired"],
       recommendation_type: ["Buy", "Buy Less", "Do Not Buy"],
       sentiment_type: ["Bearish", "Neutral", "Bullish"],
+      subscription_status: ["active", "expired", "pending", "cancelled"],
+      user_role: ["admin", "user"],
     },
   },
 } as const
