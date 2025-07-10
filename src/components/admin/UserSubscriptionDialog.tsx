@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
-import { Calendar, Clock, User, CreditCard, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, User, CreditCard, AlertCircle, Plus } from 'lucide-react';
 
 interface UserSubscriptionDialogProps {
   isOpen: boolean;
@@ -40,11 +41,24 @@ interface PaymentDetail {
   transaction_hash: string | null;
 }
 
+interface SubscriptionPlan {
+  id: string;
+  name: string;
+  description: string | null;
+  duration_months: number;
+  price_usdt: number | null;
+  price_btc: number | null;
+  is_active: boolean;
+}
+
 const UserSubscriptionDialog = ({ isOpen, onClose, userId, userEmail }: UserSubscriptionDialogProps) => {
   const [loading, setLoading] = useState(false);
   const [extendDays, setExtendDays] = useState('30');
   const [subscriptions, setSubscriptions] = useState<SubscriptionDetail[]>([]);
   const [payments, setPayments] = useState<PaymentDetail[]>([]);
+  const [availablePlans, setAvailablePlans] = useState<SubscriptionPlan[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState<string>('');
+  const [customDuration, setCustomDuration] = useState<string>('');
   const { toast } = useToast();
 
   const fetchUserDetails = async () => {
@@ -157,12 +171,65 @@ const UserSubscriptionDialog = ({ isOpen, onClose, userId, userEmail }: UserSubs
     );
   };
 
-  // Load user details when dialog opens
-  useState(() => {
+  const fetchAvailablePlans = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('subscription_plans')
+        .select('*')
+        .eq('is_active', true)
+        .order('duration_months');
+
+      if (error) throw error;
+      setAvailablePlans(data || []);
+    } catch (error) {
+      console.error('Error fetching plans:', error);
+    }
+  };
+
+  const handleActivateSubscription = async () => {
+    if (!userId || !selectedPlanId) return;
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('activate_user_subscription', {
+        target_user_id: userId,
+        plan_id: selectedPlanId,
+        custom_duration_months: customDuration ? parseInt(customDuration) : null
+      });
+
+      if (error) throw error;
+
+      if (data && typeof data === 'object' && 'success' in data && (data as any).success) {
+        const result = data as any;
+        toast({
+          title: "Success",
+          description: `Activated ${result.plan_name} subscription for ${result.duration_months} months`,
+        });
+        setSelectedPlanId('');
+        setCustomDuration('');
+        await fetchUserDetails();
+      } else {
+        throw new Error((data as any)?.error || 'Failed to activate subscription');
+      }
+    } catch (error) {
+      console.error('Error activating subscription:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to activate subscription",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load user details and plans when dialog opens
+  useEffect(() => {
     if (isOpen && userId) {
       fetchUserDetails();
+      fetchAvailablePlans();
     }
-  });
+  }, [isOpen, userId]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -186,7 +253,55 @@ const UserSubscriptionDialog = ({ isOpen, onClose, userId, userEmail }: UserSubs
                 Manage this user's subscription status
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
+              {/* Activate New Subscription */}
+              <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+                <h4 className="font-medium flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  Activate New Subscription
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="plan-select">Subscription Plan</Label>
+                    <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a plan..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availablePlans.map((plan) => (
+                          <SelectItem key={plan.id} value={plan.id}>
+                            {plan.name} ({plan.duration_months}m - ${plan.price_usdt} USDT)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="custom-duration">Custom Duration (months)</Label>
+                    <Input
+                      id="custom-duration"
+                      type="number"
+                      value={customDuration}
+                      onChange={(e) => setCustomDuration(e.target.value)}
+                      placeholder="Leave empty for plan default"
+                      min="1"
+                      max="60"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <Button 
+                      onClick={handleActivateSubscription}
+                      disabled={loading || !selectedPlanId}
+                      className="w-full flex items-center gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Activate
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Extend Existing Subscription */}
               <div className="flex items-end gap-4">
                 <div className="flex-1">
                   <Label htmlFor="extend-days">Extend Subscription (Days)</Label>

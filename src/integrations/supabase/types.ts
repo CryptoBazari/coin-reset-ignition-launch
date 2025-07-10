@@ -865,6 +865,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      activate_user_subscription: {
+        Args: {
+          target_user_id: string
+          plan_id: string
+          custom_duration_months?: number
+        }
+        Returns: Json
+      }
       cancel_user_subscription: {
         Args: { target_user_id: string }
         Returns: Json
