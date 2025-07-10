@@ -74,7 +74,7 @@ export const useAdmin = () => {
         console.log('Admin data found:', data);
         setAdminData(data);
         setIsAdmin(true);
-        console.log('Set isAdmin to true');
+        console.log('Set isAdmin to true for user:', user.email);
       } else {
         console.log('No admin data found for user:', user.email);
         setAdminData(null);

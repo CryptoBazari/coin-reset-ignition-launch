@@ -14,7 +14,7 @@ import PremiumFeatures from "@/components/dashboard/PremiumFeatures";
 import AdminSystemStatus from "@/components/dashboard/AdminSystemStatus";
 
 const Dashboard = () => {
-  const { isAdmin, loading: adminLoading } = useAdmin();
+  const { isAdmin, loading: adminLoading, checkAdminStatus } = useAdmin();
   const {
     user,
     portfolios,
@@ -36,7 +36,7 @@ const Dashboard = () => {
     }
   }, [isAdmin, isAdminMode, fetchAdminStats]);
 
-  console.log('Dashboard render - isAdmin:', isAdmin, 'adminLoading:', adminLoading, 'hasActiveSubscription:', hasActiveSubscription);
+  console.log('Dashboard render - isAdmin:', isAdmin, 'adminLoading:', adminLoading, 'hasActiveSubscription:', hasActiveSubscription, 'user:', user?.email);
 
   if (loading || adminLoading || subscriptionLoading) {
     return (
@@ -76,6 +76,7 @@ const Dashboard = () => {
             isAdmin={isAdmin}
             isAdminMode={isAdminMode}
             onModeToggle={handleModeToggle}
+            onRefreshAdminStatus={checkAdminStatus}
           />
         </div>
 
