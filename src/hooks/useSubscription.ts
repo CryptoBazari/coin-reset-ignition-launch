@@ -174,6 +174,21 @@ export const useSubscription = () => {
     }
   };
 
+  const getSubscriptionTimeRemaining = async () => {
+    if (!user) return null;
+
+    try {
+      const { data, error } = await supabase.rpc('get_subscription_time_remaining');
+      
+      if (error) throw error;
+      
+      return data?.result || null;
+    } catch (error) {
+      console.error('Error getting subscription time remaining:', error);
+      throw error;
+    }
+  };
+
   return {
     user,
     subscription,
@@ -183,5 +198,6 @@ export const useSubscription = () => {
     checkSubscriptionStatus,
     createSubscription,
     verifyPendingPayments,
+    getSubscriptionTimeRemaining,
   };
 };

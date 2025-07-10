@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Trash2, DollarSign } from 'lucide-react';
+import { Search, DollarSign, Users, Settings, Calendar, RefreshCw } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
+import UserSubscriptionDialog from '@/components/admin/UserSubscriptionDialog';
 import { format } from 'date-fns';
 
 interface SubscriptionPlan {
@@ -32,6 +34,10 @@ const SubscriptionManagement = () => {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [subscriptions, setSubscriptions] = useState<UserSubscription[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedUser, setSelectedUser] = useState<{id: string, email: string} | null>(null);
+  const [userSearchResults, setUserSearchResults] = useState<Array<{id: string, email: string}>>([]);
+  const [searchingUsers, setSearchingUsers] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -71,6 +77,65 @@ const SubscriptionManagement = () => {
       toast({
         title: "Error",
         description: "Failed to load user subscriptions",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const searchUsers = async (query: string) => {
+    if (query.length < 3) {
+      setUserSearchResults([]);
+      return;
+    }
+
+    setSearchingUsers(true);
+    try {
+      // Search for users in auth.users via admin function
+      const { data, error } = await supabase
+        .from('user_subscriptions')
+        .select('user_id')
+        .ilike('user_id', `%${query}%`)
+        .limit(10);
+
+      if (error) throw error;
+
+      // For demo purposes, we'll show user IDs
+      // In a real app, you'd have a proper user search endpoint
+      setUserSearchResults(data?.map(u => ({ id: u.user_id, email: `${u.user_id.slice(0, 8)}...` })) || []);
+    } catch (error) {
+      console.error('Error searching users:', error);
+    } finally {
+      setSearchingUsers(false);
+    }
+  };
+
+  const handleCleanupExpired = async () => {
+    setLoading(true);
+    try {
+      const [paymentsResult, subscriptionsResult] = await Promise.all([
+        supabase.rpc('cleanup_expired_payments'),
+        supabase.rpc('cleanup_expired_subscriptions')
+      ]);
+
+      if (paymentsResult.error) throw paymentsResult.error;
+      if (subscriptionsResult.error) throw subscriptionsResult.error;
+
+      const paymentsCleaned = paymentsResult.data?.expired_payments || 0;
+      const subscriptionsCleaned = subscriptionsResult.data?.expired_subscriptions || 0;
+
+      toast({
+        title: "Cleanup Complete",
+        description: `Cleaned up ${paymentsCleaned} payments and ${subscriptionsCleaned} subscriptions`,
+      });
+
+      await fetchSubscriptions();
+    } catch (error) {
+      console.error('Error cleaning up expired items:', error);
+      toast({
+        title: "Error",
+        description: "Failed to cleanup expired items",
         variant: "destructive",
       });
     } finally {
@@ -148,7 +213,66 @@ const SubscriptionManagement = () => {
             <h1 className="text-3xl font-bold">Subscription Management</h1>
             <p className="text-muted-foreground">Manage subscription plans and user subscriptions</p>
           </div>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={handleCleanupExpired}
+              disabled={loading}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Cleanup Expired
+            </Button>
+          </div>
         </div>
+
+        {/* User Search */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Search className="h-5 w-5" />
+              Search User Subscriptions
+            </CardTitle>
+            <CardDescription>
+              Search for users to manage their subscriptions
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Search by user ID or email..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    searchUsers(e.target.value);
+                  }}
+                  className="flex-1"
+                />
+              </div>
+              
+              {userSearchResults.length > 0 && (
+                <div className="space-y-2">
+                  {userSearchResults.map((user) => (
+                    <div key={user.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <div className="font-medium">{user.email}</div>
+                        <div className="text-sm text-muted-foreground">ID: {user.id.slice(0, 8)}...</div>
+                      </div>
+                      <Button
+                        onClick={() => setSelectedUser(user)}
+                        className="flex items-center gap-2"
+                      >
+                        <Settings className="h-4 w-4" />
+                        Manage
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Stats Cards */}
         <div className="grid gap-4 md:grid-cols-3">
@@ -241,7 +365,19 @@ const SubscriptionManagement = () => {
 
         {/* Recent Subscriptions */}
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Recent Subscriptions</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Recent Subscriptions</h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchSubscriptions}
+              disabled={loading}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
           <div className="space-y-3">
             {subscriptions.slice(0, 10).map((subscription) => (
               <Card key={subscription.id}>
@@ -258,8 +394,20 @@ const SubscriptionManagement = () => {
                         </div>
                       )}
                     </div>
-                    <div className="text-right">
+                    <div className="text-right flex items-center gap-2">
                       {getStatusBadge(subscription.status)}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSelectedUser({
+                          id: subscription.user_id,
+                          email: `${subscription.user_id.slice(0, 8)}...`
+                        })}
+                        className="flex items-center gap-1"
+                      >
+                        <Users className="h-3 w-3" />
+                        Manage
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -267,6 +415,16 @@ const SubscriptionManagement = () => {
             ))}
           </div>
         </div>
+
+        {/* User Subscription Dialog */}
+        {selectedUser && (
+          <UserSubscriptionDialog
+            isOpen={!!selectedUser}
+            onClose={() => setSelectedUser(null)}
+            userId={selectedUser.id}
+            userEmail={selectedUser.email}
+          />
+        )}
       </div>
     </AdminLayout>
   );

@@ -263,6 +263,7 @@ export type Database = {
         Row: {
           amount: number
           created_at: string
+          expires_at: string | null
           id: string
           payment_address_id: string
           status: Database["public"]["Enums"]["payment_status"]
@@ -275,6 +276,7 @@ export type Database = {
         Insert: {
           amount: number
           created_at?: string
+          expires_at?: string | null
           id?: string
           payment_address_id: string
           status?: Database["public"]["Enums"]["payment_status"]
@@ -287,6 +289,7 @@ export type Database = {
         Update: {
           amount?: number
           created_at?: string
+          expires_at?: string | null
           id?: string
           payment_address_id?: string
           status?: Database["public"]["Enums"]["payment_status"]
@@ -862,6 +865,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cancel_user_subscription: {
+        Args: { target_user_id: string }
+        Returns: Json
+      }
+      cleanup_expired_payments: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      cleanup_expired_subscriptions: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      extend_user_subscription: {
+        Args: { target_user_id: string; additional_days: number }
+        Returns: Json
+      }
+      get_subscription_time_remaining: {
+        Args: { target_user_id?: string }
+        Returns: Json
+      }
       has_active_subscription: {
         Args: { user_uuid?: string }
         Returns: boolean

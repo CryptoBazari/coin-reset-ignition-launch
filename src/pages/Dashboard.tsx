@@ -12,6 +12,7 @@ import RecentAnalyses from "@/components/dashboard/RecentAnalyses";
 import PaymentVerification from "@/components/dashboard/PaymentVerification";
 import PremiumFeatures from "@/components/dashboard/PremiumFeatures";
 import AdminSystemStatus from "@/components/dashboard/AdminSystemStatus";
+import SubscriptionStatusCard from "@/components/dashboard/SubscriptionStatusCard";
 
 const Dashboard = () => {
   const { isAdmin, loading: adminLoading, checkAdminStatus } = useAdmin();
@@ -95,6 +96,9 @@ const Dashboard = () => {
           <>
             {/* User Quick Actions */}
             <UserQuickActions />
+
+            {/* Subscription Status */}
+            <SubscriptionStatusCard />
 
             {/* User Portfolio and Analysis Overview */}
             <div className="grid lg:grid-cols-2 gap-8">
