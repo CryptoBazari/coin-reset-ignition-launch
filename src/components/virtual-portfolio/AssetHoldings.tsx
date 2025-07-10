@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Search, Filter, SortAsc, SortDesc, TrendingUp, TrendingDown, MoreVertical, Plus, Minus } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { fetchCoinPrices, CoinMarketCapCoin } from '@/services/coinMarketCapService';
 
 interface AssetHolding {
   id: string;
@@ -35,6 +36,7 @@ const AssetHoldings = ({ portfolioId }: AssetHoldingsProps) => {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'name' | 'value' | 'pnl' | 'allocation'>('value');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [liveCoinsData, setLiveCoinsData] = useState<CoinMarketCapCoin[]>([]);
 
   useEffect(() => {
     fetchAssets();
@@ -59,11 +61,30 @@ const AssetHoldings = ({ portfolioId }: AssetHoldingsProps) => {
 
       if (error) throw error;
 
-      // Transform the data and add mock current prices for demonstration
+      if (!virtualAssets || virtualAssets.length === 0) {
+        setAssets([]);
+        setLiveCoinsData([]);
+        return;
+      }
+
+      // Fetch live prices
+      const symbols = virtualAssets.map(asset => asset.virtual_coins.symbol);
+      let fetchedLiveCoinsData: CoinMarketCapCoin[] = [];
+      
+      try {
+        fetchedLiveCoinsData = await fetchCoinPrices(symbols);
+        setLiveCoinsData(fetchedLiveCoinsData);
+        console.log('Fetched live prices for', fetchedLiveCoinsData.length, 'coins');
+      } catch (error) {
+        console.warn('Could not fetch live prices, using average prices:', error);
+        setLiveCoinsData([]);
+      }
+
+      // Transform the data with real current prices
       const transformedAssets: AssetHolding[] = virtualAssets.map(asset => {
-        // Mock current price calculation (in a real app, this would come from a price service)
-        const priceVariation = (Math.random() - 0.5) * 0.2; // -10% to +10% variation
-        const currentPrice = asset.average_price * (1 + priceVariation);
+        // Use live price if available, otherwise use average price
+        const liveCoinData = fetchedLiveCoinsData.find(coin => coin.symbol === asset.virtual_coins.symbol);
+        const currentPrice = liveCoinData?.current_price || asset.average_price;
         const marketValue = asset.total_amount * currentPrice;
         const unrealizedPnl = marketValue - asset.cost_basis;
         const unrealizedPnlPercentage = asset.cost_basis > 0 ? (unrealizedPnl / asset.cost_basis) * 100 : 0;
@@ -205,10 +226,12 @@ const AssetHoldings = ({ portfolioId }: AssetHoldingsProps) => {
               <p className="text-sm text-muted-foreground">Current Price</p>
               <div className="flex items-center gap-1">
                 <p className="font-medium">${asset.current_price.toFixed(2)}</p>
-                <div className={`flex items-center text-xs ${isPriceUp ? 'text-green-600' : 'text-red-600'}`}>
-                  {isPriceUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                  {isPriceUp ? '+' : ''}{priceChangePercentage.toFixed(1)}%
-                </div>
+                {Math.abs(priceChangePercentage) > 0.01 && (
+                  <div className={`flex items-center text-xs ${isPriceUp ? 'text-green-600' : 'text-red-600'}`}>
+                    {isPriceUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                    {isPriceUp ? '+' : ''}{priceChangePercentage.toFixed(1)}%
+                  </div>
+                )}
               </div>
             </div>
             <div>

@@ -12,6 +12,7 @@ import QuickActions from './QuickActions';
 import PortfolioComparison from './PortfolioComparison';
 import AdvancedAnalytics from './AdvancedAnalytics';
 import AnalyticsSummary from './AnalyticsSummary';
+import RiskAnalysisCard from './RiskAnalysisCard';
 
 interface PortfolioDashboardProps {
   portfolios: VirtualPortfolio[];
@@ -64,6 +65,9 @@ const PortfolioDashboard = ({
 
       {/* Analytics Summary */}
       <AnalyticsSummary portfolioId={selectedPortfolio.id} />
+
+      {/* Risk Analysis */}
+      <RiskAnalysisCard portfolioId={selectedPortfolio.id} />
 
       {/* Advanced Analytics Section */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">

@@ -39,7 +39,7 @@ class PortfolioTotalsService {
     try {
       const symbols = assets.map(asset => asset.virtual_coins.symbol);
       liveCoinsData = await fetchCoinPrices(symbols);
-      console.log('Fetched live prices for portfolio calculation:', liveCoinsData);
+      console.log('Fetched live prices for portfolio calculation:', liveCoinsData.length, 'prices');
     } catch (error) {
       console.warn('Could not fetch live prices, using average prices:', error);
     }
