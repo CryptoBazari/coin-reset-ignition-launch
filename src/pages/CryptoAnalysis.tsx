@@ -1,64 +1,76 @@
 import React, { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import Navbar from '@/components/Navbar';
 import { InvestmentForm } from '@/components/InvestmentForm';
 import { AnalysisResults } from '@/components/AnalysisResults';
+import SubscriptionButton from '@/components/subscription/SubscriptionButton';
+import { useSubscription } from '@/hooks/useSubscription';
 import { useInvestmentAnalysis } from '@/hooks/useInvestmentAnalysis';
-import { toast } from 'sonner';
+import { Lock } from 'lucide-react';
 import type { InvestmentInputs, AnalysisResult } from '@/types/investment';
-import Navbar from '@/components/Navbar';
 
 const CryptoAnalysis = () => {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const { hasActiveSubscription, user } = useSubscription();
   const { analyzeInvestment, loading, error } = useInvestmentAnalysis();
 
   const handleAnalysis = async (inputs: InvestmentInputs) => {
     const result = await analyzeInvestment(inputs);
-    
     if (result) {
       setAnalysisResult(result);
-      toast.success('Investment analysis completed successfully!');
-    } else if (error) {
-      toast.error(`Analysis failed: ${error}`);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       <Navbar />
-      
-      <div className="py-8 px-4">
-        <div className="max-w-6xl mx-auto space-y-8">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">
-              Advanced Cryptocurrency Investment Analyzer
-            </h1>
-            <p className="text-lg text-gray-600 max-w-3xl mx-auto mb-4">
-              Make informed investment decisions across Bitcoin, Blue Chip, and Small-Cap cryptocurrencies 
-              using Cointime Economics, Federal Reserve analysis, and advanced financial metrics.
-            </p>
-            <div className="flex justify-center space-x-6 text-sm text-gray-600">
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                <span>Cointime Economics Integration</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
-                <span>Smart Money Analysis</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-purple-500 rounded-full mr-2"></div>
-                <span>Fed Rate Impact Assessment</span>
-              </div>
-            </div>
-          </div>
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+            Crypto Investment Analyzer
+          </h1>
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            Make informed investment decisions with our advanced analysis tools. 
+            Get personalized recommendations based on your portfolio and risk tolerance.
+          </p>
+        </div>
 
-          <InvestmentForm onSubmit={handleAnalysis} loading={loading} />
-
-          {analysisResult && <AnalysisResults result={analysisResult} />}
-
-          {error && (
-            <div className="text-center text-red-600 p-4 bg-red-50 rounded-lg max-w-2xl mx-auto">
-              Error: {error}
-            </div>
+        <div className="max-w-4xl mx-auto">
+          {!user ? (
+            <Card className="text-center p-8">
+              <CardHeader>
+                <div className="flex justify-center mb-4">
+                  <Lock className="h-16 w-16 text-muted-foreground" />
+                </div>
+                <CardTitle>Sign In Required</CardTitle>
+                <CardDescription>
+                  Please sign in to access the crypto investment analyzer
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <SubscriptionButton feature="analysis tools" size="lg" />
+              </CardContent>
+            </Card>
+          ) : !hasActiveSubscription ? (
+            <Card className="text-center p-8">
+              <CardHeader>
+                <div className="flex justify-center mb-4">
+                  <Lock className="h-16 w-16 text-muted-foreground" />
+                </div>
+                <CardTitle>Premium Feature</CardTitle>
+                <CardDescription>
+                  Upgrade to access advanced crypto investment analysis tools
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <SubscriptionButton feature="analysis tools" size="lg" />
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <InvestmentForm onSubmit={handleAnalysis} loading={loading} />
+              {analysisResult && <AnalysisResults result={analysisResult} />}
+            </>
           )}
         </div>
       </div>

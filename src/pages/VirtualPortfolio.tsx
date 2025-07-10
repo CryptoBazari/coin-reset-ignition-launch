@@ -1,178 +1,140 @@
-
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
-import Navbar from '@/components/Navbar';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import Navbar from '@/components/Navbar';
+import PortfolioSelection from '@/components/virtual-portfolio/PortfolioSelection';
 import CreatePortfolioDialog from '@/components/virtual-portfolio/CreatePortfolioDialog';
+import PortfolioDashboard from '@/components/virtual-portfolio/PortfolioDashboard';
 import AddTransactionDialog from '@/components/virtual-portfolio/AddTransactionDialog';
 import TransactionHistory from '@/components/virtual-portfolio/TransactionHistory';
-import PortfolioHeader from '@/components/virtual-portfolio/PortfolioHeader';
 import EmptyPortfolioState from '@/components/virtual-portfolio/EmptyPortfolioState';
-import PortfolioDashboard from '@/components/virtual-portfolio/PortfolioDashboard';
+import SubscriptionButton from '@/components/subscription/SubscriptionButton';
+import { useSubscription } from '@/hooks/useSubscription';
 import { VirtualPortfolio as VirtualPortfolioType } from '@/types/virtualPortfolio';
+import { Lock } from 'lucide-react';
 
 const VirtualPortfolio = () => {
-  const navigate = useNavigate();
-  const [showCreatePortfolio, setShowCreatePortfolio] = useState(false);
-  const [showAddTransaction, setShowAddTransaction] = useState(false);  
-  const [showTransactionHistory, setShowTransactionHistory] = useState(false);
+  const [portfolios, setPortfolios] = useState<VirtualPortfolioType[]>([]);
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
-  const [user, setUser] = useState(null);
-  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showAddTransaction, setShowAddTransaction] = useState(false);
+  const [showTransactionHistory, setShowTransactionHistory] = useState(false);
+  const { hasActiveSubscription, user } = useSubscription();
 
-  // Check authentication
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate('/auth');
-        return;
-      }
-      setUser(session.user);
-    };
-    checkAuth();
+    if (user && hasActiveSubscription) {
+      fetchPortfolios();
+    } else {
+      setLoading(false);
+    }
+  }, [user, hasActiveSubscription]);
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!session) {
-        navigate('/auth');
-      } else {
-        setUser(session.user);
-      }
-    });
+  const fetchPortfolios = async () => {
+    if (!user) return;
 
-    return () => subscription.unsubscribe();
-  }, [navigate]);
-
-  // Fetch user's portfolios
-  const { data: portfolios, isLoading, refetch } = useQuery({
-    queryKey: ['virtual-portfolios', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      
-      console.log('Fetching portfolios for user:', user.id);
-      
+    try {
       const { data, error } = await supabase
         .from('virtual_portfolios')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching portfolios:', error);
-        throw error;
-      }
+      if (error) throw error;
+      setPortfolios(data || []);
       
-      console.log('Fetched portfolios:', data);
-      return data as unknown as VirtualPortfolioType[];
-    },
-    enabled: !!user
-  });
-
-  // Auto-select first portfolio if none selected
-  useEffect(() => {
-    if (portfolios && portfolios.length > 0 && !selectedPortfolioId) {
-      setSelectedPortfolioId(portfolios[0].id);
-      console.log('Auto-selected portfolio:', portfolios[0].id);
+      // Auto-select first portfolio if none selected
+      if (data && data.length > 0 && !selectedPortfolioId) {
+        setSelectedPortfolioId(data[0].id);
+      }
+    } catch (error) {
+      console.error('Error fetching portfolios:', error);
+    } finally {
+      setLoading(false);
     }
-  }, [portfolios, selectedPortfolioId]);
-
-  const selectedPortfolio = portfolios?.find(p => p.id === selectedPortfolioId);
-  const hasPortfolios = portfolios && portfolios.length > 0;
-
-  const handleCreatePortfolio = () => {
-    refetch();
-    setShowCreatePortfolio(false);
-    toast({
-      title: "Portfolio Created",
-      description: "Your new portfolio has been created successfully.",
-    });
   };
 
-  const handleTransactionAdded = () => {
-    console.log('Transaction added, refreshing data...');
-    refetch();
-    setShowAddTransaction(false);
-    toast({
-      title: "Transaction Added",
-      description: "Your transaction has been recorded successfully.",
-    });
-  };
-
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Navbar />
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center justify-center h-64">
-            <div className="text-lg">Checking authentication...</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Navbar />
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center justify-center h-64">
-            <div className="text-lg">Loading your portfolios...</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const selectedPortfolio = portfolios.find(p => p.id === selectedPortfolioId);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container mx-auto px-4 py-8">
-        <PortfolioHeader
-          hasPortfolios={!!hasPortfolios}
-          onCreatePortfolio={() => setShowCreatePortfolio(true)}
-          onAddTransaction={() => setShowAddTransaction(true)}
-        />
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-foreground mb-4">Virtual Portfolio</h1>
+          <p className="text-muted-foreground text-lg">
+            Track and analyze your crypto investments with advanced portfolio management tools
+          </p>
+        </div>
 
-        {!hasPortfolios ? (
-          <EmptyPortfolioState onCreatePortfolio={() => setShowCreatePortfolio(true)} />
+        {!user ? (
+          <Card className="text-center p-8">
+            <CardHeader>
+              <div className="flex justify-center mb-4">
+                <Lock className="h-16 w-16 text-muted-foreground" />
+              </div>
+              <CardTitle>Sign In Required</CardTitle>
+              <CardDescription>
+                Please sign in to access the virtual portfolio manager
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SubscriptionButton feature="portfolio management" size="lg" />
+            </CardContent>
+          </Card>
+        ) : !hasActiveSubscription ? (
+          <Card className="text-center p-8">
+            <CardHeader>
+              <div className="flex justify-center mb-4">
+                <Lock className="h-16 w-16 text-muted-foreground" />
+              </div>
+              <CardTitle>Premium Feature</CardTitle>
+              <CardDescription>
+                Upgrade to access advanced virtual portfolio management tools
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SubscriptionButton feature="portfolio management" size="lg" />
+            </CardContent>
+          </Card>
+        ) : loading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="text-muted-foreground">Loading portfolios...</div>
+          </div>
+        ) : portfolios.length === 0 ? (
+          <EmptyPortfolioState onCreatePortfolio={() => setShowCreateDialog(true)} />
         ) : (
-          selectedPortfolio && (
-            <PortfolioDashboard
-              portfolios={portfolios}
-              selectedPortfolio={selectedPortfolio}
-              selectedPortfolioId={selectedPortfolioId}
-              onSelectPortfolio={setSelectedPortfolioId}
-              onShowTransactionHistory={() => setShowTransactionHistory(true)}
-              onAddTransaction={() => setShowAddTransaction(true)}
-            />
-          )
+          <PortfolioDashboard
+            portfolios={portfolios}
+            selectedPortfolio={selectedPortfolio!}
+            selectedPortfolioId={selectedPortfolioId}
+            onSelectPortfolio={setSelectedPortfolioId}
+            onShowTransactionHistory={() => setShowTransactionHistory(true)}
+            onAddTransaction={() => setShowAddTransaction(true)}
+          />
         )}
 
         {/* Dialogs */}
         <CreatePortfolioDialog
-          open={showCreatePortfolio}
-          onOpenChange={setShowCreatePortfolio}
-          onSuccess={handleCreatePortfolio}
+          open={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
+          onSuccess={fetchPortfolios}
         />
 
-        {selectedPortfolioId && (
+        {selectedPortfolio && (
           <>
             <AddTransactionDialog
               open={showAddTransaction}
               onOpenChange={setShowAddTransaction}
-              portfolioId={selectedPortfolioId}
-              onSuccess={handleTransactionAdded}
+              portfolioId={selectedPortfolio.id}
+              onSuccess={fetchPortfolios}
             />
 
             <TransactionHistory
               open={showTransactionHistory}
               onOpenChange={setShowTransactionHistory}
-              portfolioId={selectedPortfolioId}
-              onTransactionUpdated={() => refetch()}
+              portfolioId={selectedPortfolio.id}
+              onTransactionUpdated={fetchPortfolios}
             />
           </>
         )}
