@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, Edit, Trash2, Clock } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import RichTextEditor from '@/components/admin/RichTextEditor';
+import ImageUpload from '@/components/admin/ImageUpload';
 import { format } from 'date-fns';
 
 interface LearningCourse {
@@ -280,10 +281,18 @@ const LearningManagement = () => {
                   />
                 </div>
 
+                <ImageUpload
+                  label="Cover Image"
+                  bucket="learning-images"
+                  currentImageUrl={formData.cover_image_url}
+                  onImageUpload={(url) => setFormData({ ...formData, cover_image_url: url })}
+                  onImageRemove={() => setFormData({ ...formData, cover_image_url: '' })}
+                />
+
                 <div className="space-y-2">
-                  <Label htmlFor="cover_image">Cover Image URL</Label>
+                  <Label htmlFor="cover_image_url">Or enter image URL</Label>
                   <Input
-                    id="cover_image"
+                    id="cover_image_url"
                     value={formData.cover_image_url}
                     onChange={(e) => setFormData({ ...formData, cover_image_url: e.target.value })}
                     placeholder="https://example.com/course-image.jpg"

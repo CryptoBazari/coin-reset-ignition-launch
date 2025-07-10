@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Edit, Trash2, ExternalLink, Calendar } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
+import ImageUpload from '@/components/admin/ImageUpload';
 import { format } from 'date-fns';
 
 interface CryptoListing {
@@ -272,8 +273,16 @@ const CryptoListingsManagement = () => {
                   />
                 </div>
 
+                <ImageUpload
+                  label="Project Logo"
+                  bucket="crypto-images"
+                  currentImageUrl={formData.logo_url}
+                  onImageUpload={(url) => setFormData({ ...formData, logo_url: url })}
+                  onImageRemove={() => setFormData({ ...formData, logo_url: '' })}
+                />
+
                 <div className="space-y-2">
-                  <Label htmlFor="logo_url">Logo URL</Label>
+                  <Label htmlFor="logo_url">Or enter logo URL</Label>
                   <Input
                     id="logo_url"
                     value={formData.logo_url}
