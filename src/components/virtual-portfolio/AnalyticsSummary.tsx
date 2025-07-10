@@ -2,50 +2,30 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown, Target, Award, AlertCircle } from 'lucide-react';
+import { portfolioAnalyticsService, PortfolioAnalytics } from '@/services/portfolioAnalyticsService';
 
 interface AnalyticsSummaryProps {
   portfolioId: string;
 }
 
-interface SummaryData {
-  totalReturn: number;
-  annualizedReturn: number;
-  bestPerformingAsset: {
-    symbol: string;
-    return: number;
-  };
-  worstPerformingAsset: {
-    symbol: string;
-    return: number;
-  };
-  topGainer: {
-    symbol: string;
-    change: number;
-  };
-  topLoser: {
-    symbol: string;
-    change: number;
-  };
-}
-
 const AnalyticsSummary = ({ portfolioId }: AnalyticsSummaryProps) => {
-  const [summary, setSummary] = useState<SummaryData | null>(null);
+  const [summary, setSummary] = useState<PortfolioAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setSummary({
-        totalReturn: 23.4,
-        annualizedReturn: 45.8,
-        bestPerformingAsset: { symbol: 'SOL', return: 78.2 },
-        worstPerformingAsset: { symbol: 'ADA', return: -12.5 },
-        topGainer: { symbol: 'ETH', change: 8.7 },
-        topLoser: { symbol: 'DOT', change: -3.2 }
-      });
-      setLoading(false);
-    }, 1000);
+    const fetchAnalytics = async () => {
+      try {
+        setLoading(true);
+        const analytics = await portfolioAnalyticsService.calculatePortfolioAnalytics(portfolioId);
+        setSummary(analytics);
+      } catch (error) {
+        console.error('Error fetching portfolio analytics:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    return () => clearTimeout(timer);
+    fetchAnalytics();
   }, [portfolioId]);
 
   if (loading) {

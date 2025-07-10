@@ -158,3 +158,77 @@ export const checkAllocation = (
   
   return { basketPercentage, portfolioPercentage, overexposed };
 };
+
+// Calculate Sharpe Ratio
+export const calculateSharpeRatio = (
+  portfolioReturn: number,
+  riskFreeRate: number,
+  standardDeviation: number
+): number => {
+  if (standardDeviation === 0) return 0;
+  return (portfolioReturn - riskFreeRate) / standardDeviation;
+};
+
+// Calculate portfolio Beta (systematic risk)
+export const calculateBeta = (
+  portfolioReturns: number[],
+  marketReturns: number[]
+): number => {
+  if (portfolioReturns.length !== marketReturns.length || portfolioReturns.length < 2) {
+    return 1; // Default beta
+  }
+
+  const portfolioMean = portfolioReturns.reduce((sum, ret) => sum + ret, 0) / portfolioReturns.length;
+  const marketMean = marketReturns.reduce((sum, ret) => sum + ret, 0) / marketReturns.length;
+
+  let covariance = 0;
+  let marketVariance = 0;
+
+  for (let i = 0; i < portfolioReturns.length; i++) {
+    const portfolioDeviation = portfolioReturns[i] - portfolioMean;
+    const marketDeviation = marketReturns[i] - marketMean;
+    
+    covariance += portfolioDeviation * marketDeviation;
+    marketVariance += Math.pow(marketDeviation, 2);
+  }
+
+  covariance /= portfolioReturns.length - 1;
+  marketVariance /= marketReturns.length - 1;
+
+  return marketVariance !== 0 ? covariance / marketVariance : 1;
+};
+
+// Calculate Value at Risk (VaR)
+export const calculateVaR = (
+  portfolioValue: number,
+  returns: number[],
+  confidenceLevel: number = 0.95
+): number => {
+  if (returns.length === 0) return 0;
+
+  const sortedReturns = returns.sort((a, b) => a - b);
+  const index = Math.floor((1 - confidenceLevel) * sortedReturns.length);
+  const varReturn = sortedReturns[index] || 0;
+  
+  return portfolioValue * Math.abs(varReturn / 100);
+};
+
+// Enhanced NPV with risk adjustment
+export const calculateRiskAdjustedNPV = (
+  cashFlows: number[],
+  riskFreeRate: number,
+  riskPremium: number,
+  beta: number = 1
+): number => {
+  const discountRate = riskFreeRate + (beta * riskPremium);
+  return calculateNPV(cashFlows, discountRate);
+};
+
+// Calculate Expected Portfolio Return using CAPM
+export const calculateExpectedReturn = (
+  riskFreeRate: number,
+  marketReturn: number,
+  beta: number
+): number => {
+  return riskFreeRate + beta * (marketReturn - riskFreeRate);
+};

@@ -3,48 +3,30 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { TrendingUp, TrendingDown, Target, AlertTriangle, Shield, Zap } from 'lucide-react';
+import { portfolioAnalyticsService, AdvancedAnalytics as AdvancedAnalyticsData } from '@/services/portfolioAnalyticsService';
 
 interface AdvancedAnalyticsProps {
   portfolioId: string;
 }
 
-interface AnalyticsData {
-  sharpeRatio: number;
-  volatility: number;
-  maxDrawdown: number;
-  winRate: number;
-  riskScore: number;
-  diversificationScore: number;
-  momentum: number;
-  recommendations: string[];
-}
-
 const AdvancedAnalytics = ({ portfolioId }: AdvancedAnalyticsProps) => {
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [analytics, setAnalytics] = useState<AdvancedAnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate fetching analytics data
-    const timer = setTimeout(() => {
-      setAnalytics({
-        sharpeRatio: 1.85,
-        volatility: 35.2,
-        maxDrawdown: -18.5,
-        winRate: 67.3,
-        riskScore: 7.2,
-        diversificationScore: 8.4,
-        momentum: 12.8,
-        recommendations: [
-          'Consider reducing exposure to high-volatility assets',
-          'Portfolio shows strong momentum indicators',
-          'Diversification is well-balanced across sectors',
-          'Consider taking some profits at current levels'
-        ]
-      });
-      setLoading(false);
-    }, 1000);
+    const fetchAdvancedAnalytics = async () => {
+      try {
+        setLoading(true);
+        const advancedAnalytics = await portfolioAnalyticsService.calculateAdvancedAnalytics(portfolioId);
+        setAnalytics(advancedAnalytics);
+      } catch (error) {
+        console.error('Error fetching advanced analytics:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    return () => clearTimeout(timer);
+    fetchAdvancedAnalytics();
   }, [portfolioId]);
 
   if (loading) {
@@ -105,6 +87,50 @@ const AdvancedAnalytics = ({ portfolioId }: AdvancedAnalyticsProps) => {
               </Badge>
             </div>
             <Progress value={analytics.riskScore * 10} className="h-2" />
+          </div>
+        </div>
+
+        {/* NPV Analysis Section */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted rounded-lg">
+          <div className="text-center">
+            <div className="text-sm text-muted-foreground mb-1">Portfolio NPV</div>
+            <div className={`text-lg font-bold ${analytics.npvAnalysis.portfolioNPV >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              ${analytics.npvAnalysis.portfolioNPV.toLocaleString()}
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-sm text-muted-foreground mb-1">Projected Value (2Y)</div>
+            <div className="text-lg font-bold text-blue-600">
+              ${analytics.npvAnalysis.projectedValue.toLocaleString()}
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-sm text-muted-foreground mb-1">Risk-Adj. Return</div>
+            <div className={`text-lg font-bold ${analytics.npvAnalysis.riskAdjustedReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {analytics.npvAnalysis.riskAdjustedReturn >= 0 ? '+' : ''}{analytics.npvAnalysis.riskAdjustedReturn}%
+            </div>
+          </div>
+        </div>
+
+        {/* Additional Metrics */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="text-center p-3 bg-muted rounded-lg">
+            <div className="text-sm text-muted-foreground">Volatility</div>
+            <div className="text-lg font-bold">{analytics.volatility}%</div>
+          </div>
+          <div className="text-center p-3 bg-muted rounded-lg">
+            <div className="text-sm text-muted-foreground">Max Drawdown</div>
+            <div className="text-lg font-bold text-red-600">-{analytics.maxDrawdown}%</div>
+          </div>
+          <div className="text-center p-3 bg-muted rounded-lg">
+            <div className="text-sm text-muted-foreground">Win Rate</div>
+            <div className="text-lg font-bold text-green-600">{analytics.winRate}%</div>
+          </div>
+          <div className="text-center p-3 bg-muted rounded-lg">
+            <div className="text-sm text-muted-foreground">Momentum</div>
+            <div className={`text-lg font-bold ${analytics.momentum >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {analytics.momentum >= 0 ? '+' : ''}{analytics.momentum}%
+            </div>
           </div>
         </div>
 
