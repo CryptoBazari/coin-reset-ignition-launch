@@ -10,8 +10,18 @@ import { supabase } from "@/integrations/supabase/client";
 const Landing = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [showContinue, setShowContinue] = useState(false);
 
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
+    // Set a timeout to show continue button if auth check takes too long
+    const authTimeout = setTimeout(() => {
+      console.log('Landing: Auth check timeout, showing continue button');
+      setShowContinue(true);
+      setLoading(false);
+    }, 5000); // 5 second timeout
+
     // Check if user is already authenticated and redirect to dashboard
     const checkAuth = async () => {
       try {
@@ -21,26 +31,47 @@ const Landing = () => {
         
         if (session?.user) {
           console.log('Landing: User authenticated, redirecting to dashboard...');
+          clearTimeout(authTimeout);
           navigate('/dashboard', { replace: true });
           return;
         }
         console.log('Landing: No user found, showing landing page');
+        clearTimeout(authTimeout);
+        setLoading(false);
       } catch (error) {
         console.error('Landing: Error checking auth:', error);
-      } finally {
+        clearTimeout(authTimeout);
         setLoading(false);
       }
     };
 
     checkAuth();
+
+    return () => {
+      clearTimeout(authTimeout);
+    };
   }, [navigate]);
+
+  const handleContinue = () => {
+    console.log('Landing: User clicked continue, proceeding to landing page');
+    setLoading(false);
+    setShowContinue(false);
+  };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-primary/10 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
+          <p className="text-muted-foreground mb-4">Loading...</p>
+          {showContinue && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">Taking longer than expected?</p>
+              <Button onClick={handleContinue} variant="outline">
+                Continue to Home Page
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     );
