@@ -153,8 +153,10 @@ const Auth = () => {
     setLoading(true);
 
     try {
+      // Use the current URL without any hash or query parameters
+      const currentUrl = window.location.origin + window.location.pathname;
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/auth`
+        redirectTo: currentUrl
       });
 
       if (error) throw error;
