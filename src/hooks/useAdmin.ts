@@ -110,58 +110,45 @@ export const useAdmin = () => {
 
   const checkAdminUser = async (user: User) => {
     try {
-      console.log('=== CHECKING ADMIN USER ===');
-      console.log('User ID:', user.id);
-      console.log('User Email:', user.email);
+      console.log('🔍 ADMIN CHECK - User:', user.email, 'ID:', user.id);
       
-      // First check: exact user_id match
-      const { data: exactMatch, error: exactError } = await supabase
+      // SIMPLIFIED ADMIN CHECK - just check if user exists in admin table
+      const { data: adminUsers, error } = await supabase
         .from('admin_users')
         .select('*')
-        .eq('user_id', user.id)
+        .or(`user_id.eq.${user.id},email.eq.${user.email}`)
         .eq('is_active', true);
 
-      console.log('Exact match query result:', { exactMatch, exactError });
+      console.log('🔍 Admin query result:', adminUsers);
 
-      // Second check: email match (in case user_id is wrong)
-      const { data: emailMatch, error: emailError } = await supabase
-        .from('admin_users')
-        .select('*')
-        .eq('email', user.email)
-        .eq('is_active', true);
+      if (error) {
+        console.error('❌ Admin query error:', error);
+        setIsAdmin(false);
+        return;
+      }
 
-      console.log('Email match query result:', { emailMatch, emailError });
-
-      // Use email match if exact match fails but email match exists
-      const adminData = exactMatch?.[0] || emailMatch?.[0];
-
-      if (adminData) {
-        console.log('✅ ADMIN ACCESS GRANTED - Data:', adminData);
+      if (adminUsers && adminUsers.length > 0) {
+        const adminData = adminUsers[0];
+        console.log('✅ ADMIN FOUND!', adminData);
         setAdminData(adminData);
         setIsAdmin(true);
         toast({
-          title: "✅ Admin Access Granted!",
-          description: `Welcome Admin ${user.email}! You now have admin privileges.`,
+          title: "🎉 ADMIN ACCESS ACTIVATED!",
+          description: `Welcome Admin ${user.email}!`,
         });
       } else {
-        console.log('❌ NO ADMIN ACCESS - No matching records found');
+        console.log('❌ NO ADMIN RECORD FOUND');
         setAdminData(null);
         setIsAdmin(false);
         toast({
-          title: "❌ No Admin Access",
-          description: "Your account does not have admin privileges.",
+          title: "❌ Access Denied",
+          description: "Not an admin user",
           variant: "destructive",
         });
       }
     } catch (error) {
-      console.error('💥 Error checking admin user:', error);
-      setAdminData(null);
+      console.error('💥 ADMIN CHECK ERROR:', error);
       setIsAdmin(false);
-      toast({
-        title: "Error",
-        description: "Failed to check admin status.",
-        variant: "destructive",
-      });
     }
   };
 
