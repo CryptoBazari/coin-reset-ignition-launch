@@ -151,6 +151,29 @@ export const useSubscription = () => {
     }
   };
 
+  const verifyPendingPayments = async () => {
+    if (!user) return null;
+
+    try {
+      const { data, error } = await supabase.functions.invoke('verify-crypto-payment', {
+        headers: {
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+        body: {}, // Empty body triggers bulk verification for authenticated user
+      });
+
+      if (error) throw error;
+
+      // Refresh subscription status after verification
+      await checkUserSubscription(user);
+      
+      return data;
+    } catch (error) {
+      console.error('Error verifying payments:', error);
+      throw error;
+    }
+  };
+
   return {
     user,
     subscription,
@@ -159,5 +182,6 @@ export const useSubscription = () => {
     loading,
     checkSubscriptionStatus,
     createSubscription,
+    verifyPendingPayments,
   };
 };

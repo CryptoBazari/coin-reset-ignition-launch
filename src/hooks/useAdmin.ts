@@ -41,8 +41,10 @@ export const useAdmin = () => {
 
   const checkAdminStatus = async () => {
     try {
+      console.log('Checking admin status...');
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user || null);
+      console.log('Current user:', session?.user?.email);
       
       if (session?.user) {
         await checkAdminUser(session.user);

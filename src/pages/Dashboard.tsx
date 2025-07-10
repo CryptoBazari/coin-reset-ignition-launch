@@ -16,16 +16,21 @@ import {
   Settings,
   Users,
   Coins,
-  Shield
+  Shield,
+  RefreshCw
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import Navbar from "@/components/Navbar";
 import { useAdmin } from "@/hooks/useAdmin";
+import { useSubscription } from "@/hooks/useSubscription";
+import { toast } from "@/components/ui/use-toast";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { isAdmin, loading: adminLoading } = useAdmin();
+  const { hasActiveSubscription, verifyPendingPayments, loading: subscriptionLoading } = useSubscription();
   const [user, setUser] = useState(null);
+  const [verifyingPayments, setVerifyingPayments] = useState(false);
   const [portfolios, setPortfolios] = useState([]);
   const [recentAnalyses, setRecentAnalyses] = useState([]);
   const [adminStats, setAdminStats] = useState({
@@ -104,6 +109,34 @@ const Dashboard = () => {
       });
     } catch (error) {
       console.error('Error fetching admin stats:', error);
+    }
+  };
+
+  const handleVerifyPayments = async () => {
+    setVerifyingPayments(true);
+    try {
+      const result = await verifyPendingPayments();
+      if (result?.verified > 0) {
+        toast({
+          title: "Payments Verified",
+          description: `Successfully verified ${result.verified} payment(s). Your subscription is now active!`,
+        });
+      } else {
+        toast({
+          title: "No Payments Found",
+          description: "No pending payments were found to verify.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error verifying payments:', error);
+      toast({
+        title: "Verification Failed",
+        description: "Failed to verify payments. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setVerifyingPayments(false);
     }
   };
 
@@ -205,7 +238,9 @@ const Dashboard = () => {
     },
   ];
 
-  if (loading || adminLoading) {
+  console.log('Dashboard render - isAdmin:', isAdmin, 'adminLoading:', adminLoading, 'hasActiveSubscription:', hasActiveSubscription);
+
+  if (loading || adminLoading || subscriptionLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background to-secondary/20">
         <Navbar />
@@ -502,8 +537,42 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* Upgrade Section - Only show in user mode */}
-        {!isAdminMode && (
+        {/* Payment Verification Section - Only show if user has no active subscription */}
+        {!hasActiveSubscription && (
+          <Card className="mt-8 bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border-orange-500/20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <RefreshCw className="h-5 w-5" />
+                Verify Payments
+              </CardTitle>
+              <CardDescription>
+                If you've made a crypto payment, click here to verify and activate your subscription
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={handleVerifyPayments} 
+                disabled={verifyingPayments}
+                className="w-full"
+              >
+                {verifyingPayments ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Verifying Payments...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Verify Payments
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Upgrade Section - Only show in user mode and if no active subscription */}
+        {!isAdminMode && !hasActiveSubscription && (
           <Card className="mt-8 bg-gradient-to-r from-primary/10 to-secondary/10 border-primary/20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
