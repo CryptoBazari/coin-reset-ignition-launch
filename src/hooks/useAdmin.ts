@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from '@/hooks/use-toast';
 
 interface AdminUser {
   id: string;
@@ -19,42 +19,76 @@ export const useAdmin = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    checkAdminStatus();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          setUser(session?.user || null);
-          if (session?.user) {
-            await checkAdminUser(session.user);
+    let mounted = true;
+    
+    const initializeAuth = async () => {
+      // First check initial session
+      await checkAdminStatus();
+      
+      // Then set up listener
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          if (!mounted) return;
+          
+          console.log('Auth state changed:', event, !!session);
+          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            setUser(session?.user || null);
+            if (session?.user) {
+              await checkAdminUser(session.user);
+            }
+          } else if (event === 'SIGNED_OUT') {
+            setUser(null);
+            setAdminData(null);
+            setIsAdmin(false);
           }
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-          setAdminData(null);
-          setIsAdmin(false);
+          setLoading(false);
         }
-        setLoading(false);
-      }
-    );
+      );
+      
+      return subscription;
+    };
 
-    return () => subscription.unsubscribe();
+    const subscription = initializeAuth();
+
+    return () => {
+      mounted = false;
+      subscription.then(sub => sub?.unsubscribe());
+    };
   }, []);
 
   const checkAdminStatus = async () => {
     try {
-      console.log('Checking admin status...');
+      console.log('=== ADMIN STATUS CHECK STARTED ===');
+      setLoading(true);
+      
       toast({
         title: "Checking Admin Status",
         description: "Refreshing your admin permissions...",
       });
       
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        toast({
+          title: "Session Error",
+          description: sessionError.message,
+          variant: "destructive",
+        });
+        return;
+      }
+      
       setUser(session?.user || null);
-      console.log('Current user:', session?.user?.email, session?.user?.id);
+      console.log('Current session user:', {
+        id: session?.user?.id,
+        email: session?.user?.email,
+        hasSession: !!session
+      });
       
       if (session?.user) {
         await checkAdminUser(session.user);
       } else {
+        console.log('No session found');
         toast({
           title: "No User Session",
           description: "Please sign in again.",
@@ -70,6 +104,7 @@ export const useAdmin = () => {
       });
     } finally {
       setLoading(false);
+      console.log('=== ADMIN STATUS CHECK ENDED ===');
     }
   };
 

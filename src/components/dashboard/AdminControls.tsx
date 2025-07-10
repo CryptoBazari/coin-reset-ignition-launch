@@ -10,9 +10,13 @@ interface AdminControlsProps {
 }
 
 const AdminControls = ({ isAdmin, isAdminMode, onModeToggle, onRefreshAdminStatus }: AdminControlsProps) => {
-  // Always show refresh button for debugging, but only show admin toggle if user is admin
   return (
     <div className="flex items-center gap-3">
+      {/* Always show debug button */}
+      <div className="text-xs text-muted-foreground">
+        Admin Status: {isAdmin ? '✅ Active' : '❌ Not Active'}
+      </div>
+      
       {onRefreshAdminStatus && (
         <Button
           variant="outline"
@@ -21,7 +25,7 @@ const AdminControls = ({ isAdmin, isAdminMode, onModeToggle, onRefreshAdminStatu
           className="flex items-center gap-2"
         >
           <RotateCcw className="h-4 w-4" />
-          Check Admin Status
+          Refresh Admin
         </Button>
       )}
       
