@@ -110,52 +110,58 @@ export const useAdmin = () => {
 
   const checkAdminUser = async (user: User) => {
     try {
-      console.log('Checking admin status for user:', user.id, user.email);
+      console.log('=== CHECKING ADMIN USER ===');
+      console.log('User ID:', user.id);
+      console.log('User Email:', user.email);
       
-      const { data, error } = await supabase
+      // First check: exact user_id match
+      const { data: exactMatch, error: exactError } = await supabase
         .from('admin_users')
         .select('*')
         .eq('user_id', user.id)
-        .eq('is_active', true)
-        .single();
+        .eq('is_active', true);
 
-      console.log('Admin query result:', { data, error });
+      console.log('Exact match query result:', { exactMatch, exactError });
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching admin data:', error);
-        return;
-      }
+      // Second check: email match (in case user_id is wrong)
+      const { data: emailMatch, error: emailError } = await supabase
+        .from('admin_users')
+        .select('*')
+        .eq('email', user.email)
+        .eq('is_active', true);
 
-      if (data) {
-        console.log('Admin data found:', data);
-        setAdminData(data);
+      console.log('Email match query result:', { emailMatch, emailError });
+
+      // Use email match if exact match fails but email match exists
+      const adminData = exactMatch?.[0] || emailMatch?.[0];
+
+      if (adminData) {
+        console.log('✅ ADMIN ACCESS GRANTED - Data:', adminData);
+        setAdminData(adminData);
         setIsAdmin(true);
-        console.log('Set isAdmin to true for user:', user.email);
         toast({
-          title: "Admin Access Granted",
-          description: "You now have admin privileges!",
+          title: "✅ Admin Access Granted!",
+          description: `Welcome Admin ${user.email}! You now have admin privileges.`,
         });
       } else {
-        console.log('No admin data found for user:', user.email);
-        // Let's also check if user exists in admin table but with wrong user_id
-        const { data: allAdminUsers } = await supabase
-          .from('admin_users')
-          .select('*')
-          .eq('email', user.email);
-        
-        console.log('All admin users with this email:', allAdminUsers);
+        console.log('❌ NO ADMIN ACCESS - No matching records found');
         setAdminData(null);
         setIsAdmin(false);
         toast({
-          title: "No Admin Access",
+          title: "❌ No Admin Access",
           description: "Your account does not have admin privileges.",
           variant: "destructive",
         });
       }
     } catch (error) {
-      console.error('Error checking admin user:', error);
+      console.error('💥 Error checking admin user:', error);
       setAdminData(null);
       setIsAdmin(false);
+      toast({
+        title: "Error",
+        description: "Failed to check admin status.",
+        variant: "destructive",
+      });
     }
   };
 
