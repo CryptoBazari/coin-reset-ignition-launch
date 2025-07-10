@@ -1,82 +1,80 @@
-
+import { useState, useEffect } from 'react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchCoinPrices } from '@/services/coinMarketCapService';
+
+interface AllocationData {
+  name: string;
+  value: number;
+  percentage: number;
+  color: string;
+}
 
 interface PortfolioAllocationChartProps {
   portfolioId: string;
+  title?: string;
 }
 
-const COLORS = {
-  'Bitcoin': '#F7931A',
-  'Blue Chip': '#2563EB',
-  'Small-Cap': '#16A34A'
-};
+const COLORS = [
+  '#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8',
+  '#82CA9D', '#FFC658', '#FF7C7C', '#8DD1E1', '#D084D0'
+];
 
-const PortfolioAllocationChart = ({ portfolioId }: PortfolioAllocationChartProps) => {
-  const { data: allocationData, isLoading } = useQuery({
-    queryKey: ['portfolio-allocation', portfolioId],
-    queryFn: async () => {
+const PortfolioAllocationChart = ({ portfolioId, title = "Portfolio Allocation" }: PortfolioAllocationChartProps) => {
+  const [data, setData] = useState<AllocationData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchAllocationData();
+  }, [portfolioId]);
+
+  const fetchAllocationData = async () => {
+    try {
+      setLoading(true);
+      
       const { data: assets, error } = await supabase
         .from('virtual_assets')
         .select(`
           *,
-          virtual_coins (symbol, name)
+          virtual_coins!inner(name, symbol)
         `)
         .eq('portfolio_id', portfolioId)
-        .gt('total_amount', 0.000000001);
+        .gt('total_amount', 0);
 
       if (error) throw error;
 
-      if (!assets || assets.length === 0) {
-        return [];
-      }
-
-      // Get live prices for accurate valuation
-      const symbols = assets.map(asset => asset.virtual_coins.symbol);
-      let liveCoinsData = [];
-      try {
-        liveCoinsData = await fetchCoinPrices(symbols);
-      } catch (error) {
-        console.warn('Could not fetch live prices for allocation chart:', error);
-      }
-
-      const getLivePrice = (symbol: string) => {
-        const coinData = liveCoinsData.find(coin => coin.symbol === symbol);
-        return coinData?.current_price || null;
-      };
-
-      // Calculate allocation by category
-      const categoryAllocations: { [key: string]: number } = {};
-      let totalValue = 0;
-
-      assets.forEach(asset => {
-        const currentPrice = getLivePrice(asset.virtual_coins.symbol) || asset.average_price;
-        const currentValue = asset.total_amount * currentPrice;
-        
-        categoryAllocations[asset.category] = (categoryAllocations[asset.category] || 0) + currentValue;
-        totalValue += currentValue;
+      // Calculate allocation data
+      const totalValue = assets.reduce((sum, asset) => sum + asset.cost_basis, 0);
+      
+      const allocationData: AllocationData[] = assets.map((asset, index) => {
+        const percentage = totalValue > 0 ? (asset.cost_basis / totalValue) * 100 : 0;
+        return {
+          name: asset.virtual_coins.symbol,
+          value: asset.cost_basis,
+          percentage,
+          color: COLORS[index % COLORS.length]
+        };
       });
 
-      // Convert to percentage data for chart
-      return Object.entries(categoryAllocations).map(([category, value]) => ({
-        name: category,
-        value: value,
-        percentage: totalValue > 0 ? (value / totalValue) * 100 : 0
-      }));
+      setData(allocationData);
+    } catch (error) {
+      console.error('Error fetching allocation data:', error);
+    } finally {
+      setLoading(false);
     }
-  });
+  };
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-white p-3 border rounded-lg shadow-lg">
+        <div className="bg-background border border-border rounded-lg p-3 shadow-lg">
           <p className="font-medium">{data.name}</p>
-          <p className="text-sm text-gray-600">
-            ${data.value.toFixed(2)} ({data.percentage.toFixed(1)}%)
+          <p className="text-sm text-muted-foreground">
+            Value: ${data.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Allocation: {data.percentage.toFixed(1)}%
           </p>
         </div>
       );
@@ -84,30 +82,48 @@ const PortfolioAllocationChart = ({ portfolioId }: PortfolioAllocationChartProps
     return null;
   };
 
-  if (isLoading) {
+  const CustomLegend = ({ payload }: any) => {
+    return (
+      <div className="flex flex-wrap justify-center gap-4 mt-4">
+        {payload.map((entry: any, index: number) => (
+          <div key={index} className="flex items-center gap-2">
+            <div 
+              className="w-3 h-3 rounded-full" 
+              style={{ backgroundColor: entry.color }}
+            />
+            <span className="text-sm text-muted-foreground">
+              {entry.value} ({data[index]?.percentage.toFixed(1)}%)
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  if (loading) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Portfolio Allocation</CardTitle>
+          <CardTitle>{title}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-64 flex items-center justify-center">
-            <div className="text-gray-500">Loading allocation data...</div>
+          <div className="flex items-center justify-center h-64 text-muted-foreground">
+            Loading allocation data...
           </div>
         </CardContent>
       </Card>
     );
   }
 
-  if (!allocationData || allocationData.length === 0) {
+  if (!data || data.length === 0) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Portfolio Allocation</CardTitle>
+          <CardTitle>{title}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-64 flex items-center justify-center">
-            <div className="text-gray-500">No allocation data available</div>
+          <div className="flex items-center justify-center h-64 text-muted-foreground">
+            No allocation data available
           </div>
         </CardContent>
       </Card>
@@ -117,38 +133,28 @@ const PortfolioAllocationChart = ({ portfolioId }: PortfolioAllocationChartProps
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Portfolio Allocation by Basket</CardTitle>
+        <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={allocationData}
-                cx="50%"
-                cy="50%"
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-                label={({ percentage }) => `${percentage.toFixed(1)}%`}
-              >
-                {allocationData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[entry.name as keyof typeof COLORS] || '#8884d8'} />
-                ))}
-              </Pie>
-              <Tooltip content={<CustomTooltip />} />
-              <Legend 
-                verticalAlign="bottom" 
-                height={36}
-                formatter={(value, entry) => (
-                  <span style={{ color: entry.color }}>
-                    {value}: ${allocationData.find(d => d.name === value)?.value.toFixed(2)}
-                  </span>
-                )}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+        <ResponsiveContainer width="100%" height={300}>
+          <PieChart>
+            <Pie
+              data={data}
+              cx="50%"
+              cy="50%"
+              innerRadius={60}
+              outerRadius={100}
+              paddingAngle={2}
+              dataKey="value"
+            >
+              {data.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={entry.color} />
+              ))}
+            </Pie>
+            <Tooltip content={<CustomTooltip />} />
+            <Legend content={<CustomLegend />} />
+          </PieChart>
+        </ResponsiveContainer>
       </CardContent>
     </Card>
   );

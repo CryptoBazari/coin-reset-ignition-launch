@@ -1,115 +1,103 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp, TrendingDown, DollarSign, Percent, Clock, Target } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { TrendingUp, TrendingDown, DollarSign, Percent, Target, Calendar } from 'lucide-react';
 
 interface PortfolioMetricsProps {
   totalValue: number;
   allTimeProfit: number;
   dayChange?: number;
   dayChangePercent?: number;
-  topPerformer?: {
-    name: string;
-    change: number;
-  };
-  worstPerformer?: {
-    name: string;
-    change: number;
-  };
+  totalInvested?: number;
+  monthlyReturn?: number;
+  yearlyReturn?: number;
 }
 
-const PortfolioMetrics = ({
+const PortfolioMetrics = ({ 
   totalValue,
   allTimeProfit,
   dayChange = 0,
   dayChangePercent = 0,
-  topPerformer,
-  worstPerformer
+  totalInvested = 0,
+  monthlyReturn = 0,
+  yearlyReturn = 0
 }: PortfolioMetricsProps) => {
-  const profitPercent = totalValue > 0 ? (allTimeProfit / (totalValue - allTimeProfit)) * 100 : 0;
+  const profitLossPercentage = totalInvested > 0 ? (allTimeProfit / totalInvested) * 100 : 0;
+  const isProfit = allTimeProfit >= 0;
+  const isDayProfit = dayChange >= 0;
 
   const metrics = [
     {
-      title: "Portfolio Value",
-      value: `$${totalValue.toFixed(2)}`,
+      title: "Current Value",
+      value: `$${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       icon: DollarSign,
-      color: "text-blue-600"
+      change: null,
+      color: "text-foreground"
     },
     {
-      title: "Total P&L",
-      value: `${allTimeProfit >= 0 ? '+' : ''}$${allTimeProfit.toFixed(2)}`,
-      subValue: `${profitPercent >= 0 ? '+' : ''}${profitPercent.toFixed(2)}%`,
-      icon: allTimeProfit >= 0 ? TrendingUp : TrendingDown,
-      color: allTimeProfit >= 0 ? "text-green-600" : "text-red-600"
+      title: "Total Invested",
+      value: `$${totalInvested.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      icon: Target,
+      change: null,
+      color: "text-muted-foreground"
     },
     {
-      title: "24h Change",
-      value: `${dayChange >= 0 ? '+' : ''}$${dayChange.toFixed(2)}`,
-      subValue: `${dayChangePercent >= 0 ? '+' : ''}${dayChangePercent.toFixed(2)}%`,
-      icon: dayChange >= 0 ? TrendingUp : TrendingDown,
-      color: dayChange >= 0 ? "text-green-600" : "text-red-600"
+      title: "All-Time P&L",
+      value: `${isProfit ? '+' : ''}$${allTimeProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      icon: isProfit ? TrendingUp : TrendingDown,
+      change: `${profitLossPercentage >= 0 ? '+' : ''}${profitLossPercentage.toFixed(2)}%`,
+      color: isProfit ? "text-green-600" : "text-red-600"
+    },
+    {
+      title: "Daily Change",
+      value: `${isDayProfit ? '+' : ''}$${dayChange.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      icon: isDayProfit ? TrendingUp : TrendingDown,
+      change: `${dayChangePercent >= 0 ? '+' : ''}${dayChangePercent.toFixed(2)}%`,
+      color: isDayProfit ? "text-green-600" : "text-red-600"
+    },
+    {
+      title: "Monthly Return",
+      value: `${monthlyReturn >= 0 ? '+' : ''}${monthlyReturn.toFixed(2)}%`,
+      icon: Percent,
+      change: null,
+      color: monthlyReturn >= 0 ? "text-green-600" : "text-red-600"
+    },
+    {
+      title: "Yearly Return",
+      value: `${yearlyReturn >= 0 ? '+' : ''}${yearlyReturn.toFixed(2)}%`,
+      icon: Calendar,
+      change: null,
+      color: yearlyReturn >= 0 ? "text-green-600" : "text-red-600"
     }
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-      {metrics.map((metric, index) => (
-        <Card key={index} className="relative overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              {metric.title}
-            </CardTitle>
-            <metric.icon className={`h-4 w-4 ${metric.color}`} />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${metric.color}`}>
-              {metric.value}
-            </div>
-            {metric.subValue && (
-              <p className={`text-xs ${metric.color} mt-1`}>
-                {metric.subValue}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      ))}
-
-      {/* Performance Cards */}
-      {topPerformer && (
-        <Card className="border-green-200 bg-green-50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-green-800">
-              Top Performer
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-lg font-bold text-green-700">
-              {topPerformer.name}
-            </div>
-            <p className="text-sm text-green-600">
-              +{topPerformer.change.toFixed(2)}%
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {worstPerformer && (
-        <Card className="border-red-200 bg-red-50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-red-800">
-              Worst Performer
-            </CardTitle>
-            <TrendingDown className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-lg font-bold text-red-700">
-              {worstPerformer.name}
-            </div>
-            <p className="text-sm text-red-600">
-              {worstPerformer.change.toFixed(2)}%
-            </p>
-          </CardContent>
-        </Card>
-      )}
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      {metrics.map((metric, index) => {
+        const Icon = metric.icon;
+        return (
+          <Card key={index} className="hover:shadow-md transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {metric.title}
+              </CardTitle>
+              <Icon className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className={`text-lg font-bold ${metric.color}`}>
+                {metric.value}
+              </div>
+              {metric.change && (
+                <Badge 
+                  variant="secondary" 
+                  className={`mt-1 text-xs ${metric.color}`}
+                >
+                  {metric.change}
+                </Badge>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 };
