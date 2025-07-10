@@ -7,6 +7,7 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { useToast } from '@/hooks/use-toast';
 import { Check, Star, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import PaymentModal from '@/components/payment/PaymentModal';
 
 interface SubscriptionModalProps {
   isOpen: boolean;
@@ -14,41 +15,21 @@ interface SubscriptionModalProps {
 }
 
 const SubscriptionModal = ({ isOpen, onClose }: SubscriptionModalProps) => {
-  const { subscriptionPlans, createSubscription, user } = useSubscription();
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { subscriptionPlans, user } = useSubscription();
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const handleSelectPlan = async (planId: string) => {
+  const handleSelectPlan = (plan: any) => {
     if (!user) {
       navigate('/auth');
       return;
     }
 
-    setLoading(true);
-    try {
-      await createSubscription(planId);
-      setSelectedPlan(planId);
-      
-      toast({
-        title: "Subscription Created",
-        description: "Please proceed with payment to activate your subscription.",
-      });
-      
-      // Here we would typically redirect to payment page
-      // For now, we'll close the modal
-      onClose();
-    } catch (error) {
-      console.error('Error selecting plan:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create subscription. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+    setSelectedPlan(plan);
+    setShowPaymentModal(true);
+    onClose(); // Close subscription modal when opening payment modal
   };
 
   const features = [
@@ -103,7 +84,7 @@ const SubscriptionModal = ({ isOpen, onClose }: SubscriptionModalProps) => {
                   className={`cursor-pointer transition-all hover:shadow-md ${
                     isYearly ? 'border-primary shadow-sm' : ''
                   }`}
-                  onClick={() => handleSelectPlan(plan.id)}
+                  onClick={() => handleSelectPlan(plan)}
                 >
                   <CardHeader>
                     <div className="flex justify-between items-start">
@@ -147,9 +128,8 @@ const SubscriptionModal = ({ isOpen, onClose }: SubscriptionModalProps) => {
                     <Button 
                       className="w-full mt-4" 
                       variant={isYearly ? "default" : "outline"}
-                      disabled={loading}
                     >
-                      {loading ? "Processing..." : "Select Plan"}
+                      Select Plan
                       {isYearly && <Zap className="h-4 w-4 ml-2" />}
                     </Button>
                   </CardContent>
@@ -162,6 +142,24 @@ const SubscriptionModal = ({ isOpen, onClose }: SubscriptionModalProps) => {
         <div className="mt-6 text-center text-sm text-muted-foreground">
           <p>Secure crypto payments • Cancel anytime • 7-day money-back guarantee</p>
         </div>
+
+        {/* Payment Modal */}
+        {selectedPlan && (
+          <PaymentModal
+            isOpen={showPaymentModal}
+            onClose={() => {
+              setShowPaymentModal(false);
+              setSelectedPlan(null);
+            }}
+            planId={selectedPlan.id}
+            planDetails={{
+              name: selectedPlan.name,
+              price_usdt: selectedPlan.price_usdt,
+              price_btc: selectedPlan.price_btc,
+              duration_months: selectedPlan.duration_months,
+            }}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -45,6 +45,11 @@ const AdminSidebar = () => {
       icon: CreditCard,
     },
     {
+      label: 'Payments',
+      href: '/admin/payments',
+      icon: CreditCard,
+    },
+    {
       label: 'Settings',
       href: '/admin/settings',
       icon: Settings,
