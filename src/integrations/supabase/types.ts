@@ -155,6 +155,50 @@ export type Database = {
         }
         Relationships: []
       }
+      course_chapters: {
+        Row: {
+          chapter_number: number
+          content: string
+          course_id: string
+          created_at: string
+          estimated_reading_time: number | null
+          id: string
+          is_published: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          chapter_number: number
+          content: string
+          course_id: string
+          created_at?: string
+          estimated_reading_time?: number | null
+          id?: string
+          is_published?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          chapter_number?: number
+          content?: string
+          course_id?: string
+          created_at?: string
+          estimated_reading_time?: number | null
+          id?: string
+          is_published?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_chapters_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "learning_courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crypto_listings: {
         Row: {
           circulating_supply: string | null
@@ -515,6 +559,54 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      user_course_progress: {
+        Row: {
+          chapter_id: string | null
+          completed_at: string | null
+          course_id: string
+          created_at: string
+          id: string
+          reading_progress: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          chapter_id?: string | null
+          completed_at?: string | null
+          course_id: string
+          created_at?: string
+          id?: string
+          reading_progress?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          chapter_id?: string | null
+          completed_at?: string | null
+          course_id?: string
+          created_at?: string
+          id?: string
+          reading_progress?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_course_progress_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "course_chapters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_course_progress_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "learning_courses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_portfolios: {
         Row: {
