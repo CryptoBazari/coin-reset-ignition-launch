@@ -8,6 +8,9 @@ import Landing from "./pages/Landing";
 import CryptoAnalysis from "./pages/CryptoAnalysis";
 import VirtualPortfolio from "./pages/VirtualPortfolio";
 import Auth from "./pages/Auth";
+import News from "./pages/News";
+import Learning from "./pages/Learning";
+import CryptoList from "./pages/CryptoList";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,6 +26,9 @@ const App = () => (
           <Route path="/analysis" element={<CryptoAnalysis />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/virtual-portfolio" element={<VirtualPortfolio />} />
+          <Route path="/news" element={<News />} />
+          <Route path="/learning" element={<Learning />} />
+          <Route path="/crypto-list" element={<CryptoList />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
