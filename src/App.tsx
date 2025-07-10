@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Landing from "./pages/Landing";
 import CryptoAnalysis from "./pages/CryptoAnalysis";
 import VirtualPortfolio from "./pages/VirtualPortfolio";
@@ -33,18 +34,18 @@ const App = () => (
           <Route path="/" element={<Landing />} />
           <Route path="/analysis" element={<CryptoAnalysis />} />
           <Route path="/auth" element={<Auth />} />
-          <Route path="/virtual-portfolio" element={<VirtualPortfolio />} />
+          <Route path="/virtual-portfolio" element={<ProtectedRoute><VirtualPortfolio /></ProtectedRoute>} />
           <Route path="/news" element={<News />} />
           <Route path="/learning" element={<Learning />} />
           <Route path="/crypto-list" element={<CryptoList />} />
-          <Route path="/admin-access" element={<AdminAccess />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/news" element={<NewsManagement />} />
-          <Route path="/admin/learning" element={<LearningManagement />} />
-          <Route path="/admin/crypto-listings" element={<CryptoListingsManagement />} />
-          <Route path="/admin/subscriptions" element={<SubscriptionManagement />} />
-          <Route path="/admin/payments" element={<PaymentManagement />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/admin-access" element={<ProtectedRoute><AdminAccess /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/news" element={<ProtectedRoute><NewsManagement /></ProtectedRoute>} />
+          <Route path="/admin/learning" element={<ProtectedRoute><LearningManagement /></ProtectedRoute>} />
+          <Route path="/admin/crypto-listings" element={<ProtectedRoute><CryptoListingsManagement /></ProtectedRoute>} />
+          <Route path="/admin/subscriptions" element={<ProtectedRoute><SubscriptionManagement /></ProtectedRoute>} />
+          <Route path="/admin/payments" element={<ProtectedRoute><PaymentManagement /></ProtectedRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

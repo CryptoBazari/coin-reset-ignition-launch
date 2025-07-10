@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/components/ui/use-toast';
 
 interface Portfolio {
@@ -26,10 +26,9 @@ interface AdminStats {
 }
 
 export const useDashboard = () => {
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const { hasActiveSubscription, verifyPendingPayments, loading: subscriptionLoading } = useSubscription();
   
-  const [user, setUser] = useState(null);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [recentAnalyses, setRecentAnalyses] = useState<Analysis[]>([]);
   const [adminStats, setAdminStats] = useState<AdminStats>({
@@ -45,18 +44,10 @@ export const useDashboard = () => {
   });
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate('/auth');
-        return;
-      }
-      setUser(session.user);
-      await fetchUserData(session.user.id);
-    };
-
-    checkAuth();
-  }, [navigate]);
+    if (user) {
+      fetchUserData(user.id);
+    }
+  }, [user]);
 
   const fetchUserData = async (userId: string) => {
     try {
