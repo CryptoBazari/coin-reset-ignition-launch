@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,22 +13,50 @@ import { User, LogIn, UserPlus, ArrowLeft, KeyRound } from 'lucide-react';
 const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [isPasswordReset, setIsPasswordReset] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
 
-  // Check if user is already logged in
+  // Check if user is already logged in and handle password reset
   useEffect(() => {
     const checkAuth = async () => {
+      // Check if this is a password reset URL
+      const accessToken = searchParams.get('access_token');
+      const refreshToken = searchParams.get('refresh_token');
+      const type = searchParams.get('type');
+      
+      if (accessToken && refreshToken && type === 'recovery') {
+        // This is a password reset link
+        setIsPasswordReset(true);
+        // Set the session for password update
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (error) {
+          console.error('Error setting session:', error);
+          toast({
+            title: "Invalid reset link",
+            description: "The password reset link is invalid or has expired.",
+            variant: "destructive",
+          });
+        }
+        return;
+      }
+      
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
+      if (session && !isPasswordReset) {
         navigate('/virtual-portfolio');
       }
     };
     checkAuth();
-  }, [navigate]);
+  }, [navigate, searchParams, isPasswordReset, toast]);
 
   const cleanupAuthState = () => {
     Object.keys(localStorage).forEach((key) => {
@@ -149,6 +177,58 @@ const Auth = () => {
     }
   };
 
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Passwords don't match",
+        description: "Please make sure both passwords are the same.",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Password updated successfully",
+        description: "Your password has been changed. Redirecting to your portfolio...",
+      });
+      
+      // Redirect to portfolio after successful password update
+      setTimeout(() => {
+        navigate('/virtual-portfolio');
+      }, 1500);
+    } catch (error: any) {
+      console.error('Password update error:', error);
+      toast({
+        title: "Password update failed",
+        description: error.message || "An error occurred while updating your password.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       {/* Back to Home Link */}
@@ -166,17 +246,51 @@ const Auth = () => {
             <User className="h-6 w-6 text-blue-600" />
           </div>
           <CardTitle className="text-2xl">
-            {showForgotPassword ? 'Reset Password' : 'Welcome to CryptoAnalyzer'}
+            {isPasswordReset ? 'Set New Password' : 
+             showForgotPassword ? 'Reset Password' : 'Welcome to CryptoAnalyzer'}
           </CardTitle>
           <CardDescription>
-            {showForgotPassword 
-              ? 'Enter your email to receive a password reset link'
-              : 'Sign in to your account or create a new one to get started'
+            {isPasswordReset ? 'Enter your new password below' :
+             showForgotPassword ? 'Enter your email to receive a password reset link' :
+             'Sign in to your account or create a new one to get started'
             }
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {showForgotPassword ? (
+          {isPasswordReset ? (
+            <div className="space-y-4">
+              <form onSubmit={handlePasswordUpdate} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new-password">New Password</Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    placeholder="Enter your new password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">Confirm Password</Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    placeholder="Confirm your new password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  <KeyRound className="h-4 w-4 mr-2" />
+                  {loading ? 'Updating password...' : 'Update Password'}
+                </Button>
+              </form>
+            </div>
+          ) : showForgotPassword ? (
             <div className="space-y-4">
               <form onSubmit={handleForgotPassword} className="space-y-4">
                 <div className="space-y-2">
