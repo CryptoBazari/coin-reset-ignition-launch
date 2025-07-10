@@ -3,9 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Clock, User, BookOpen, TrendingUp, Newspaper } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Clock, User, BookOpen, TrendingUp, Newspaper, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
+import { useAuth } from '@/hooks/useAuth';
 
 interface LearningCourse {
   id: string;
@@ -20,13 +22,28 @@ interface LearningCourse {
   created_at: string;
 }
 
+interface CourseProgress {
+  course_id: string;
+  total_chapters: number;
+  completed_chapters: number;
+  overall_progress: number;
+}
+
 const Learning = () => {
   const [courses, setCourses] = useState<LearningCourse[]>([]);
+  const [courseProgress, setCourseProgress] = useState<CourseProgress[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   useEffect(() => {
     fetchCourses();
   }, []);
+
+  useEffect(() => {
+    if (user && courses.length > 0) {
+      fetchProgress();
+    }
+  }, [user, courses]);
 
   const fetchCourses = async () => {
     try {
@@ -43,6 +60,53 @@ const Learning = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchProgress = async () => {
+    if (!user) return;
+
+    try {
+      const progressPromises = courses.map(async (course) => {
+        // Get total published chapters for this course
+        const { data: chapters, error: chaptersError } = await supabase
+          .from('course_chapters')
+          .select('id')
+          .eq('course_id', course.id)
+          .eq('is_published', true);
+
+        if (chaptersError) throw chaptersError;
+
+        // Get completed chapters for this user
+        const { data: progress, error: progressError } = await supabase
+          .from('user_course_progress')
+          .select('chapter_id, completed_at')
+          .eq('course_id', course.id)
+          .eq('user_id', user.id)
+          .not('completed_at', 'is', null);
+
+        if (progressError) throw progressError;
+
+        const totalChapters = chapters?.length || 0;
+        const completedChapters = progress?.length || 0;
+        const overallProgress = totalChapters > 0 ? Math.round((completedChapters / totalChapters) * 100) : 0;
+
+        return {
+          course_id: course.id,
+          total_chapters: totalChapters,
+          completed_chapters: completedChapters,
+          overall_progress: overallProgress,
+        };
+      });
+
+      const progressData = await Promise.all(progressPromises);
+      setCourseProgress(progressData);
+    } catch (error) {
+      console.error('Error fetching course progress:', error);
+    }
+  };
+
+  const getCourseProgress = (courseId: string) => {
+    return courseProgress.find(p => p.course_id === courseId);
   };
 
   const formatDuration = (minutes: number | null) => {
@@ -145,7 +209,7 @@ const Learning = () => {
                       </CardDescription>
                     )}
                   </CardHeader>
-                  <CardContent>
+                   <CardContent>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
                       <div className="flex items-center gap-1">
                         <User className="h-4 w-4" />
@@ -156,6 +220,30 @@ const Learning = () => {
                         {formatDuration(course.estimated_duration)}
                       </div>
                     </div>
+                    
+                    {user && (() => {
+                      const progress = getCourseProgress(course.id);
+                      if (progress && progress.total_chapters > 0) {
+                        return (
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="text-muted-foreground">Progress</span>
+                              <span className="text-muted-foreground">
+                                {progress.completed_chapters}/{progress.total_chapters} chapters
+                              </span>
+                            </div>
+                            <Progress value={progress.overall_progress} className="h-2" />
+                            {progress.overall_progress === 100 && (
+                              <div className="flex items-center gap-1 text-xs text-green-600">
+                                <CheckCircle className="h-3 w-3" />
+                                Completed
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </CardContent>
                 </Card>
               </Link>

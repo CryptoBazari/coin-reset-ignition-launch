@@ -4,9 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Clock, User, Share, BookOpen } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ArrowLeft, Clock, User, Share, BookOpen, PlayCircle } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import ChapterReader from '@/components/learning/ChapterReader';
+import CourseProgress from '@/components/learning/CourseProgress';
 
 interface LearningCourse {
   id: string;
@@ -25,8 +29,10 @@ const LearningDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [course, setCourse] = useState<LearningCourse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [progressKey, setProgressKey] = useState(0);
 
   useEffect(() => {
     if (id) {
@@ -223,20 +229,107 @@ const LearningDetail = () => {
             </div>
           )}
 
-          {/* Course Content */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Course Content</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="prose prose-lg max-w-none dark:prose-invert">
-                <div 
-                  dangerouslySetInnerHTML={{ __html: course.content }}
-                  className="text-foreground leading-relaxed"
+          {/* Main Content */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            <div className="lg:col-span-3">
+              <Tabs defaultValue="chapters" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="chapters" className="flex items-center gap-2">
+                    <PlayCircle className="h-4 w-4" />
+                    Learn
+                  </TabsTrigger>
+                  <TabsTrigger value="overview" className="flex items-center gap-2">
+                    <BookOpen className="h-4 w-4" />
+                    Overview
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="chapters" className="space-y-4">
+                  <ChapterReader 
+                    courseId={course.id} 
+                    onProgressUpdate={() => setProgressKey(prev => prev + 1)}
+                  />
+                </TabsContent>
+                
+                <TabsContent value="overview" className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Course Overview</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="prose prose-lg max-w-none dark:prose-invert">
+                        <div 
+                          dangerouslySetInnerHTML={{ __html: course.content }}
+                          className="text-foreground leading-relaxed"
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            </div>
+
+            {/* Sidebar */}
+            <div className="space-y-6">
+              {user && (
+                <CourseProgress 
+                  courseId={course.id} 
+                  key={progressKey}
                 />
-              </div>
-            </CardContent>
-          </Card>
+              )}
+              
+              {!user && (
+                <Card>
+                  <CardContent className="p-6 text-center">
+                    <BookOpen className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+                    <h4 className="font-medium mb-2">Track Your Progress</h4>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Sign in to track your reading progress and earn completion certificates.
+                    </p>
+                    <Button onClick={() => navigate('/auth')} className="w-full">
+                      Sign In
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Course Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Instructor</h4>
+                    <p className="text-sm">{course.author}</p>
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Duration</h4>
+                    <p className="text-sm">{formatDuration(course.estimated_duration)}</p>
+                  </div>
+                  
+                  {course.difficulty_level && (
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-1">Difficulty</h4>
+                      <Badge 
+                        variant="secondary" 
+                        className={getDifficultyColor(course.difficulty_level)}
+                      >
+                        {course.difficulty_level}
+                      </Badge>
+                    </div>
+                  )}
+
+                  <div className="pt-4 border-t">
+                    <Button variant="outline" onClick={handleShare} className="w-full">
+                      <Share className="h-4 w-4 mr-2" />
+                      Share Course
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
 
           {/* Footer */}
           <div className="mt-12 pt-8 border-t border-border">

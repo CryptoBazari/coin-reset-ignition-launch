@@ -7,11 +7,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Trash2, Clock } from 'lucide-react';
+import { Plus, Edit, Trash2, Clock, BookOpen } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import RichTextEditor from '@/components/admin/RichTextEditor';
 import ImageUpload from '@/components/admin/ImageUpload';
+import ChapterManagement from '@/components/learning/ChapterManagement';
 import { format } from 'date-fns';
 
 interface LearningCourse {
@@ -329,7 +331,7 @@ const LearningManagement = () => {
           </Card>
         )}
 
-        <div className="grid gap-4">
+        <div className="grid gap-6">
           {courses.map((course) => (
             <Card key={course.id}>
               <CardHeader>
@@ -377,11 +379,43 @@ const LearningManagement = () => {
                   </div>
                 </div>
               </CardHeader>
-              {course.description && (
-                <CardContent>
-                  <p className="text-muted-foreground">{course.description}</p>
-                </CardContent>
-              )}
+              <CardContent>
+                <Tabs defaultValue="details" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="details" className="flex items-center gap-2">
+                      <BookOpen className="h-4 w-4" />
+                      Course Details
+                    </TabsTrigger>
+                    <TabsTrigger value="chapters" className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Chapters
+                    </TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="details" className="space-y-4">
+                    {course.description && (
+                      <div>
+                        <h4 className="text-sm font-medium mb-2">Description</h4>
+                        <p className="text-muted-foreground">{course.description}</p>
+                      </div>
+                    )}
+                    <div>
+                      <h4 className="text-sm font-medium mb-2">Course Overview</h4>
+                      <div 
+                        className="prose prose-sm max-w-none text-muted-foreground"
+                        dangerouslySetInnerHTML={{ __html: course.content.slice(0, 300) + '...' }}
+                      />
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="chapters" className="space-y-4">
+                    <ChapterManagement 
+                      courseId={course.id} 
+                      onChaptersUpdate={fetchCourses}
+                    />
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
             </Card>
           ))}
         </div>
