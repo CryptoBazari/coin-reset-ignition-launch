@@ -1,16 +1,21 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Navbar from '@/components/Navbar';
 import { InvestmentForm } from '@/components/InvestmentForm';
 import { AnalysisResults } from '@/components/AnalysisResults';
 import SubscriptionButton from '@/components/subscription/SubscriptionButton';
+import MarketOverview from '@/components/analysis/MarketOverview';
+import AssetLiveData from '@/components/analysis/AssetLiveData';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useInvestmentAnalysis } from '@/hooks/useInvestmentAnalysis';
-import { Lock } from 'lucide-react';
+import { Lock, BarChart3, Globe, TrendingUp, Calculator } from 'lucide-react';
 import type { InvestmentInputs, AnalysisResult } from '@/types/investment';
+import type { CoinData } from '@/services/realTimeMarketService';
 
 const CryptoAnalysis = () => {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [selectedCoin, setSelectedCoin] = useState<CoinData | null>(null);
   const { hasActiveSubscription, user } = useSubscription();
   const { analyzeInvestment, loading, error } = useInvestmentAnalysis();
 
@@ -19,6 +24,11 @@ const CryptoAnalysis = () => {
     if (result) {
       setAnalysisResult(result);
     }
+  };
+
+  const handleCoinSelect = (coinData: CoinData) => {
+    setSelectedCoin(coinData);
+    // Could auto-populate the investment form with selected coin data
   };
 
   return (
@@ -67,10 +77,55 @@ const CryptoAnalysis = () => {
               </CardContent>
             </Card>
           ) : (
-            <>
-              <InvestmentForm onSubmit={handleAnalysis} loading={loading} />
-              {analysisResult && <AnalysisResults result={analysisResult} />}
-            </>
+            <Tabs defaultValue="overview" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="overview" className="gap-2">
+                  <Globe className="h-4 w-4" />
+                  Market Overview
+                </TabsTrigger>
+                <TabsTrigger value="live-data" className="gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Live Data
+                </TabsTrigger>
+                <TabsTrigger value="analysis" className="gap-2">
+                  <Calculator className="h-4 w-4" />
+                  Investment Analysis
+                </TabsTrigger>
+                <TabsTrigger value="insights" className="gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  AI Insights
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="overview">
+                <MarketOverview />
+              </TabsContent>
+
+              <TabsContent value="live-data">
+                <AssetLiveData onCoinSelect={handleCoinSelect} />
+              </TabsContent>
+
+              <TabsContent value="analysis" className="space-y-6">
+                <InvestmentForm onSubmit={handleAnalysis} loading={loading} />
+                {analysisResult && <AnalysisResults result={analysisResult} />}
+              </TabsContent>
+
+              <TabsContent value="insights">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>AI-Powered Market Insights</CardTitle>
+                    <CardDescription>
+                      Advanced AI analysis and predictions coming soon
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-center py-8 text-muted-foreground">
+                      AI insights feature will be available soon
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           )}
         </div>
       </div>
