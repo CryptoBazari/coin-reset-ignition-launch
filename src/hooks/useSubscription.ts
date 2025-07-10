@@ -155,7 +155,7 @@ export const useSubscription = () => {
     if (!user) return null;
 
     try {
-      const { data, error } = await supabase.functions.invoke('verify-crypto-payment', {
+      const { data, error } = await supabase.functions.invoke('verify-crypto-payment-enhanced', {
         headers: {
           Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
         },

@@ -1,1 +1,39 @@
 project_id = "cljbwjglmvdpusmfyslh"
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://cljbwjglmvdpusmfyslh.supabase.co"]
+jwt_expiry = 3600
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+[auth.sms]
+enable_signup = false
+
+[functions.fetch-alpha-vantage-data]
+verify_jwt = false
+
+[functions.fetch-blockchain-data]
+verify_jwt = false
+
+[functions.fetch-etherscan-data]
+verify_jwt = false
+
+[functions.fetch-fred-data]
+verify_jwt = false
+
+[functions.fetch-market-data]
+verify_jwt = false
+
+[functions.monitor-crypto-payments]
+verify_jwt = false
+
+[functions.verify-crypto-payment]
+verify_jwt = false
+
+[functions.verify-crypto-payment-enhanced]
+verify_jwt = false

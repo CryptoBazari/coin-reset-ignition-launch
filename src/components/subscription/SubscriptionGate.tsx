@@ -36,7 +36,7 @@ const SubscriptionGate = ({
 
   if (!hasActiveSubscription) {
     if (showModal) {
-      return <SubscriptionModal isOpen={true} onClose={onClose || (() => {})} />;
+      return <SubscriptionModal isOpen={true} onClose={onClose || (() => {})} onPlanSelect={() => {}} />;
     }
     
     return fallback || (

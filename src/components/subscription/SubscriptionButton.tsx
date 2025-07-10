@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useSubscription } from '@/hooks/useSubscription';
-import SubscriptionModal from '@/components/subscription/SubscriptionModal';
+import SubscriptionManager from '@/components/subscription/SubscriptionManager';
 import { Lock } from 'lucide-react';
 
 interface SubscriptionButtonProps {
@@ -40,7 +40,7 @@ const SubscriptionButton = ({
         {user ? `Upgrade to access ${feature}` : `Sign in to access ${feature}`}
       </Button>
       
-      <SubscriptionModal 
+      <SubscriptionManager 
         isOpen={showModal} 
         onClose={() => setShowModal(false)} 
       />

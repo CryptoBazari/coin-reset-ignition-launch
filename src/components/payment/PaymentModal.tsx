@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onBack: () => void;
   planId: string;
   planDetails: {
     name: string;
@@ -20,6 +21,7 @@ interface PaymentModalProps {
     price_btc: number | null;
     duration_months: number;
   };
+  onPaymentSubmit: (paymentId: string) => void;
 }
 
 interface PaymentAddress {
@@ -29,7 +31,7 @@ interface PaymentAddress {
   address: string;
 }
 
-const PaymentModal = ({ isOpen, onClose, planId, planDetails }: PaymentModalProps) => {
+const PaymentModal = ({ isOpen, onClose, onBack, planId, planDetails, onPaymentSubmit }: PaymentModalProps) => {
   const [currentStep, setCurrentStep] = useState<'select' | 'pay' | 'verify'>('select');
   const [selectedPayment, setSelectedPayment] = useState<PaymentAddress | null>(null);
   const [transactionHash, setTransactionHash] = useState('');
@@ -84,7 +86,7 @@ const PaymentModal = ({ isOpen, onClose, planId, planDetails }: PaymentModalProp
     setVerifying(true);
     try {
       // Create payment record
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('crypto_payments')
         .insert([{
           user_id: user!.id,
@@ -92,15 +94,19 @@ const PaymentModal = ({ isOpen, onClose, planId, planDetails }: PaymentModalProp
           transaction_hash: transactionHash,
           amount: selectedPayment.token === 'btc' ? planDetails.price_btc : planDetails.price_usdt,
           status: 'pending'
-        }]);
+        }])
+        .select()
+        .single();
 
       if (error) throw error;
 
-      setCurrentStep('verify');
       toast({
         title: "Transaction Submitted",
-        description: "Your payment is being verified. This may take a few minutes.",
+        description: "Redirecting to payment status...",
       });
+
+      // Pass the payment ID to the parent to show status modal
+      onPaymentSubmit(data.id);
     } catch (error) {
       console.error('Error submitting transaction:', error);
       toast({
@@ -205,7 +211,11 @@ const PaymentModal = ({ isOpen, onClose, planId, planDetails }: PaymentModalProp
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" onClick={() => setCurrentStep('select')}>
                 <ArrowLeft className="h-4 w-4" />
-                Back
+                Back to Payment Options
+              </Button>
+              <Button variant="ghost" size="sm" onClick={onBack}>
+                <ArrowLeft className="h-4 w-4" />
+                Back to Plans
               </Button>
             </div>
 
@@ -271,26 +281,6 @@ const PaymentModal = ({ isOpen, onClose, planId, planDetails }: PaymentModalProp
           </div>
         )}
 
-        {currentStep === 'verify' && (
-          <div className="text-center space-y-4">
-            <CheckCircle className="h-16 w-16 text-green-600 mx-auto" />
-            <div>
-              <h3 className="text-lg font-semibold">Payment Submitted</h3>
-              <p className="text-muted-foreground mt-2">
-                Your payment is being verified on the blockchain. This typically takes 5-15 minutes.
-                You'll receive email confirmation once your subscription is activated.
-              </p>
-            </div>
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <p className="text-sm text-blue-800">
-                Transaction Hash: <code className="break-all">{transactionHash}</code>
-              </p>
-            </div>
-            <Button onClick={handleClose}>
-              Close
-            </Button>
-          </div>
-        )}
       </DialogContent>
     </Dialog>
   );

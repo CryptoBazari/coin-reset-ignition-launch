@@ -1,24 +1,19 @@
-import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useSubscription } from '@/hooks/useSubscription';
-import { useToast } from '@/hooks/use-toast';
 import { Check, Star, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import PaymentModal from '@/components/payment/PaymentModal';
 
 interface SubscriptionModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onPlanSelect: (plan: any) => void;
 }
 
-const SubscriptionModal = ({ isOpen, onClose }: SubscriptionModalProps) => {
+const SubscriptionModal = ({ isOpen, onClose, onPlanSelect }: SubscriptionModalProps) => {
   const { subscriptionPlans, user } = useSubscription();
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<any>(null);
-  const { toast } = useToast();
   const navigate = useNavigate();
 
   const handleSelectPlan = (plan: any) => {
@@ -27,9 +22,7 @@ const SubscriptionModal = ({ isOpen, onClose }: SubscriptionModalProps) => {
       return;
     }
 
-    setSelectedPlan(plan);
-    setShowPaymentModal(true);
-    onClose(); // Close subscription modal when opening payment modal
+    onPlanSelect(plan);
   };
 
   const features = [
@@ -142,24 +135,6 @@ const SubscriptionModal = ({ isOpen, onClose }: SubscriptionModalProps) => {
         <div className="mt-6 text-center text-sm text-muted-foreground">
           <p>Secure crypto payments • Cancel anytime • 7-day money-back guarantee</p>
         </div>
-
-        {/* Payment Modal */}
-        {selectedPlan && (
-          <PaymentModal
-            isOpen={showPaymentModal}
-            onClose={() => {
-              setShowPaymentModal(false);
-              setSelectedPlan(null);
-            }}
-            planId={selectedPlan.id}
-            planDetails={{
-              name: selectedPlan.name,
-              price_usdt: selectedPlan.price_usdt,
-              price_btc: selectedPlan.price_btc,
-              duration_months: selectedPlan.duration_months,
-            }}
-          />
-        )}
       </DialogContent>
     </Dialog>
   );
