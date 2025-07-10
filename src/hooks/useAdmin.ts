@@ -69,9 +69,12 @@ export const useAdmin = () => {
       }
 
       if (data) {
+        console.log('Admin data found:', data);
         setAdminData(data);
         setIsAdmin(true);
+        console.log('Set isAdmin to true');
       } else {
+        console.log('No admin data found for user:', user.email);
         setAdminData(null);
         setIsAdmin(false);
       }
@@ -84,6 +87,8 @@ export const useAdmin = () => {
 
   const hasPermission = (permission: string): boolean => {
     if (!adminData) return false;
+    // Handle null permissions array
+    if (!adminData.permissions) return false;
     return adminData.permissions.includes(permission) || adminData.permissions.includes('*');
   };
 
