@@ -95,49 +95,51 @@ const News = () => {
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {articles.map((article) => (
-              <Card key={article.id} className="hover:shadow-lg transition-shadow">
-                {article.cover_image_url && (
-                  <div className="aspect-video overflow-hidden rounded-t-lg">
-                    <img
-                      src={article.cover_image_url}
-                      alt={article.title}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                )}
-                <CardHeader>
-                  <CardTitle className="line-clamp-2">{article.title}</CardTitle>
-                  {article.excerpt && (
-                    <CardDescription className="line-clamp-3">
-                      {article.excerpt}
-                    </CardDescription>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-                    <div className="flex items-center gap-1">
-                      <User className="h-4 w-4" />
-                      {article.author}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
-                      {article.published_at 
-                        ? format(new Date(article.published_at), 'MMM dd, yyyy')
-                        : format(new Date(article.created_at), 'MMM dd, yyyy')
-                      }
-                    </div>
-                  </div>
-                  {article.tags && article.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {article.tags.map((tag, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
+              <Link key={article.id} to={`/news/${article.id}`}>
+                <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
+                  {article.cover_image_url && (
+                    <div className="aspect-video overflow-hidden rounded-t-lg">
+                      <img
+                        src={article.cover_image_url}
+                        alt={article.title}
+                        className="w-full h-full object-cover"
+                      />
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                  <CardHeader>
+                    <CardTitle className="line-clamp-2">{article.title}</CardTitle>
+                    {article.excerpt && (
+                      <CardDescription className="line-clamp-3">
+                        {article.excerpt}
+                      </CardDescription>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
+                      <div className="flex items-center gap-1">
+                        <User className="h-4 w-4" />
+                        {article.author}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4" />
+                        {article.published_at 
+                          ? format(new Date(article.published_at), 'MMM dd, yyyy')
+                          : format(new Date(article.created_at), 'MMM dd, yyyy')
+                        }
+                      </div>
+                    </div>
+                    {article.tags && article.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {article.tags.map((tag, index) => (
+                          <Badge key={index} variant="secondary" className="text-xs">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </Link>
             ))}
           </div>
         )}

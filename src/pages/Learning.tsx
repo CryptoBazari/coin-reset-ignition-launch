@@ -116,47 +116,49 @@ const Learning = () => {
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {courses.map((course) => (
-              <Card key={course.id} className="hover:shadow-lg transition-shadow">
-                {course.cover_image_url && (
-                  <div className="aspect-video overflow-hidden rounded-t-lg">
-                    <img
-                      src={course.cover_image_url}
-                      alt={course.title}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                )}
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="line-clamp-2 flex-1">{course.title}</CardTitle>
-                    {course.difficulty_level && (
-                      <Badge 
-                        variant="secondary" 
-                        className={`${getDifficultyColor(course.difficulty_level)} text-xs whitespace-nowrap`}
-                      >
-                        {course.difficulty_level}
-                      </Badge>
-                    )}
-                  </div>
-                  {course.description && (
-                    <CardDescription className="line-clamp-3">
-                      {course.description}
-                    </CardDescription>
+              <Link key={course.id} to={`/learning/${course.id}`}>
+                <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
+                  {course.cover_image_url && (
+                    <div className="aspect-video overflow-hidden rounded-t-lg">
+                      <img
+                        src={course.cover_image_url}
+                        alt={course.title}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
                   )}
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-                    <div className="flex items-center gap-1">
-                      <User className="h-4 w-4" />
-                      {course.author}
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="line-clamp-2 flex-1">{course.title}</CardTitle>
+                      {course.difficulty_level && (
+                        <Badge 
+                          variant="secondary" 
+                          className={`${getDifficultyColor(course.difficulty_level)} text-xs whitespace-nowrap`}
+                        >
+                          {course.difficulty_level}
+                        </Badge>
+                      )}
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      {formatDuration(course.estimated_duration)}
+                    {course.description && (
+                      <CardDescription className="line-clamp-3">
+                        {course.description}
+                      </CardDescription>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
+                      <div className="flex items-center gap-1">
+                        <User className="h-4 w-4" />
+                        {course.author}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-4 w-4" />
+                        {formatDuration(course.estimated_duration)}
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </Link>
             ))}
           </div>
         )}

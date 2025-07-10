@@ -122,96 +122,98 @@ const CryptoList = () => {
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {listings.map((listing) => (
-              <Card key={listing.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex items-start gap-3">
-                    {listing.logo_url && (
-                      <img
-                        src={listing.logo_url}
-                        alt={`${listing.name} logo`}
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                    )}
-                    <div className="flex-1">
-                      <CardTitle className="flex items-center gap-2">
-                        {listing.name}
-                        <Badge variant="secondary" className="text-xs">
-                          {listing.symbol}
-                        </Badge>
-                      </CardTitle>
-                      {listing.description && (
-                        <CardDescription className="mt-2 line-clamp-3">
-                          {listing.description}
-                        </CardDescription>
+              <Link key={listing.id} to={`/crypto-list/${listing.id}`}>
+                <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
+                  <CardHeader>
+                    <div className="flex items-start gap-3">
+                      {listing.logo_url && (
+                        <img
+                          src={listing.logo_url}
+                          alt={`${listing.name} logo`}
+                          className="w-12 h-12 rounded-full object-cover"
+                        />
+                      )}
+                      <div className="flex-1">
+                        <CardTitle className="flex items-center gap-2">
+                          {listing.name}
+                          <Badge variant="secondary" className="text-xs">
+                            {listing.symbol}
+                          </Badge>
+                        </CardTitle>
+                        {listing.description && (
+                          <CardDescription className="mt-2 line-clamp-3">
+                            {listing.description}
+                          </CardDescription>
+                        )}
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Token Details */}
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      {listing.ico_price && (
+                        <div>
+                          <span className="text-muted-foreground">ICO Price:</span>
+                          <div className="font-medium">{listing.ico_price}</div>
+                        </div>
+                      )}
+                      {listing.circulating_supply && (
+                        <div>
+                          <span className="text-muted-foreground">Circulating:</span>
+                          <div className="font-medium">{listing.circulating_supply}</div>
+                        </div>
+                      )}
+                      {listing.total_supply && (
+                        <div>
+                          <span className="text-muted-foreground">Total Supply:</span>
+                          <div className="font-medium">{listing.total_supply}</div>
+                        </div>
+                      )}
+                      {listing.listing_date && (
+                        <div>
+                          <span className="text-muted-foreground">Listing Date:</span>
+                          <div className="font-medium">
+                            {format(new Date(listing.listing_date), 'MMM dd, yyyy')}
+                          </div>
+                        </div>
                       )}
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Token Details */}
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    {listing.ico_price && (
-                      <div>
-                        <span className="text-muted-foreground">ICO Price:</span>
-                        <div className="font-medium">{listing.ico_price}</div>
-                      </div>
-                    )}
-                    {listing.circulating_supply && (
-                      <div>
-                        <span className="text-muted-foreground">Circulating:</span>
-                        <div className="font-medium">{listing.circulating_supply}</div>
-                      </div>
-                    )}
-                    {listing.total_supply && (
-                      <div>
-                        <span className="text-muted-foreground">Total Supply:</span>
-                        <div className="font-medium">{listing.total_supply}</div>
-                      </div>
-                    )}
-                    {listing.listing_date && (
-                      <div>
-                        <span className="text-muted-foreground">Listing Date:</span>
-                        <div className="font-medium">
-                          {format(new Date(listing.listing_date), 'MMM dd, yyyy')}
-                        </div>
-                      </div>
-                    )}
-                  </div>
 
-                  {listing.listing_exchange && (
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">
-                        Listing on <span className="font-medium">{listing.listing_exchange}</span>
-                      </span>
+                    {listing.listing_exchange && (
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">
+                          Listing on <span className="font-medium">{listing.listing_exchange}</span>
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Social Links */}
+                    <div className="flex flex-wrap gap-2">
+                      <SocialLink 
+                        url={listing.website_url} 
+                        icon={Globe} 
+                        label="Website" 
+                      />
+                      <SocialLink 
+                        url={listing.twitter_url} 
+                        icon={Twitter} 
+                        label="Twitter" 
+                      />
+                      <SocialLink 
+                        url={listing.telegram_url} 
+                        icon={MessageCircle} 
+                        label="Telegram" 
+                      />
+                      <SocialLink 
+                        url={listing.discord_url} 
+                        icon={Users} 
+                        label="Discord" 
+                      />
                     </div>
-                  )}
-
-                  {/* Social Links */}
-                  <div className="flex flex-wrap gap-2">
-                    <SocialLink 
-                      url={listing.website_url} 
-                      icon={Globe} 
-                      label="Website" 
-                    />
-                    <SocialLink 
-                      url={listing.twitter_url} 
-                      icon={Twitter} 
-                      label="Twitter" 
-                    />
-                    <SocialLink 
-                      url={listing.telegram_url} 
-                      icon={MessageCircle} 
-                      label="Telegram" 
-                    />
-                    <SocialLink 
-                      url={listing.discord_url} 
-                      icon={Users} 
-                      label="Discord" 
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </Link>
             ))}
           </div>
         )}

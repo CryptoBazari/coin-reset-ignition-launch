@@ -10,8 +10,11 @@ import CryptoAnalysis from "./pages/CryptoAnalysis";
 import VirtualPortfolio from "./pages/VirtualPortfolio";
 import Auth from "./pages/Auth";
 import News from "./pages/News";
+import NewsDetail from "./pages/NewsDetail";
 import Learning from "./pages/Learning";
+import LearningDetail from "./pages/LearningDetail";
 import CryptoList from "./pages/CryptoList";
+import CryptoListDetail from "./pages/CryptoListDetail";
 import AdminAccess from "./pages/AdminAccess";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import NewsManagement from "./pages/admin/NewsManagement";
@@ -36,8 +39,11 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/virtual-portfolio" element={<ProtectedRoute><VirtualPortfolio /></ProtectedRoute>} />
           <Route path="/news" element={<News />} />
+          <Route path="/news/:id" element={<NewsDetail />} />
           <Route path="/learning" element={<Learning />} />
+          <Route path="/learning/:id" element={<LearningDetail />} />
           <Route path="/crypto-list" element={<CryptoList />} />
+          <Route path="/crypto-list/:id" element={<CryptoListDetail />} />
           <Route path="/admin-access" element={<ProtectedRoute><AdminAccess /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/news" element={<ProtectedRoute><NewsManagement /></ProtectedRoute>} />
