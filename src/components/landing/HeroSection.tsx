@@ -48,7 +48,7 @@ export const HeroSection = () => {
             </Button>
           </Link>
           <Link to="/analysis">
-            <Button variant="outline" size="lg" className="text-lg px-10 py-4 hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl border-white/50 text-white hover:bg-white/20 backdrop-blur-sm">
+            <Button variant="outline" size="lg" className="text-lg px-10 py-4 hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl border-white/80 text-white bg-white/10 hover:bg-white/20 backdrop-blur-sm">
               Try Demo <ArrowRight className="h-5 w-5 ml-2" />
             </Button>
           </Link>
