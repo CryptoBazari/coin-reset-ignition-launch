@@ -11,11 +11,11 @@ export const HeroSection = () => {
       
       {/* Additional animated background elements */}
       <div className="absolute inset-0">
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl animate-pulse transform-gpu" 
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl animate-pulse transform-gpu" 
              style={{ transform: 'translateZ(50px)' }} />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl animate-pulse transform-gpu" 
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-600/15 rounded-full blur-3xl animate-pulse transform-gpu" 
              style={{ animationDelay: '1s', transform: 'translateZ(30px)' }} />
-        <div className="absolute top-3/4 left-3/4 w-48 h-48 bg-yellow-500/20 rounded-full blur-3xl animate-pulse transform-gpu" 
+        <div className="absolute top-3/4 left-3/4 w-48 h-48 bg-blue-400/25 rounded-full blur-3xl animate-pulse transform-gpu" 
              style={{ animationDelay: '2s', transform: 'translateZ(70px)' }} />
       </div>
       
@@ -60,10 +60,10 @@ export const HeroSection = () => {
         
         {/* 3D Floating animated elements */}
         <div className="absolute top-1/2 left-8 animate-bounce delay-1000 hidden lg:block transform-gpu" style={{ transform: 'translateZ(40px)' }}>
-          <TrendingUp className="h-8 w-8 text-yellow-400/60" />
+          <TrendingUp className="h-8 w-8 text-blue-400/60" />
         </div>
         <div className="absolute top-1/3 right-8 animate-bounce delay-1500 hidden lg:block transform-gpu" style={{ transform: 'translateZ(30px)' }}>
-          <Star className="h-6 w-6 text-orange-400/60 animate-spin" style={{ animationDuration: '4s' }} />
+          <Star className="h-6 w-6 text-blue-300/60 animate-spin" style={{ animationDuration: '4s' }} />
         </div>
       </div>
     </section>
