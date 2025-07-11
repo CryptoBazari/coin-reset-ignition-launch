@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
-export const useAuthRedirect = () => {
+export const useAuthRedirect = (allowLandingPage = false) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [showContinue, setShowContinue] = useState(false);
@@ -17,20 +17,21 @@ export const useAuthRedirect = () => {
       setLoading(false);
     }, 5000); // 5 second timeout
 
-    // Check if user is already authenticated and redirect to dashboard
+    // Check if user is already authenticated
     const checkAuth = async () => {
       try {
         console.log('Landing: Checking auth status...');
         const { data: { session } } = await supabase.auth.getSession();
         console.log('Landing: Session found:', !!session?.user);
         
-        if (session?.user) {
+        // Only auto-redirect if we're not explicitly allowing the landing page
+        if (session?.user && !allowLandingPage) {
           console.log('Landing: User authenticated, redirecting to dashboard...');
           clearTimeout(authTimeout);
           navigate('/dashboard', { replace: true });
           return;
         }
-        console.log('Landing: No user found, showing landing page');
+        console.log('Landing: Showing landing page');
         clearTimeout(authTimeout);
         setLoading(false);
       } catch (error) {
@@ -45,7 +46,7 @@ export const useAuthRedirect = () => {
     return () => {
       clearTimeout(authTimeout);
     };
-  }, [navigate]);
+  }, [navigate, allowLandingPage]);
 
   const handleContinue = () => {
     console.log('Landing: User clicked continue, proceeding to landing page');
