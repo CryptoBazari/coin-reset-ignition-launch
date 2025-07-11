@@ -17,13 +17,12 @@ const Landing = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 relative overflow-hidden">
       <Navbar />
       
       <main className="relative">
         <HeroSection />
         <AnimatedFeatureCards />
-        <ConnectingSection />
         <StatsSection />
         <WhyChooseSection />
         <FinalCTASection />
