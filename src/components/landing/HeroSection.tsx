@@ -21,7 +21,7 @@ export const HeroSection = () => {
       
       <div className="container mx-auto px-4 text-center relative z-10">
         <div className="mb-6">
-          <span className="inline-flex items-center px-4 py-2 rounded-full bg-white/10 text-white text-sm font-medium mb-8 animate-bounce backdrop-blur-sm">
+          <span className="inline-flex items-center px-4 py-2 rounded-full bg-blue-600/20 text-blue-100 text-sm font-medium mb-8 animate-bounce backdrop-blur-sm border border-blue-500/30">
             <Star className="h-4 w-4 mr-2 animate-spin" style={{ animationDuration: '3s' }} />
             Trusted by 10,000+ crypto investors
           </span>
@@ -30,32 +30,32 @@ export const HeroSection = () => {
       
         <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight transform-gpu">
           Welcome to
-          <span className="block bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent animate-pulse">
+          <span className="block bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent animate-pulse">
             CoinPlatform
           </span>
         </h1>
       
-        <p className="text-xl text-white/80 mb-10 max-w-4xl mx-auto leading-relaxed animate-fade-in delay-300">
-          Make informed crypto investment decisions with our comprehensive analysis tools, 
-          real-time market insights, and advanced virtual portfolio management system.
+        <p className="text-xl text-blue-100 mb-10 max-w-4xl mx-auto leading-relaxed animate-fade-in delay-300">
+          Make informed crypto investment decisions with our secure, professional analysis tools, 
+          real-time market insights, and advanced portfolio management trusted by thousands.
         </p>
       
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-fade-in delay-500">
           <Link to="/auth">
-            <Button size="lg" className="text-lg px-10 py-4 hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl bg-gradient-to-r from-yellow-400 to-orange-500 text-black border-0 hover:from-yellow-300 hover:to-orange-400">
+            <Button size="lg" className="text-lg px-10 py-4 hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white border-0 hover:from-blue-500 hover:to-blue-600">
               <LogIn className="h-5 w-5 mr-2" />
               Start Free Today
             </Button>
           </Link>
           <Link to="/analysis">
-            <Button variant="outline" size="lg" className="text-lg px-10 py-4 hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl border-white/80 text-white bg-white/10 hover:bg-white/20 backdrop-blur-sm">
+            <Button variant="outline" size="lg" className="text-lg px-10 py-4 hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl border-blue-300/60 text-blue-100 bg-blue-900/20 hover:bg-blue-800/30 backdrop-blur-sm">
               Try Demo <ArrowRight className="h-5 w-5 ml-2" />
             </Button>
           </Link>
         </div>
         
-        <p className="text-sm text-white/60 mt-4 animate-fade-in delay-700">
-          No credit card required • Free forever plan available
+        <p className="text-sm text-blue-200/70 mt-4 animate-fade-in delay-700">
+          No credit card required • Enterprise-grade security • Free forever plan available
         </p>
         
         {/* 3D Floating animated elements */}
