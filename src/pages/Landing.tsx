@@ -18,7 +18,7 @@ const Landing = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/50 to-blue-50/30">
+    <div className="min-h-screen bg-gradient-to-b from-purple-900 via-purple-100 to-white">
       <Navbar />
       
       <main>

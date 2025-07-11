@@ -5,7 +5,7 @@ import { AnimatedBackground3D } from "./AnimatedBackground3D";
 
 export const HeroSection = () => {
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* 3D Animated background */}
       <AnimatedBackground3D />
       
@@ -48,7 +48,7 @@ export const HeroSection = () => {
             </Button>
           </Link>
           <Link to="/analysis">
-            <Button variant="outline" size="lg" className="text-lg px-10 py-4 hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl border-white/30 text-white hover:bg-white/10">
+            <Button variant="outline" size="lg" className="text-lg px-10 py-4 hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl border-white/50 text-white hover:bg-white/20 backdrop-blur-sm">
               Try Demo <ArrowRight className="h-5 w-5 ml-2" />
             </Button>
           </Link>
