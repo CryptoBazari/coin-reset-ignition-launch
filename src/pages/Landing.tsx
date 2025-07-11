@@ -1,6 +1,7 @@
 
 import Navbar from "@/components/Navbar";
 import { useAuthRedirect } from "@/hooks/useAuthRedirect";
+import { useAuth } from "@/hooks/useAuth";
 import { LoadingScreen } from "@/components/landing/LoadingScreen";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { AnimatedFeatureCards } from "@/components/landing/AnimatedFeatureCards";
@@ -10,21 +11,24 @@ import { FinalCTASection } from "@/components/landing/FinalCTASection";
 
 const Landing = () => {
   const { loading, showContinue, handleContinue } = useAuthRedirect(true);
+  const { isAuthenticated } = useAuth();
 
   if (loading) {
     return <LoadingScreen showContinue={showContinue} onContinue={handleContinue} />;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-primary/10">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/50 to-blue-50/30">
       <Navbar />
       
-      <main className="container mx-auto px-4 py-16">
+      <main>
         <HeroSection />
-        <AnimatedFeatureCards />
-        <StatsSection />
-        <WhyChooseSection />
-        <FinalCTASection />
+        <div className="container mx-auto px-4 py-16 space-y-16">
+          <AnimatedFeatureCards />
+          <StatsSection />
+          <WhyChooseSection />
+          {!isAuthenticated && <FinalCTASection />}
+        </div>
       </main>
     </div>
   );

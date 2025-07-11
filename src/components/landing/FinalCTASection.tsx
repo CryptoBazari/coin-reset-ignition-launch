@@ -4,7 +4,7 @@ import { LogIn } from "lucide-react";
 
 export const FinalCTASection = () => {
   return (
-    <div className="text-center bg-gradient-to-r from-primary to-primary/80 rounded-2xl p-12 text-white">
+    <div className="text-center bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl p-12 text-white shadow-xl">
       <h2 className="text-4xl font-bold mb-4">
         Ready to Make Smarter Investment Decisions?
       </h2>
