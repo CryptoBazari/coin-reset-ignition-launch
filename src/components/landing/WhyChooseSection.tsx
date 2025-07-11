@@ -6,7 +6,7 @@ export const WhyChooseSection = () => {
   return (
     <div className="grid md:grid-cols-2 gap-12 mb-20">
       <div className="space-y-6">
-        <h2 className="text-3xl font-bold text-foreground">Why Choose CryptoAnalyzer?</h2>
+        <h2 className="text-3xl font-bold text-foreground">Why Choose CoinPlatform?</h2>
         <div className="space-y-4">
           <div className="flex items-start gap-4">
             <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">

@@ -139,7 +139,7 @@ const Auth = () => {
       } else if (data.user) {
         toast({
           title: "Account created successfully",
-          description: "Welcome to CryptoAnalyzer!",
+          description: "Welcome to CoinPlatform!",
         });
         navigate('/virtual-portfolio');
       }
@@ -295,7 +295,7 @@ const Auth = () => {
           </div>
           <CardTitle className="text-2xl">
             {isPasswordReset ? 'Set New Password' : 
-             showForgotPassword ? 'Reset Password' : 'Welcome to CryptoAnalyzer'}
+             showForgotPassword ? 'Reset Password' : 'Welcome to CoinPlatform'}
           </CardTitle>
           <CardDescription>
             {isPasswordReset ? 'Enter your new password below' :

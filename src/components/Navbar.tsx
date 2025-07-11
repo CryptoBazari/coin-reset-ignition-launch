@@ -61,7 +61,7 @@ const Navbar = () => {
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center space-x-2">
           <TrendingUp className="h-6 w-6 text-primary" />
-          <span className="font-bold text-xl">CryptoAnalyzer</span>
+          <span className="font-bold text-xl">CoinPlatform</span>
         </Link>
         
         {/* Desktop Navigation */}

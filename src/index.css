@@ -92,6 +92,127 @@
   }
 }
 
+/* Animation utilities */
+.animate-marquee {
+  animation: marquee 10s linear infinite;
+}
+
+@keyframes marquee {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+/* 3D Transform utilities */
+.transform-gpu {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+.hover\:rotateY-12:hover {
+  transform: rotateY(12deg);
+}
+
+.hover\:rotateX-12:hover {
+  transform: rotateX(12deg);
+}
+
+.hover\:rotateZ-6:hover {
+  transform: rotateZ(6deg);
+}
+
+.hover\:rotateZ-12:hover {
+  transform: rotateZ(12deg);
+}
+
+.hover\:rotateY-8:hover {
+  transform: rotateY(8deg);
+}
+
+.hover\:rotateY-15:hover {
+  transform: rotateY(15deg);
+}
+
+.hover\:translateZ-20:hover {
+  transform: translateZ(20px);
+}
+
+.hover\:translateZ-10:hover {
+  transform: translateZ(10px);
+}
+
+.hover\:translateZ-5:hover {
+  transform: translateZ(5px);
+}
+
+.hover\:translateZ-30:hover {
+  transform: translateZ(30px);
+}
+
+.hover\:translateZ-25:hover {
+  transform: translateZ(25px);
+}
+
+.hover\:translateZ-35:hover {
+  transform: translateZ(35px);
+}
+
+.hover\:translateZ-15:hover {
+  transform: translateZ(15px);
+}
+
+.hover\:translateZ-12:hover {
+  transform: translateZ(12px);
+}
+
+.hover\:translateZ-8:hover {
+  transform: translateZ(8px);
+}
+
+.hover\:translateZ-6:hover {
+  transform: translateZ(6px);
+}
+
+.group-hover\:translateZ-20:hover {
+  transform: translateZ(20px);
+}
+
+.group-hover\:translateZ-10:hover {
+  transform: translateZ(10px);
+}
+
+.group-hover\:translateZ-5:hover {
+  transform: translateZ(5px);
+}
+
+.group-hover\:translateZ-30:hover {
+  transform: translateZ(30px);
+}
+
+.group-hover\:translateZ-25:hover {
+  transform: translateZ(25px);
+}
+
+.group-hover\:translateZ-35:hover {
+  transform: translateZ(35px);
+}
+
+.group-hover\:translateZ-15:hover {
+  transform: translateZ(15px);
+}
+
+.group-hover\:translateZ-12:hover {
+  transform: translateZ(12px);
+}
+
+.group-hover\:translateZ-8:hover {
+  transform: translateZ(8px);
+}
+
+.group-hover\:translateZ-6:hover {
+  transform: translateZ(6px);
+}
+
 @layer base {
   * {
     @apply border-border;
