@@ -4,7 +4,6 @@ import { useAuthRedirect } from "@/hooks/useAuthRedirect";
 import { LoadingScreen } from "@/components/landing/LoadingScreen";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { AnimatedFeatureCards } from "@/components/landing/AnimatedFeatureCards";
-import { ConnectingSection } from "@/components/landing/ConnectingSection";
 import { StatsSection } from "@/components/landing/StatsSection";
 import { WhyChooseSection } from "@/components/landing/WhyChooseSection";
 import { FinalCTASection } from "@/components/landing/FinalCTASection";
@@ -17,10 +16,10 @@ const Landing = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-primary/10">
       <Navbar />
       
-      <main className="relative">
+      <main className="container mx-auto px-4 py-16">
         <HeroSection />
         <AnimatedFeatureCards />
         <StatsSection />
