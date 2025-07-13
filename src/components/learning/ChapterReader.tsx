@@ -200,7 +200,7 @@ const ChapterReader = ({ courseId, initialChapterId, onProgressUpdate }: Chapter
 
   const currentChapter = getCurrentChapter();
   const currentProgress = user ? getChapterProgress(currentChapter.id) : null;
-  const isCompleted = currentProgress?.completed_at !== null;
+  const isCompleted = currentProgress && currentProgress.completed_at != null;
 
   return (
     <div className="space-y-6">
