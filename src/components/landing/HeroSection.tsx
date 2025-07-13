@@ -38,7 +38,7 @@ export const HeroSection = () => {
           <span style={{
           filter: 'brightness(2) saturate(1.5) contrast(1.2)',
           textShadow: '0 0 40px rgba(255, 255, 255, 0.9), 0 0 80px rgba(147, 197, 253, 0.8), 0 0 120px rgba(59, 130, 246, 0.6)'
-        }} className="block bg-gradient-to-r from-white via-cyan-200 to-blue-200 bg-clip-text font-extrabold drop-shadow-2xl animate-pulse text-[#02e6ff]/[0.69]">CoinPlatform</span>
+        }} className="block bg-gradient-to-r from-white via-cyan-200 to-blue-200 bg-clip-text font-extrabold drop-shadow-2xl animate-pulse text-[#00e5ff]/85">CoinPlatform</span>
         </h1>
       
         <p className="text-xl text-blue-100 mb-10 max-w-4xl mx-auto leading-relaxed animate-fade-in delay-300">
