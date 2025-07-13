@@ -86,7 +86,7 @@ const Navbar = () => {
 
         {/* Desktop Auth Buttons */}
         <div className="hidden lg:flex items-center space-x-2">
-          {user ? <Button variant="outline" onClick={handleSignOut} className="flex items-center gap-2 border-blue-300/60 text-blue-100 hover:bg-blue-800/30">
+          {user ? <Button variant="outline" onClick={handleSignOut} className="flex items-center gap-2 border-blue-300/60 text-blue-100 text-base bg-black/0">
               <LogOut className="h-4 w-4" />
               Sign Out
             </Button> : <Button asChild className="bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-500 hover:to-blue-600">
