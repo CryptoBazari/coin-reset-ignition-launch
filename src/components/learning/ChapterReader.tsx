@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { ChevronLeft, ChevronRight, CheckCircle, Circle, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, Circle, Clock, Check, User } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 
@@ -251,24 +251,54 @@ const ChapterReader = ({ courseId, initialChapterId, onProgressUpdate }: Chapter
 
       {/* Chapter Progress */}
       {user && (
-        <Card>
+        <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-secondary/5">
           <CardContent className="pt-6">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-medium">Chapter Progress</span>
-              <span className="text-sm text-muted-foreground">
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-sm font-semibold">Chapter Progress</span>
+              <span className="text-sm font-medium text-primary">
                 {currentProgress?.reading_progress || 0}%
               </span>
             </div>
-            <Progress value={currentProgress?.reading_progress || 0} className="h-2" />
-            {!isCompleted && (
+            <Progress value={currentProgress?.reading_progress || 0} className="h-3 mb-4" />
+            {!isCompleted ? (
               <Button
                 onClick={markChapterAsCompleted}
                 disabled={updating}
-                className="mt-4 w-full"
+                className="w-full h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg hover:shadow-xl transition-all duration-300"
+                size="lg"
               >
-                {updating ? 'Saving...' : 'Mark as Completed'}
+                <Check className="h-5 w-5 mr-2" />
+                {updating ? 'Saving Progress...' : 'Mark Chapter Complete'}
               </Button>
+            ) : (
+              <div className="flex items-center justify-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                <CheckCircle className="h-6 w-6 text-green-600 mr-2" />
+                <span className="text-green-700 dark:text-green-400 font-semibold">Chapter Completed!</span>
+              </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Guest Progress Card */}
+      {!user && (
+        <Card className="border-muted-foreground/20 bg-muted/30">
+          <CardContent className="pt-6">
+            <div className="text-center space-y-4">
+              <div className="flex justify-center">
+                <User className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-muted-foreground mb-2">Track Your Progress</h3>
+                <p className="text-sm text-muted-foreground/80 mb-4">
+                  Sign in to save your reading progress and mark chapters as complete
+                </p>
+                <Button variant="outline" className="w-full" disabled>
+                  <Check className="h-4 w-4 mr-2" />
+                  Mark Complete (Sign in required)
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -280,6 +310,24 @@ const ChapterReader = ({ courseId, initialChapterId, onProgressUpdate }: Chapter
             className="prose prose-lg max-w-none dark:prose-invert"
             dangerouslySetInnerHTML={{ __html: currentChapter.content }}
           />
+          
+          {/* Completion Button at End of Content */}
+          {user && !isCompleted && (
+            <div className="mt-8 pt-6 border-t border-border">
+              <div className="text-center space-y-4">
+                <p className="text-muted-foreground">Finished reading this chapter?</p>
+                <Button
+                  onClick={markChapterAsCompleted}
+                  disabled={updating}
+                  className="h-12 px-8 text-base font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg hover:shadow-xl transition-all duration-300"
+                  size="lg"
+                >
+                  <Check className="h-5 w-5 mr-2" />
+                  {updating ? 'Saving...' : 'Complete Chapter'}
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
