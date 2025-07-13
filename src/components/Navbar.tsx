@@ -99,7 +99,7 @@ const Navbar = () => {
 
         {/* Mobile Menu Button */}
         <div className="lg:hidden flex items-center space-x-2">
-          {user ? <Button variant="outline" size="sm" onClick={handleSignOut} className="mr-2 border-blue-300/60 hover:bg-blue-800/30 text-[#f3f3f4]">
+          {user ? <Button variant="outline" size="sm" onClick={handleSignOut} className="mr-2 border-blue-300/60 hover:bg-blue-800/30 text-white">
               <LogOut className="h-4 w-4" />
             </Button> : <Button asChild size="sm" className="mr-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-500 hover:to-blue-600">
               <Link to="/auth">
