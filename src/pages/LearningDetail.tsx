@@ -25,12 +25,19 @@ interface LearningCourse {
   created_at: string;
 }
 
+interface Chapter {
+  id: string;
+  title: string;
+  estimated_reading_time: number | null;
+}
+
 const LearningDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
   const [course, setCourse] = useState<LearningCourse | null>(null);
+  const [chapters, setChapters] = useState<Chapter[]>([]);
   const [loading, setLoading] = useState(true);
   const [progressKey, setProgressKey] = useState(0);
 
@@ -42,31 +49,50 @@ const LearningDetail = () => {
 
   const fetchCourse = async (courseId: string) => {
     try {
-      const { data, error } = await supabase
+      // Fetch course data
+      const { data: courseData, error: courseError } = await supabase
         .from('learning_courses')
         .select('*')
         .eq('id', courseId)
         .eq('is_published', true)
         .single();
 
-      if (error) {
-        if (error.code === 'PGRST116') {
+      if (courseError) {
+        if (courseError.code === 'PGRST116') {
           toast({
             title: "Course not found",
             description: "The requested course could not be found.",
             variant: "destructive",
           });
         }
-        throw error;
+        throw courseError;
       }
-      
-      setCourse(data);
+
+      // Fetch chapters data
+      const { data: chaptersData, error: chaptersError } = await supabase
+        .from('course_chapters')
+        .select('id, title, estimated_reading_time')
+        .eq('course_id', courseId)
+        .eq('is_published', true)
+        .order('chapter_number', { ascending: true });
+
+      if (chaptersError) throw chaptersError;
+
+      setChapters(chaptersData || []);
+      setCourse(courseData);
     } catch (error) {
       console.error('Error fetching course:', error);
       navigate('/learning');
     } finally {
       setLoading(false);
     }
+  };
+
+  const calculateTotalDuration = () => {
+    const total = chapters.reduce((sum, chapter) => {
+      return sum + (chapter.estimated_reading_time || 0);
+    }, 0);
+    return total;
   };
 
   const formatDuration = (minutes: number | null) => {
@@ -190,7 +216,7 @@ const LearningDetail = () => {
                   <Clock className="h-4 w-4 text-muted-foreground" />
                   <div>
                     <div className="text-sm text-muted-foreground">Duration</div>
-                    <div className="font-medium">{formatDuration(course.estimated_duration)}</div>
+                    <div className="font-medium">{formatDuration(calculateTotalDuration())}</div>
                   </div>
                 </div>
 
@@ -305,7 +331,7 @@ const LearningDetail = () => {
                   
                   <div>
                     <h4 className="text-sm font-medium text-muted-foreground mb-1">Duration</h4>
-                    <p className="text-sm">{formatDuration(course.estimated_duration)}</p>
+                    <p className="text-sm">{formatDuration(calculateTotalDuration())}</p>
                   </div>
                   
                   {course.difficulty_level && (

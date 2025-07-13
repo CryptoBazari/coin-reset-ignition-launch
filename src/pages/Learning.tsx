@@ -22,6 +22,11 @@ interface LearningCourse {
   created_at: string;
 }
 
+interface CourseChapter {
+  course_id: string;
+  estimated_reading_time: number | null;
+}
+
 interface CourseProgress {
   course_id: string;
   total_chapters: number;
@@ -32,6 +37,7 @@ interface CourseProgress {
 const Learning = () => {
   const [courses, setCourses] = useState<LearningCourse[]>([]);
   const [courseProgress, setCourseProgress] = useState<CourseProgress[]>([]);
+  const [chaptersData, setChaptersData] = useState<CourseChapter[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
@@ -47,14 +53,24 @@ const Learning = () => {
 
   const fetchCourses = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch courses
+      const { data: coursesData, error: coursesError } = await supabase
         .from('learning_courses')
         .select('*')
         .eq('is_published', true)
         .order('published_at', { ascending: false });
 
-      if (error) throw error;
-      setCourses(data || []);
+      if (coursesError) throw coursesError;
+      setCourses(coursesData || []);
+
+      // Fetch all chapters data for duration calculation
+      const { data: chaptersData, error: chaptersError } = await supabase
+        .from('course_chapters')
+        .select('course_id, estimated_reading_time')
+        .eq('is_published', true);
+
+      if (chaptersError) throw chaptersError;
+      setChaptersData(chaptersData || []);
     } catch (error) {
       console.error('Error fetching courses:', error);
     } finally {
@@ -107,6 +123,14 @@ const Learning = () => {
 
   const getCourseProgress = (courseId: string) => {
     return courseProgress.find(p => p.course_id === courseId);
+  };
+
+  const getCourseDuration = (courseId: string) => {
+    const courseChapters = chaptersData.filter(ch => ch.course_id === courseId);
+    const totalDuration = courseChapters.reduce((sum, chapter) => {
+      return sum + (chapter.estimated_reading_time || 0);
+    }, 0);
+    return totalDuration;
   };
 
   const formatDuration = (minutes: number | null) => {
@@ -217,7 +241,7 @@ const Learning = () => {
                       </div>
                       <div className="flex items-center gap-1">
                         <Clock className="h-4 w-4" />
-                        {formatDuration(course.estimated_duration)}
+                        {formatDuration(getCourseDuration(course.id))}
                       </div>
                     </div>
                     
