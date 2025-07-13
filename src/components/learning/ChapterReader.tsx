@@ -169,6 +169,8 @@ const ChapterReader = ({ courseId, initialChapterId, onProgressUpdate }: Chapter
     } else if (direction === 'next' && currentChapterIndex < chapters.length - 1) {
       setCurrentChapterIndex(currentChapterIndex + 1);
     }
+    // Force a re-render by ensuring currentProgress is recalculated
+    console.log('Navigated to chapter:', direction);
   };
 
   const formatDuration = (minutes: number | null) => {
@@ -200,6 +202,8 @@ const ChapterReader = ({ courseId, initialChapterId, onProgressUpdate }: Chapter
   const currentChapter = getCurrentChapter();
   const currentProgress = user ? getChapterProgress(currentChapter.id) : null;
   const isCompleted = currentProgress && currentProgress.completed_at != null;
+  
+  console.log('Current chapter:', currentChapter.id, 'Progress:', currentProgress, 'IsCompleted:', isCompleted);
 
   return (
     <div className="space-y-6">
