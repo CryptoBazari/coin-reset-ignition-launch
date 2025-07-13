@@ -30,10 +30,10 @@ export const HeroSection = () => {
       
         <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight transform-gpu">
           Welcome to
-          <span className="block bg-gradient-to-r from-cyan-300 via-blue-300 to-indigo-400 bg-clip-text text-transparent font-extrabold drop-shadow-2xl animate-pulse" 
+          <span className="block bg-gradient-to-r from-white via-cyan-200 to-blue-200 bg-clip-text text-transparent font-extrabold drop-shadow-2xl animate-pulse" 
                 style={{ 
-                  filter: 'brightness(1.5) saturate(1.3)',
-                  textShadow: '0 0 30px rgba(59, 130, 246, 0.8), 0 0 60px rgba(147, 197, 253, 0.6)'
+                  filter: 'brightness(2) saturate(1.5) contrast(1.2)',
+                  textShadow: '0 0 40px rgba(255, 255, 255, 0.9), 0 0 80px rgba(147, 197, 253, 0.8), 0 0 120px rgba(59, 130, 246, 0.6)'
                 }}>
             CoinPlatform
           </span>
