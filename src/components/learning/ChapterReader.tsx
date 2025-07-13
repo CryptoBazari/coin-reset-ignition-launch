@@ -69,15 +69,7 @@ const ChapterReader = ({ courseId, initialChapterId, onProgressUpdate }: Chapter
       setChapters(chaptersData || []);
 
       if (user) {
-        // Fetch user progress
-        const { data: progressData, error: progressError } = await supabase
-          .from('user_course_progress')
-          .select('*')
-          .eq('course_id', courseId)
-          .eq('user_id', user.id);
-
-        if (progressError) throw progressError;
-        setUserProgress(progressData || []);
+        await fetchUserProgress();
       }
     } catch (error) {
       console.error('Error fetching chapter data:', error);
@@ -102,40 +94,29 @@ const ChapterReader = ({ courseId, initialChapterId, onProgressUpdate }: Chapter
 
     setUpdating(true);
     try {
+      const completedAt = completed ? new Date().toISOString() : null;
+      console.log('Updating progress:', { chapterId, progress, completed, completedAt });
+
       const progressData = {
         user_id: user.id,
         course_id: courseId,
         chapter_id: chapterId,
         reading_progress: progress,
-        completed_at: completed ? new Date().toISOString() : null,
+        completed_at: completedAt,
       };
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('user_course_progress')
         .upsert([progressData], {
           onConflict: 'user_id,course_id,chapter_id'
-        });
+        })
+        .select();
 
       if (error) throw error;
+      console.log('Progress updated successfully:', data);
 
-      // Update local state
-      setUserProgress(prev => {
-        const existing = prev.find(p => p.chapter_id === chapterId);
-        if (existing) {
-          return prev.map(p => 
-            p.chapter_id === chapterId 
-              ? { ...p, reading_progress: progress, completed_at: completed ? new Date().toISOString() : null }
-              : p
-          );
-        } else {
-          return [...prev, {
-            id: Date.now().toString(), // Temporary ID
-            chapter_id: chapterId,
-            reading_progress: progress,
-            completed_at: completed ? new Date().toISOString() : null,
-          }];
-        }
-      });
+      // Refresh progress data from database to ensure consistency
+      await fetchUserProgress();
 
       onProgressUpdate?.();
 
@@ -154,6 +135,24 @@ const ChapterReader = ({ courseId, initialChapterId, onProgressUpdate }: Chapter
       });
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const fetchUserProgress = async () => {
+    if (!user) return;
+    
+    try {
+      const { data: progressData, error: progressError } = await supabase
+        .from('user_course_progress')
+        .select('*')
+        .eq('course_id', courseId)
+        .eq('user_id', user.id);
+
+      if (progressError) throw progressError;
+      console.log('Fetched user progress:', progressData);
+      setUserProgress(progressData || []);
+    } catch (error) {
+      console.error('Error fetching user progress:', error);
     }
   };
 
@@ -369,7 +368,7 @@ const ChapterReader = ({ courseId, initialChapterId, onProgressUpdate }: Chapter
           <div className="space-y-2">
             {chapters.map((chapter, index) => {
               const progress = user ? getChapterProgress(chapter.id) : null;
-              const completed = progress?.completed_at !== null;
+              const completed = progress?.completed_at != null;
               
               return (
                 <button
