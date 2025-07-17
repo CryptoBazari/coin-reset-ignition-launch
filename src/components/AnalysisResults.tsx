@@ -5,6 +5,10 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { TrendingUp, TrendingDown, AlertTriangle, DollarSign, Target, Activity, Shield, BarChart3 } from 'lucide-react';
 import type { AnalysisResult } from '@/types/investment';
+import { EnhancedFinancialMetrics } from '@/components/analysis/EnhancedFinancialMetrics';
+import { RiskAnalysisCard } from '@/components/analysis/RiskAnalysisCard';
+import { AllocationAnalysisCard } from '@/components/analysis/AllocationAnalysisCard';
+import { MarketConditionsCard } from '@/components/analysis/MarketConditionsCard';
 
 interface AnalysisResultsProps {
   result: AnalysisResult;
@@ -145,133 +149,37 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result }) => {
         </CardContent>
       </Card>
 
-      {/* Enhanced Financial Metrics */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <DollarSign className="w-5 h-5 mr-2" />
-            Enhanced Financial Analysis
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="text-center p-4 bg-muted/50 rounded-lg">
-              <div className="text-sm text-muted-foreground">NPV</div>
-              <div className={`text-xl font-bold ${metrics.npv > 0 ? 'text-success' : 'text-destructive'}`}>
-                ${metrics.npv.toFixed(2)}
-              </div>
-            </div>
-            <div className="text-center p-4 bg-muted/50 rounded-lg">
-              <div className="text-sm text-muted-foreground">IRR</div>
-              <div className="text-xl font-bold text-primary">
-                {metrics.irr.toFixed(2)}%
-              </div>
-            </div>
-            <div className="text-center p-4 bg-muted/50 rounded-lg">
-              <div className="text-sm text-muted-foreground">Price CAGR</div>
-              <div className="text-xl font-bold text-secondary">
-                {metrics.cagr.toFixed(2)}%
-              </div>
-            </div>
-            <div className="text-center p-4 bg-muted/50 rounded-lg">
-              <div className="text-sm text-muted-foreground">Total Return CAGR</div>
-              <div className="text-xl font-bold text-accent">
-                {metrics.totalReturnCAGR.toFixed(2)}%
-              </div>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center p-4 bg-muted/30 rounded-lg">
-              <div className="text-sm text-muted-foreground">Price ROI</div>
-              <div className="text-lg font-semibold">
-                {metrics.priceROI.toFixed(1)}%
-              </div>
-            </div>
-            <div className="text-center p-4 bg-muted/30 rounded-lg">
-              <div className="text-sm text-muted-foreground">Staking ROI</div>
-              <div className="text-lg font-semibold">
-                {metrics.stakingROI.toFixed(1)}%
-              </div>
-            </div>
-            <div className="text-center p-4 bg-muted/30 rounded-lg">
-              <div className="text-sm text-muted-foreground">Total ROI</div>
-              <div className="text-lg font-semibold">
-                {metrics.roi.toFixed(1)}%
-              </div>
-            </div>
-            <div className="text-center p-4 bg-muted/30 rounded-lg">
-              <div className="text-sm text-muted-foreground">Risk-Adj NPV</div>
-              <div className="text-lg font-semibold">
-                ${metrics.riskAdjustedNPV.toLocaleString()}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Enhanced Financial Metrics Component */}
+      <EnhancedFinancialMetrics 
+        metrics={metrics}
+        coinName={coin.name}
+      />
 
-      {/* Enhanced Risk Analysis */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Shield className="w-5 h-5 mr-2" />
-            Risk Analysis
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <div className="text-sm text-muted-foreground mb-1">Systematic Risk (Beta)</div>
-              <div className="flex items-center gap-2">
-                <div className={`text-2xl font-bold ${getBetaRiskLevel(metrics.beta).color}`}>
-                  {metrics.beta.toFixed(2)}
-                </div>
-                <Badge variant="outline">
-                  {metrics.betaConfidence}
-                </Badge>
-              </div>
-              <div className="text-sm text-muted-foreground mt-1">
-                {getBetaRiskLevel(metrics.beta).level} Risk • {metrics.dataQuality}
-              </div>
-            </div>
-            
-            <div>
-              <div className="text-sm text-muted-foreground mb-1">Volatility</div>
-              <div className={`text-2xl font-bold ${metrics.standardDeviation > 50 ? 'text-destructive' : metrics.standardDeviation > 30 ? 'text-warning' : 'text-success'}`}>
-                {metrics.standardDeviation.toFixed(1)}%
-              </div>
-              <div className="text-sm text-muted-foreground mt-1">
-                Annualized Standard Deviation
-              </div>
-            </div>
-            
-            <div>
-              <div className="text-sm text-muted-foreground mb-1">Sharpe Ratio</div>
-              <div className={`text-2xl font-bold ${metrics.sharpeRatio > 1.5 ? 'text-success' : metrics.sharpeRatio > 1.0 ? 'text-warning' : 'text-destructive'}`}>
-                {metrics.sharpeRatio.toFixed(2)}
-              </div>
-              <div className="text-sm text-muted-foreground mt-1">
-                Risk-Adjusted Returns
-              </div>
-            </div>
-          </div>
-          
-          <Separator className="my-4" />
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <div className="text-sm text-muted-foreground mb-1">Expected Return (CAPM)</div>
-              <div className="text-lg font-semibold">{metrics.expectedReturn.toFixed(1)}%</div>
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground mb-1">Risk Factor</div>
-              <div className={`text-lg font-semibold ${getRiskColor(metrics.riskFactor)}`}>
-                {metrics.riskFactor}/5
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Risk Analysis Component */}
+      <RiskAnalysisCard 
+        metrics={metrics}
+        coinBasket={coin.basket}
+      />
+
+      {/* Market Conditions Component */}
+      <MarketConditionsCard 
+        marketConditions={marketConditions}
+      />
+
+      {/* Allocation Analysis Component - Mock data for now since allocation isn't in AnalysisResult yet */}
+      <AllocationAnalysisCard 
+        allocation={{
+          portfolioPercentage: 45, // This would come from the enhanced analysis
+          status: 'underexposed' as const,
+          recommendation: 'increase' as const,
+          message: `${coin.basket} allocation analysis based on enhanced basket rules`,
+          targetRange: coin.basket === 'Bitcoin' ? [60, 75] : 
+                      coin.basket === 'Blue Chip' ? [20, 35] : 
+                      [5, 10] as [number, number]
+        }}
+        coinBasket={coin.basket}
+        coinName={coin.name}
+      />
 
       {/* Benchmark Comparison */}
       <Card>
