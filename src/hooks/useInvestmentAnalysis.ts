@@ -52,13 +52,13 @@ export const useInvestmentAnalysis = () => {
       // Create market conditions object
       const marketConditions = createMarketConditions(coinData, marketSentiment, fedRateChange);
 
-      // Calculate financial metrics
-      const adjustedDiscountRate = calculateAdjustedDiscountRate(assumptions, fedRateChange);
-      const expectedPrice = calculateExpectedPrice(coinData, inputs);
+      // Calculate financial metrics with enhanced parameters
+      const adjustedDiscountRate = calculateAdjustedDiscountRate(assumptions, fedRateChange, coinData.basket);
+      const expectedPrice = calculateExpectedPrice(coinData, inputs, marketConditions);
       const metrics = calculateFinancialMetrics(inputs, coinData, expectedPrice, adjustedDiscountRate, marketConditions);
-      const allocation = calculateAllocation(inputs, assumptions);
+      const allocation = calculateAllocation(inputs, assumptions, coinData);
 
-      // Generate comprehensive recommendation
+      // Generate comprehensive recommendation (use legacy allocation for now)
       const recommendation = generateAdvancedRecommendation(
         metrics.npv,
         metrics.irr,
@@ -68,7 +68,7 @@ export const useInvestmentAnalysis = () => {
         inputs.totalPortfolio,
         assumptions.target_allocation,
         marketConditions,
-        allocation
+        allocation.legacy
       );
 
       // Store analysis result

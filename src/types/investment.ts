@@ -28,8 +28,11 @@ export interface InvestmentInputs {
 export interface FinancialMetrics {
   npv: number;
   irr: number;
-  cagr: number;
-  roi: number;
+  cagr: number;                    // Price appreciation CAGR
+  totalReturnCAGR: number;         // Total return including staking
+  roi: number;                     // Total ROI
+  priceROI: number;                // Price appreciation ROI
+  stakingROI: number;              // Staking contribution ROI
   riskFactor: number;
 }
 

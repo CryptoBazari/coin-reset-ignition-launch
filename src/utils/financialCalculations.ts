@@ -124,29 +124,119 @@ export const generateCashFlows = (
 ): number[] => {
   const cashFlows = [-investmentAmount];
   
-  // Add intermediate cash flows (staking rewards)
+  // Calculate coin quantity purchased
+  const coinQuantity = investmentAmount / currentPrice;
+  let totalCoins = coinQuantity; // Track compounding
+  
+  // Proper staking with compounding
   for (let i = 1; i < investmentHorizon; i++) {
-    cashFlows.push(investmentAmount * (stakingYield / 100));
+    // Annual staking reward in coins
+    const stakingRewardCoins = totalCoins * (stakingYield / 100);
+    totalCoins += stakingRewardCoins; // Compound staking
+    
+    // Price appreciation path for intermediate valuation
+    const intermediatePrice = currentPrice * 
+      Math.pow(expectedPrice / currentPrice, i / investmentHorizon);
+    
+    // Cash flow from staking (sell rewards)
+    const stakingCashValue = stakingRewardCoins * intermediatePrice;
+    cashFlows.push(stakingCashValue);
   }
   
-  // Final cash flow (sale + final staking reward)
-  const finalValue = (investmentAmount * expectedPrice) / currentPrice;
-  const finalStaking = investmentAmount * (stakingYield / 100);
-  cashFlows.push(finalValue + finalStaking);
+  // Final sale of all accumulated coins
+  const finalValue = totalCoins * expectedPrice;
+  cashFlows.push(finalValue);
   
   return cashFlows;
 };
 
 export const adjustDiscountRateForFed = (
   baseRate: number,
-  fedRateChange: number
+  fedRateChange: number,
+  cryptoSensitivity: number = 2.0, // Crypto sensitivity multiplier
+  basketMultiplier: number = 1.0 // Basket-specific adjustment
 ): number => {
-  // Adjust discount rate based on Fed policy
-  if (fedRateChange < 0) return Math.max(0.01, baseRate - 0.005); // Rate cut
-  if (fedRateChange > 0) return baseRate + 0.005; // Rate hike
+  // Proportional adjustment based on Fed change magnitude
+  const baseAdjustment = fedRateChange * cryptoSensitivity * 0.01;
+  const basketAdjustment = baseAdjustment * basketMultiplier;
+  
+  if (fedRateChange < 0) {
+    // Rate cuts: Lower discount rate but maintain floor
+    return Math.max(0.005, baseRate + basketAdjustment); // basketAdjustment is negative
+  } else if (fedRateChange > 0) {
+    // Rate hikes: Increase discount rate proportionally
+    return Math.min(0.50, baseRate + basketAdjustment); // Add ceiling
+  }
   return baseRate;
 };
 
+// Basket allocation rules interface
+interface BasketAllocationRules {
+  bitcoin: { min: number; max: number; recommended: [number, number] };
+  blueChip: { min: number; max: number; recommended: [number, number] };
+  smallCap: { min: number; max: number; recommended: [number, number] };
+}
+
+const BASKET_RULES: BasketAllocationRules = {
+  bitcoin: { min: 60, max: 80, recommended: [60, 75] },
+  blueChip: { min: 0, max: 40, recommended: [20, 35] },
+  smallCap: { min: 0, max: 15, recommended: [5, 10] }
+};
+
+// Enhanced allocation result
+interface AllocationResult {
+  portfolioPercentage: number;
+  basketType: 'bitcoin' | 'blueChip' | 'smallCap';
+  status: 'underexposed' | 'optimal' | 'overexposed';
+  recommendation: 'increase' | 'decrease' | 'maintain';
+  message: string;
+  targetRange: [number, number];
+}
+
+export const checkAdvancedAllocation = (
+  investmentAmount: number,
+  totalPortfolio: number,
+  coinBasket: 'Bitcoin' | 'Blue Chip' | 'Small-Cap',
+  currentPortfolioBreakdown?: { bitcoin: number; blueChip: number; smallCap: number }
+): AllocationResult => {
+  const portfolioPercentage = (investmentAmount / totalPortfolio) * 100;
+  
+  // Map basket types
+  const basketType = coinBasket === 'Bitcoin' ? 'bitcoin' : 
+                    coinBasket === 'Blue Chip' ? 'blueChip' : 'smallCap';
+  
+  const rules = BASKET_RULES[basketType];
+  
+  // Determine status
+  let status: 'underexposed' | 'optimal' | 'overexposed';
+  let recommendation: 'increase' | 'decrease' | 'maintain';
+  let message: string;
+  
+  if (portfolioPercentage < rules.min) {
+    status = 'underexposed';
+    recommendation = 'increase';
+    message = `${coinBasket} allocation (${portfolioPercentage.toFixed(1)}%) below minimum ${rules.min}%`;
+  } else if (portfolioPercentage > rules.max) {
+    status = 'overexposed';
+    recommendation = 'decrease';
+    message = `${coinBasket} allocation (${portfolioPercentage.toFixed(1)}%) exceeds maximum ${rules.max}%`;
+  } else {
+    status = 'optimal';
+    recommendation = 'maintain';
+    message = `${coinBasket} allocation (${portfolioPercentage.toFixed(1)}%) within acceptable range`;
+  }
+  
+  return {
+    portfolioPercentage,
+    basketType,
+    status,
+    recommendation,
+    message,
+    targetRange: rules.recommended
+  };
+};
+
+// Legacy function for backward compatibility
 export const checkAllocation = (
   investmentAmount: number,
   basketAllocation: number,
