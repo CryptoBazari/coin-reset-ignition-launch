@@ -150,6 +150,13 @@ export const generateCashFlows = (
   return cashFlows;
 };
 
+// Validate cash flows for correctness
+export const validateCashFlows = (cashFlows: number[]): boolean => {
+  if (cashFlows.length < 2) return false;
+  if (cashFlows[0] >= 0) return false; // First should be negative (investment)
+  return cashFlows.slice(1).every(cf => cf > 0); // Rest should be positive
+};
+
 export const adjustDiscountRateForFed = (
   baseRate: number,
   fedRateChange: number,

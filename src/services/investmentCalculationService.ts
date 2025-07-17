@@ -15,6 +15,7 @@ import {
   calculateExpectedReturn,
   getEstimatedBeta
 } from '@/utils/financialCalculations';
+import { betaCalculationService } from './betaCalculationService';
 import type { CoinData, InvestmentInputs, FinancialMetrics, MarketConditions } from '@/types/investment';
 
 export const calculateFinancialMetrics = (
