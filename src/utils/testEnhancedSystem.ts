@@ -37,4 +37,10 @@ export const testEnhancedSystem = () => {
 // Auto-run test in development
 if (typeof window !== 'undefined') {
   console.log('Enhanced Financial System loaded - run testEnhancedSystem() to verify');
+  
+  // Auto-run test to confirm system is working
+  setTimeout(() => {
+    console.log('\n🧪 AUTO-RUNNING ENHANCED SYSTEM TEST...');
+    testEnhancedSystem();
+  }, 1000);
 }
