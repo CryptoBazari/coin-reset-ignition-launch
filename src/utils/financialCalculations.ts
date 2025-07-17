@@ -122,6 +122,7 @@ export const generateCashFlows = (
   investmentHorizon: number,
   stakingYield = 0
 ): number[] => {
+  console.log('🚀 ENHANCED generateCashFlows called with:', { investmentAmount, expectedPrice, currentPrice, investmentHorizon, stakingYield });
   const cashFlows = [-investmentAmount];
   
   // Calculate coin quantity purchased
@@ -163,6 +164,7 @@ export const adjustDiscountRateForFed = (
   cryptoSensitivity: number = 2.0, // Crypto sensitivity multiplier
   basketMultiplier: number = 1.0 // Basket-specific adjustment
 ): number => {
+  console.log('🚀 ENHANCED adjustDiscountRateForFed called with:', { baseRate, fedRateChange, cryptoSensitivity, basketMultiplier });
   // Proportional adjustment based on Fed change magnitude
   const baseAdjustment = fedRateChange * cryptoSensitivity * 0.01;
   const basketAdjustment = baseAdjustment * basketMultiplier;
@@ -249,6 +251,7 @@ export const checkAllocation = (
   basketAllocation: number,
   totalPortfolio: number
 ): { basketPercentage: number; portfolioPercentage: number; overexposed: boolean } => {
+  console.log('⚠️ LEGACY checkAllocation called - should use checkAdvancedAllocation instead!');
   const basketPercentage = (investmentAmount / basketAllocation) * 100;
   const portfolioPercentage = (investmentAmount / totalPortfolio) * 100;
   const overexposed = basketPercentage > 5;
