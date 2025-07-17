@@ -119,11 +119,12 @@ export const useEnhancedInvestmentAnalysis = () => {
         currentPortfolioBreakdown
       );
 
-      // 10. Generate comprehensive recommendation
-      const legacyAllocation = {
-        basketPercentage: allocation.allocation.portfolioPercentage,
+      // 10. Generate comprehensive recommendation with corrected allocation format
+      const allocationForRecommendation = {
         portfolioPercentage: allocation.allocation.portfolioPercentage,
-        overexposed: allocation.allocation.status === 'overexposed'
+        status: allocation.allocation.status,
+        recommendation: allocation.allocation.recommendation,
+        message: allocation.allocation.message
       };
       
       const recommendation = generateAdvancedRecommendation(
@@ -135,7 +136,7 @@ export const useEnhancedInvestmentAnalysis = () => {
         inputs.totalPortfolio,
         assumptions.target_allocation,
         marketConditions,
-        legacyAllocation
+        allocationForRecommendation
       );
 
       // 11. Generate insights

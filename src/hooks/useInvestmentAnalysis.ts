@@ -58,7 +58,14 @@ export const useInvestmentAnalysis = () => {
       const metrics = calculateFinancialMetrics(inputs, coinData, expectedPrice, adjustedDiscountRate, marketConditions);
       const allocation = calculateAllocation(inputs, assumptions, coinData);
 
-      // Generate comprehensive recommendation (use legacy allocation for now)
+      // Generate comprehensive recommendation with corrected allocation format
+      const allocationForRecommendation = {
+        portfolioPercentage: allocation.portfolioPercentage,
+        status: allocation.status,
+        recommendation: allocation.recommendation,
+        message: allocation.message
+      };
+      
       const recommendation = generateAdvancedRecommendation(
         metrics.npv,
         metrics.irr,
@@ -68,7 +75,7 @@ export const useInvestmentAnalysis = () => {
         inputs.totalPortfolio,
         assumptions.target_allocation,
         marketConditions,
-        allocation.legacy
+        allocationForRecommendation
       );
 
       // Store analysis result with enhanced metrics
