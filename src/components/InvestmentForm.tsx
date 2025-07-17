@@ -162,22 +162,23 @@ export const InvestmentForm: React.FC<InvestmentFormProps> = ({ onSubmit, loadin
               <div className="space-y-2">
                 <Label htmlFor="portfolio">Select Portfolio (Optional)</Label>
                 <Select 
-                  value={formData.portfolioId || ''} 
+                  value={formData.portfolioId || 'manual'} 
                   onValueChange={(value) => {
-                    const portfolio = portfolios.find(p => p.id === value);
+                    const portfolioId = value === 'manual' ? undefined : value;
+                    const portfolio = portfolios.find(p => p.id === portfolioId);
                     setFormData({ 
                       ...formData, 
-                      portfolioId: value || undefined,
+                      portfolioId,
                       totalPortfolio: portfolio?.total_value || formData.totalPortfolio 
                     });
-                    if (value) fetchPortfolioAssets(value);
+                    if (portfolioId) fetchPortfolioAssets(portfolioId);
                   }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Choose a portfolio for enhanced analysis" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Manual Portfolio Analysis</SelectItem>
+                    <SelectItem value="manual">Manual Portfolio Analysis</SelectItem>
                     {portfolios.map((portfolio) => (
                       <SelectItem key={portfolio.id} value={portfolio.id}>
                         {portfolio.name} (${portfolio.total_value.toLocaleString()})
