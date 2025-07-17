@@ -27,6 +27,7 @@ export interface InvestmentInputs {
   coinId: string;
   investmentAmount: number;
   totalPortfolio: number;
+  portfolioId?: string; // Optional portfolio selection for enhanced analysis
   investmentHorizon?: number;
   expectedPrice?: number;
   stakingYield?: number;

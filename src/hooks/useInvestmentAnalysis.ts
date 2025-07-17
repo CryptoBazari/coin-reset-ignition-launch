@@ -1,5 +1,6 @@
 
 import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { fetchCoinData, fetchBasketAssumptions, fetchBenchmarkData, storeAnalysisResult } from '@/services/investmentDataService';
 import { calculateFinancialMetrics, calculateAllocation, calculateExpectedPrice, calculateAdjustedDiscountRate } from '@/services/investmentCalculationService';
 import { generateAdvancedRecommendation } from '@/services/recommendationService';
@@ -61,7 +62,7 @@ export const useInvestmentAnalysis = () => {
       const metrics = calculateFinancialMetrics(inputs, enhancedCoinData, expectedPrice, adjustedDiscountRate, marketConditions);
       
       // 8. Enhanced allocation analysis with current portfolio consideration
-      const currentPortfolioBreakdown = await getCurrentPortfolioBreakdown(); // You'd implement this
+      const currentPortfolioBreakdown = await getCurrentPortfolioBreakdown(inputs.portfolioId);
       const allocation = calculateAllocation(inputs, assumptions, enhancedCoinData, currentPortfolioBreakdown);
 
       // Generate comprehensive recommendation with enhanced allocation format
@@ -139,11 +140,59 @@ export const useInvestmentAnalysis = () => {
   return { analyzeInvestment, loading, error };
 };
 
-// Helper function to get current portfolio breakdown (you'd implement this based on your data structure)
-async function getCurrentPortfolioBreakdown(): Promise<{ bitcoin: number; blueChip: number; smallCap: number } | undefined> {
-  // This would fetch from your virtual portfolio or user portfolio data
-  // For now, return undefined to use enhanced allocation logic without current portfolio
-  return undefined;
+// Helper function to get current portfolio breakdown
+async function getCurrentPortfolioBreakdown(portfolioId?: string): Promise<{ bitcoin: number; blueChip: number; smallCap: number } | undefined> {
+  if (!portfolioId) {
+    return undefined; // Use enhanced allocation logic without current portfolio
+  }
+
+  try {
+    // Get portfolio total value
+    const { data: portfolio, error: portfolioError } = await supabase
+      .from('virtual_portfolios')
+      .select('total_value')
+      .eq('id', portfolioId)
+      .single();
+
+    if (portfolioError || !portfolio) {
+      console.error('Error fetching portfolio:', portfolioError);
+      return undefined;
+    }
+
+    // Get portfolio assets with categories
+    const { data: assets, error: assetsError } = await supabase
+      .from('virtual_assets')
+      .select('category, cost_basis')
+      .eq('portfolio_id', portfolioId);
+
+    if (assetsError || !assets) {
+      console.error('Error fetching portfolio assets:', assetsError);
+      return undefined;
+    }
+
+    const totalValue = portfolio.total_value;
+    if (totalValue <= 0) return undefined;
+
+    // Calculate basket allocations
+    const bitcoinValue = assets
+      .filter(asset => asset.category === 'Bitcoin')
+      .reduce((sum, asset) => sum + asset.cost_basis, 0);
+    const blueChipValue = assets
+      .filter(asset => asset.category === 'Blue Chip')
+      .reduce((sum, asset) => sum + asset.cost_basis, 0);
+    const smallCapValue = assets
+      .filter(asset => asset.category === 'Small-Cap')
+      .reduce((sum, asset) => sum + asset.cost_basis, 0);
+
+    return {
+      bitcoin: (bitcoinValue / totalValue) * 100,
+      blueChip: (blueChipValue / totalValue) * 100,
+      smallCap: (smallCapValue / totalValue) * 100,
+    };
+  } catch (error) {
+    console.error('Error in getCurrentPortfolioBreakdown:', error);
+    return undefined;
+  }
 }
 
 // Helper function for basket multipliers
