@@ -150,10 +150,82 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result }) => {
       </Card>
 
       {/* Enhanced Financial Metrics Component */}
-      <EnhancedFinancialMetrics 
-        metrics={metrics}
-        coinName={coin.name}
-      />
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <DollarSign className="w-5 h-5 mr-2" />
+            Enhanced Financial Metrics
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Price Performance */}
+            <div className="space-y-3">
+              <h4 className="font-semibold text-primary">Price Performance</h4>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Price CAGR:</span>
+                  <span className="font-semibold">{metrics.cagr?.toFixed(2)}%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Price ROI:</span>
+                  <span className="font-semibold">{metrics.priceROI?.toFixed(2)}%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Total Return */}
+            <div className="space-y-3">
+              <h4 className="font-semibold text-success">Total Return (inc. Staking)</h4>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total CAGR:</span>
+                  <span className="font-semibold text-success">{metrics.totalReturnCAGR?.toFixed(2)}%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total ROI:</span>
+                  <span className="font-semibold text-success">{metrics.roi?.toFixed(2)}%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Staking ROI:</span>
+                  <span className="font-semibold text-warning">{metrics.stakingROI?.toFixed(2)}%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Risk Metrics */}
+            <div className="space-y-3">
+              <h4 className="font-semibold text-destructive">Risk Metrics</h4>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">NPV:</span>
+                  <span className={`font-semibold ${metrics.npv >= 0 ? 'text-success' : 'text-destructive'}`}>
+                    ${metrics.npv?.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">IRR:</span>
+                  <span className="font-semibold">{metrics.irr?.toFixed(2)}%</span>
+                </div>
+                {metrics.beta && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Beta:</span>
+                    <span className={`font-semibold ${getBetaRiskLevel(metrics.beta).color}`}>
+                      {metrics.beta.toFixed(2)} ({getBetaRiskLevel(metrics.beta).level})
+                    </span>
+                  </div>
+                )}
+                {metrics.sharpeRatio && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Sharpe Ratio:</span>
+                    <span className="font-semibold">{metrics.sharpeRatio.toFixed(2)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Risk Analysis Component */}
       <RiskAnalysisCard 
@@ -166,20 +238,68 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result }) => {
         marketConditions={marketConditions}
       />
 
-      {/* Allocation Analysis Component - Mock data for now since allocation isn't in AnalysisResult yet */}
-      <AllocationAnalysisCard 
-        allocation={{
-          portfolioPercentage: 45, // This would come from the enhanced analysis
-          status: 'underexposed' as const,
-          recommendation: 'increase' as const,
-          message: `${coin.basket} allocation analysis based on enhanced basket rules`,
-          targetRange: coin.basket === 'Bitcoin' ? [60, 75] : 
-                      coin.basket === 'Blue Chip' ? [20, 35] : 
-                      [5, 10] as [number, number]
-        }}
-        coinBasket={coin.basket}
-        coinName={coin.name}
-      />
+      {/* Enhanced Allocation Analysis */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Target className="w-5 h-5 mr-2" />
+            Enhanced Allocation Analysis - {coin.basket}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {result.allocation ? (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Portfolio Percentage:</span>
+                <span className="font-semibold text-lg">{result.allocation.portfolioPercentage.toFixed(1)}%</span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Status:</span>
+                <Badge variant={
+                  result.allocation.status === 'optimal' ? 'default' :
+                  result.allocation.status === 'underexposed' ? 'destructive' : 'secondary'
+                }>
+                  {result.allocation.status}
+                </Badge>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Recommendation:</span>
+                <Badge variant={
+                  result.allocation.recommendation === 'maintain' ? 'default' :
+                  result.allocation.recommendation === 'increase' ? 'destructive' : 'secondary'
+                }>
+                  {result.allocation.recommendation}
+                </Badge>
+              </div>
+              
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="text-sm">{result.allocation.message}</p>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground">Target Range:</span>
+                <span className="font-semibold">
+                  {result.allocation.targetRange[0]}% - {result.allocation.targetRange[1]}%
+                </span>
+              </div>
+              
+              {/* Basket-specific rules display */}
+              <div className="mt-4 p-3 border rounded-lg">
+                <h4 className="font-medium mb-2">Basket Allocation Rules</h4>
+                <div className="text-sm space-y-1">
+                  <div>Bitcoin: 60-80% (Recommended: 60-75%)</div>
+                  <div>Blue-chip: 0-40% (Recommended: 20-35%)</div>
+                  <div>Small-cap: 0-15% (Recommended: 5-10%)</div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-muted-foreground">Allocation analysis not available</p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Benchmark Comparison */}
       <Card>

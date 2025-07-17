@@ -121,7 +121,8 @@ export const calculateAllocation = (
   coinData: CoinData,
   currentPortfolioBreakdown?: { bitcoin: number; blueChip: number; smallCap: number }
 ) => {
-  // Get enhanced allocation analysis
+  console.log('🚀 Using ENHANCED allocation analysis for', coinData.basket);
+  // Use only enhanced allocation analysis - NO LEGACY
   const allocationResult = checkAdvancedAllocation(
     inputs.investmentAmount,
     inputs.totalPortfolio,
@@ -129,14 +130,8 @@ export const calculateAllocation = (
     currentPortfolioBreakdown
   );
   
-  // Legacy allocation for backward compatibility
-  const basketAllocation = (inputs.totalPortfolio * assumptions.target_allocation / 100);
-  const legacyAllocation = checkAllocation(inputs.investmentAmount, basketAllocation, inputs.totalPortfolio);
-  
-  return {
-    ...allocationResult,
-    legacy: legacyAllocation
-  };
+  console.log('✅ Enhanced allocation result:', allocationResult);
+  return allocationResult;
 };
 
 export const calculateExpectedPrice = (

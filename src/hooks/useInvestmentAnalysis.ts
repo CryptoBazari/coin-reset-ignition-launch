@@ -64,13 +64,15 @@ export const useInvestmentAnalysis = () => {
       const currentPortfolioBreakdown = await getCurrentPortfolioBreakdown(); // You'd implement this
       const allocation = calculateAllocation(inputs, assumptions, enhancedCoinData, currentPortfolioBreakdown);
 
-      // Generate comprehensive recommendation with corrected allocation format
+      // Generate comprehensive recommendation with enhanced allocation format
       const allocationForRecommendation = {
         portfolioPercentage: allocation.portfolioPercentage,
         status: allocation.status,
         recommendation: allocation.recommendation,
         message: allocation.message
       };
+      
+      console.log('🚀 Enhanced allocation for recommendation:', allocationForRecommendation);
       
       const recommendation = generateAdvancedRecommendation(
         metrics.npv,
