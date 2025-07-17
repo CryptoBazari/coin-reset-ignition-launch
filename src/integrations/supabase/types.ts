@@ -53,6 +53,10 @@ export type Database = {
           discount_rate: number
           hurdle_rate: number
           id: string
+          max_allocation: number | null
+          min_allocation: number | null
+          recommended_max: number | null
+          recommended_min: number | null
           target_allocation: number
         }
         Insert: {
@@ -60,6 +64,10 @@ export type Database = {
           discount_rate: number
           hurdle_rate: number
           id?: string
+          max_allocation?: number | null
+          min_allocation?: number | null
+          recommended_max?: number | null
+          recommended_min?: number | null
           target_allocation: number
         }
         Update: {
@@ -67,6 +75,10 @@ export type Database = {
           discount_rate?: number
           hurdle_rate?: number
           id?: string
+          max_allocation?: number | null
+          min_allocation?: number | null
+          recommended_max?: number | null
+          recommended_min?: number | null
           target_allocation?: number
         }
         Relationships: []
@@ -103,6 +115,10 @@ export type Database = {
           active_supply: number | null
           aviv_ratio: number | null
           basket: Database["public"]["Enums"]["basket_type"]
+          beta: number | null
+          beta_confidence: string | null
+          beta_data_source: string | null
+          beta_last_calculated: string | null
           cagr_36m: number | null
           coin_id: string
           created_at: string | null
@@ -112,7 +128,9 @@ export type Database = {
           market_cap: number | null
           name: string
           price_history: Json | null
+          sharpe_ratio: number | null
           staking_yield: number | null
+          standard_deviation: number | null
           updated_at: string | null
           vaulted_supply: number | null
           volatility: number | null
@@ -121,6 +139,10 @@ export type Database = {
           active_supply?: number | null
           aviv_ratio?: number | null
           basket: Database["public"]["Enums"]["basket_type"]
+          beta?: number | null
+          beta_confidence?: string | null
+          beta_data_source?: string | null
+          beta_last_calculated?: string | null
           cagr_36m?: number | null
           coin_id: string
           created_at?: string | null
@@ -130,7 +152,9 @@ export type Database = {
           market_cap?: number | null
           name: string
           price_history?: Json | null
+          sharpe_ratio?: number | null
           staking_yield?: number | null
+          standard_deviation?: number | null
           updated_at?: string | null
           vaulted_supply?: number | null
           volatility?: number | null
@@ -139,6 +163,10 @@ export type Database = {
           active_supply?: number | null
           aviv_ratio?: number | null
           basket?: Database["public"]["Enums"]["basket_type"]
+          beta?: number | null
+          beta_confidence?: string | null
+          beta_data_source?: string | null
+          beta_last_calculated?: string | null
           cagr_36m?: number | null
           coin_id?: string
           created_at?: string | null
@@ -148,7 +176,9 @@ export type Database = {
           market_cap?: number | null
           name?: string
           price_history?: Json | null
+          sharpe_ratio?: number | null
           staking_yield?: number | null
+          standard_deviation?: number | null
           updated_at?: string | null
           vaulted_supply?: number | null
           volatility?: number | null
@@ -318,6 +348,8 @@ export type Database = {
       }
       investment_analyses: {
         Row: {
+          allocation_status: string | null
+          beta: number | null
           cagr: number | null
           coin_id: string
           conditions: string | null
@@ -328,13 +360,23 @@ export type Database = {
           investment_horizon: number | null
           irr: number | null
           npv: number | null
+          portfolio_compliant: boolean | null
+          price_cagr: number | null
+          price_roi: number | null
           recommendation: Database["public"]["Enums"]["recommendation_type"]
+          risk_adjusted_npv: number | null
           risk_factor: number | null
           risks: string | null
           roi: number | null
+          sharpe_ratio: number | null
+          staking_roi: number | null
+          standard_deviation: number | null
           total_portfolio: number
+          total_return_cagr: number | null
         }
         Insert: {
+          allocation_status?: string | null
+          beta?: number | null
           cagr?: number | null
           coin_id: string
           conditions?: string | null
@@ -345,13 +387,23 @@ export type Database = {
           investment_horizon?: number | null
           irr?: number | null
           npv?: number | null
+          portfolio_compliant?: boolean | null
+          price_cagr?: number | null
+          price_roi?: number | null
           recommendation: Database["public"]["Enums"]["recommendation_type"]
+          risk_adjusted_npv?: number | null
           risk_factor?: number | null
           risks?: string | null
           roi?: number | null
+          sharpe_ratio?: number | null
+          staking_roi?: number | null
+          standard_deviation?: number | null
           total_portfolio: number
+          total_return_cagr?: number | null
         }
         Update: {
+          allocation_status?: string | null
+          beta?: number | null
           cagr?: number | null
           coin_id?: string
           conditions?: string | null
@@ -362,11 +414,19 @@ export type Database = {
           investment_horizon?: number | null
           irr?: number | null
           npv?: number | null
+          portfolio_compliant?: boolean | null
+          price_cagr?: number | null
+          price_roi?: number | null
           recommendation?: Database["public"]["Enums"]["recommendation_type"]
+          risk_adjusted_npv?: number | null
           risk_factor?: number | null
           risks?: string | null
           roi?: number | null
+          sharpe_ratio?: number | null
+          staking_roi?: number | null
+          standard_deviation?: number | null
           total_portfolio?: number
+          total_return_cagr?: number | null
         }
         Relationships: [
           {
@@ -524,6 +584,45 @@ export type Database = {
           network?: Database["public"]["Enums"]["crypto_network"]
           token?: Database["public"]["Enums"]["crypto_token"]
           updated_at?: string
+        }
+        Relationships: []
+      }
+      portfolio_allocations: {
+        Row: {
+          bitcoin_percentage: number
+          bluechip_percentage: number
+          calculated_at: string | null
+          id: string
+          is_compliant: boolean
+          portfolio_id: string
+          smallcap_percentage: number
+          total_value: number
+          user_id: string | null
+          violations: string[] | null
+        }
+        Insert: {
+          bitcoin_percentage?: number
+          bluechip_percentage?: number
+          calculated_at?: string | null
+          id?: string
+          is_compliant?: boolean
+          portfolio_id: string
+          smallcap_percentage?: number
+          total_value?: number
+          user_id?: string | null
+          violations?: string[] | null
+        }
+        Update: {
+          bitcoin_percentage?: number
+          bluechip_percentage?: number
+          calculated_at?: string | null
+          id?: string
+          is_compliant?: boolean
+          portfolio_id?: string
+          smallcap_percentage?: number
+          total_value?: number
+          user_id?: string | null
+          violations?: string[] | null
         }
         Relationships: []
       }

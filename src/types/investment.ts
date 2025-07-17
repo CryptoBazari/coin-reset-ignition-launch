@@ -14,6 +14,13 @@ export interface CoinData {
   vaulted_supply?: number;
   cointime_inflation?: number;
   staking_yield?: number;
+  // Enhanced risk metrics
+  beta?: number;
+  beta_last_calculated?: string;
+  beta_data_source?: string;
+  beta_confidence?: string;
+  standard_deviation?: number;
+  sharpe_ratio?: number;
 }
 
 export interface InvestmentInputs {
@@ -34,6 +41,15 @@ export interface FinancialMetrics {
   priceROI: number;                // Price appreciation ROI
   stakingROI: number;              // Staking contribution ROI
   riskFactor: number;
+  // Enhanced risk metrics
+  beta: number;
+  standardDeviation: number;
+  sharpeRatio: number;
+  riskAdjustedNPV: number;
+  expectedReturn: number;
+  // Confidence indicators
+  betaConfidence: 'low' | 'medium' | 'high';
+  dataQuality: 'estimated' | 'calculated' | 'api' | 'database';
 }
 
 export interface MarketConditions {

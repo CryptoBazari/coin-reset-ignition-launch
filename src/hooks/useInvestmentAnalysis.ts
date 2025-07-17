@@ -71,7 +71,7 @@ export const useInvestmentAnalysis = () => {
         allocation.legacy
       );
 
-      // Store analysis result
+      // Store analysis result with enhanced metrics
       await storeAnalysisResult({
         coin_id: inputs.coinId,
         investment_amount: inputs.investmentAmount,
@@ -85,7 +85,18 @@ export const useInvestmentAnalysis = () => {
         risk_factor: metrics.riskFactor,
         recommendation: recommendation.recommendation,
         conditions: recommendation.conditions,
-        risks: recommendation.risks
+        risks: recommendation.risks,
+        // Enhanced metrics
+        price_cagr: metrics.cagr,
+        total_return_cagr: metrics.totalReturnCAGR,
+        price_roi: metrics.priceROI,
+        staking_roi: metrics.stakingROI,
+        beta: metrics.beta,
+        standard_deviation: metrics.standardDeviation,
+        sharpe_ratio: metrics.sharpeRatio,
+        risk_adjusted_npv: metrics.riskAdjustedNPV,
+        allocation_status: allocation.status,
+        portfolio_compliant: allocation.status === 'optimal'
       });
 
       return {

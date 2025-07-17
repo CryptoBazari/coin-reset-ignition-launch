@@ -8,7 +8,12 @@ import {
   generateCashFlows,
   adjustDiscountRateForFed,
   checkAllocation,
-  checkAdvancedAllocation
+  checkAdvancedAllocation,
+  calculateEnhancedRiskFactor,
+  calculateSharpeRatio,
+  calculateRiskAdjustedNPV,
+  calculateExpectedReturn,
+  getEstimatedBeta
 } from '@/utils/financialCalculations';
 import type { CoinData, InvestmentInputs, FinancialMetrics, MarketConditions } from '@/types/investment';
 
@@ -51,16 +56,42 @@ export const calculateFinancialMetrics = (
   const totalROI = calculateROI(inputs.investmentAmount, cashFlows[cashFlows.length - 1]);
   const stakingROI = totalROI - priceROI;
   
-  const riskFactor = calculateRiskFactor(
+  // Get beta (from database or estimate)
+  const beta = coinData.beta || getEstimatedBeta(coinData.coin_id, coinData.basket);
+  
+  // Calculate enhanced risk factor with beta
+  const riskFactor = calculateEnhancedRiskFactor(
     coinData.basket,
     coinData.volatility || 50,
     coinData.fundamentals_score || 5,
+    beta,
     coinData.aviv_ratio,
     coinData.active_supply,
     coinData.vaulted_supply,
     marketConditions.fedRateChange,
     marketConditions.smartMoneyActivity
   );
+  
+  // Calculate risk-adjusted metrics
+  const riskFreeRate = 0.045; // 4.5% Treasury rate
+  const marketRiskPremium = 0.15; // 15% crypto market premium
+  const riskAdjustedNPV = calculateRiskAdjustedNPV(
+    cashFlows,
+    riskFreeRate,
+    marketRiskPremium,
+    beta
+  );
+  
+  // Calculate expected return using CAPM
+  const expectedReturn = calculateExpectedReturn(
+    riskFreeRate,
+    0.25, // 25% crypto market return
+    beta
+  );
+  
+  // Calculate Sharpe ratio
+  const volatility = coinData.volatility || 50;
+  const sharpeRatio = calculateSharpeRatio(totalReturnCAGR, riskFreeRate * 100, volatility);
 
   return { 
     npv, 
@@ -70,7 +101,16 @@ export const calculateFinancialMetrics = (
     roi: totalROI,             // Total ROI
     priceROI,                  // Price appreciation ROI
     stakingROI,                // Staking contribution ROI
-    riskFactor 
+    riskFactor,
+    // Enhanced risk metrics
+    beta,
+    standardDeviation: volatility,
+    sharpeRatio,
+    riskAdjustedNPV,
+    expectedReturn,
+    // Confidence indicators
+    betaConfidence: 'medium' as const,
+    dataQuality: 'estimated' as const
   };
 };
 

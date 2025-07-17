@@ -322,3 +322,144 @@ export const calculateExpectedReturn = (
 ): number => {
   return riskFreeRate + beta * (marketReturn - riskFreeRate);
 };
+
+// =============================================================================
+// PHASE 1 ADDITIONS: STANDARD DEVIATION AND ENHANCED FUNCTIONS
+// =============================================================================
+
+// Calculate standard deviation from array of values
+export const calculateStandardDeviation = (values: number[]): number => {
+  if (values.length === 0) return 0;
+  
+  const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+  const squaredDifferences = values.map(val => Math.pow(val - mean, 2));
+  const variance = squaredDifferences.reduce((sum, sq) => sum + sq, 0) / (values.length - 1);
+  
+  return Math.sqrt(variance);
+};
+
+// Calculate annualized volatility from price data
+export const calculateAnnualizedVolatility = (
+  prices: number[],
+  periodsPerYear: number = 365
+): number => {
+  if (prices.length < 2) return 0;
+  
+  // Calculate daily returns
+  const returns: number[] = [];
+  for (let i = 1; i < prices.length; i++) {
+    returns.push((prices[i] - prices[i - 1]) / prices[i - 1]);
+  }
+  
+  const dailyStdDev = calculateStandardDeviation(returns);
+  return dailyStdDev * Math.sqrt(periodsPerYear) * 100; // Convert to percentage
+};
+
+// Portfolio validation function
+export const validatePortfolioAllocation = (
+  portfolioBreakdown: { bitcoin: number; blueChip: number; smallCap: number }
+): {
+  isValid: boolean;
+  totalAllocation: number;
+  violations: string[];
+  recommendations: string[];
+} => {
+  const { bitcoin, blueChip, smallCap } = portfolioBreakdown;
+  const totalAllocation = bitcoin + blueChip + smallCap;
+  const violations: string[] = [];
+  const recommendations: string[] = [];
+  
+  // Check individual basket limits
+  if (bitcoin < BASKET_RULES.bitcoin.min) {
+    violations.push(`Bitcoin below minimum ${BASKET_RULES.bitcoin.min}%`);
+    recommendations.push(`Increase Bitcoin to at least ${BASKET_RULES.bitcoin.min}%`);
+  }
+  
+  if (blueChip > BASKET_RULES.blueChip.max) {
+    violations.push(`Blue-chip exceeds maximum ${BASKET_RULES.blueChip.max}%`);
+    recommendations.push(`Reduce blue-chip to below ${BASKET_RULES.blueChip.max}%`);
+  }
+  
+  if (smallCap > BASKET_RULES.smallCap.max) {
+    violations.push(`Small-cap exceeds maximum ${BASKET_RULES.smallCap.max}%`);
+    recommendations.push(`Reduce small-cap to below ${BASKET_RULES.smallCap.max}%`);
+  }
+  
+  // Check total allocation
+  if (Math.abs(totalAllocation - 100) > 1) {
+    violations.push(`Total allocation ${totalAllocation.toFixed(1)}% ≠ 100%`);
+  }
+  
+  return {
+    isValid: violations.length === 0,
+    totalAllocation,
+    violations,
+    recommendations
+  };
+};
+
+// Enhanced risk factor calculation with beta integration
+export const calculateEnhancedRiskFactor = (
+  basket: string,
+  volatility: number,
+  fundamentalsScore: number,
+  beta: number,
+  avivRatio?: number,
+  activeSupply?: number,
+  vaultedSupply?: number,
+  fedRateChange?: number,
+  smartMoneyActivity?: boolean
+): number => {
+  let riskScore = 0;
+  
+  // Beta component (40% of risk score) - systematic risk
+  const betaRisk = Math.max(0, (beta - 1) * 20); // Beta > 1 increases risk
+  riskScore += betaRisk * 0.4;
+  
+  // Volatility component (30% of risk score) - idiosyncratic risk  
+  const volatilityRisk = Math.max(0, (volatility - 30) * 0.8);
+  riskScore += volatilityRisk * 0.3;
+  
+  // Basket base risk (20% of risk score)
+  const basketRisk = {
+    'Bitcoin': 10,
+    'Blue Chip': 20,
+    'Small-Cap': 40
+  }[basket] || 25;
+  riskScore += basketRisk * 0.2;
+  
+  // Fundamentals adjustment (10% of risk score)
+  const fundamentalsRisk = fundamentalsScore ? 
+    Math.max(0, (8 - fundamentalsScore) * 3) : 15;
+  riskScore += fundamentalsRisk * 0.1;
+  
+  // Market condition adjustments
+  if (avivRatio && avivRatio > 2.5) riskScore += 5; // Bitcoin bearish
+  if (smartMoneyActivity) riskScore += 5; // Smart money selling
+  if (fedRateChange && fedRateChange > 0) riskScore += 3; // Rate hikes
+  
+  // Convert to 1-5 scale
+  return Math.max(1, Math.min(5, Math.round(riskScore / 20)));
+};
+
+// Helper function for beta estimation
+export const getEstimatedBeta = (coinId: string, basket?: string): number => {
+  const betaEstimates: Record<string, number> = {
+    'BTC': 1.0,
+    'ETH': 1.4,
+    'SOL': 1.6,
+    'ADA': 1.3,
+    'DOT': 1.3,
+    'LINK': 1.4,
+    'AVAX': 1.6,
+    'MATIC': 1.5,
+    'ATOM': 1.4,
+    'ALGO': 1.2
+  };
+  
+  return betaEstimates[coinId] || {
+    'Bitcoin': 1.0,
+    'Blue Chip': 1.5,
+    'Small-Cap': 2.5
+  }[basket || 'Blue Chip'] || 1.8;
+};

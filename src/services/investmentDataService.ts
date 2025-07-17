@@ -29,7 +29,14 @@ export const fetchCoinData = async (coinId: string): Promise<CoinData> => {
     active_supply: coinDataRaw.active_supply,
     vaulted_supply: coinDataRaw.vaulted_supply,
     cointime_inflation: null, // Set to null since it's not in the database yet
-    staking_yield: coinDataRaw.staking_yield
+    staking_yield: coinDataRaw.staking_yield,
+    // Enhanced risk metrics
+    beta: coinDataRaw.beta,
+    beta_last_calculated: coinDataRaw.beta_last_calculated,
+    beta_data_source: coinDataRaw.beta_data_source,
+    beta_confidence: coinDataRaw.beta_confidence,
+    standard_deviation: coinDataRaw.standard_deviation,
+    sharpe_ratio: coinDataRaw.sharpe_ratio
   };
 };
 
@@ -62,5 +69,21 @@ export const fetchBenchmarkData = async (benchmarkId: string) => {
 };
 
 export const storeAnalysisResult = async (analysisData: any) => {
-  await supabase.from('investment_analyses').insert(analysisData);
+  // Enhanced analysis data with new metrics
+  const enhancedData = {
+    ...analysisData,
+    // Add new enhanced metrics fields
+    price_cagr: analysisData.price_cagr,
+    total_return_cagr: analysisData.total_return_cagr,
+    price_roi: analysisData.price_roi,
+    staking_roi: analysisData.staking_roi,
+    beta: analysisData.beta,
+    standard_deviation: analysisData.standard_deviation,
+    sharpe_ratio: analysisData.sharpe_ratio,
+    risk_adjusted_npv: analysisData.risk_adjusted_npv,
+    allocation_status: analysisData.allocation_status,
+    portfolio_compliant: analysisData.portfolio_compliant
+  };
+  
+  await supabase.from('investment_analyses').insert(enhancedData);
 };
