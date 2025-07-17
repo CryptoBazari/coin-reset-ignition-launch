@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { TrendingUp, TrendingDown, AlertTriangle, DollarSign, Target } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertTriangle, DollarSign, Target, Activity, Shield, BarChart3 } from 'lucide-react';
 import type { AnalysisResult } from '@/types/investment';
 
 interface AnalysisResultsProps {
@@ -15,27 +15,34 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result }) => {
 
   const getRecommendationColor = (rec: string) => {
     switch (rec) {
-      case 'Buy': return 'bg-green-500';
-      case 'Buy Less': return 'bg-yellow-500';
-      case 'Do Not Buy': return 'bg-orange-500';
-      case 'Sell': return 'bg-red-500';
-      default: return 'bg-gray-500';
+      case 'Buy': return 'bg-success text-success-foreground';
+      case 'Buy Less': return 'bg-warning text-warning-foreground';
+      case 'Do Not Buy': return 'bg-destructive text-destructive-foreground';
+      case 'Sell': return 'bg-destructive text-destructive-foreground';
+      default: return 'bg-muted text-muted-foreground';
     }
   };
 
   const getRiskColor = (risk: number) => {
-    if (risk <= 2) return 'text-green-600';
-    if (risk <= 3) return 'text-yellow-600';
-    if (risk <= 4) return 'text-orange-600';
-    return 'text-red-600';
+    if (risk <= 2) return 'text-success';
+    if (risk <= 3) return 'text-warning';
+    if (risk <= 4) return 'text-orange-500';
+    return 'text-destructive';
   };
 
   const getBitcoinStateColor = (state: string) => {
     switch (state) {
-      case 'bullish': return 'text-green-600';
-      case 'bearish': return 'text-red-600';
-      default: return 'text-yellow-600';
+      case 'bullish': return 'text-success';
+      case 'bearish': return 'text-destructive';
+      default: return 'text-warning';
     }
+  };
+
+  const getBetaRiskLevel = (beta: number) => {
+    if (beta < 1) return { level: 'Low', color: 'text-success' };
+    if (beta < 1.5) return { level: 'Moderate', color: 'text-warning' };
+    if (beta < 2.0) return { level: 'High', color: 'text-orange-500' };
+    return { level: 'Very High', color: 'text-destructive' };
   };
 
   return (
@@ -101,32 +108,32 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result }) => {
                   </span>
                 </div>
                 {marketConditions.avivRatio && (
-                  <div className="flex justify-between">
-                    <span>AVIV Ratio:</span>
-                    <span className={marketConditions.avivRatio > 2.5 ? 'text-red-600' : marketConditions.avivRatio < 0.55 ? 'text-green-600' : 'text-yellow-600'}>
-                      {marketConditions.avivRatio.toFixed(2)}
-                    </span>
-                  </div>
+                <div className="flex justify-between">
+                  <span>AVIV Ratio:</span>
+                  <span className={marketConditions.avivRatio > 2.5 ? 'text-destructive' : marketConditions.avivRatio < 0.55 ? 'text-success' : 'text-warning'}>
+                    {marketConditions.avivRatio.toFixed(2)}
+                  </span>
+                </div>
                 )}
                 {marketConditions.vaultedSupply && (
                   <div className="flex justify-between">
                     <span>Vaulted Supply:</span>
-                    <span className={marketConditions.vaultedSupply > 70 ? 'text-green-600' : 'text-yellow-600'}>
+                    <span className={marketConditions.vaultedSupply > 70 ? 'text-success' : 'text-warning'}>
                       {marketConditions.vaultedSupply.toFixed(1)}%
                     </span>
                   </div>
                 )}
                 <div className="flex justify-between">
                   <span>Smart Money:</span>
-                  <span className={marketConditions.smartMoneyActivity ? 'text-red-600' : 'text-green-600'}>
+                  <span className={marketConditions.smartMoneyActivity ? 'text-destructive' : 'text-success'}>
                     {marketConditions.smartMoneyActivity ? 'Selling' : 'Holding'}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Fed Rate Impact:</span>
                   <span className={
-                    marketConditions.fedRateChange > 0 ? 'text-red-600' : 
-                    marketConditions.fedRateChange < 0 ? 'text-green-600' : 'text-gray-600'
+                    marketConditions.fedRateChange > 0 ? 'text-destructive' : 
+                    marketConditions.fedRateChange < 0 ? 'text-success' : 'text-muted-foreground'
                   }>
                     {marketConditions.fedRateChange > 0 ? 'Hawkish' : 
                      marketConditions.fedRateChange < 0 ? 'Dovish' : 'Neutral'}
@@ -138,38 +145,128 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result }) => {
         </CardContent>
       </Card>
 
-      {/* Financial Metrics */}
+      {/* Enhanced Financial Metrics */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
             <DollarSign className="w-5 h-5 mr-2" />
-            Financial Metrics
+            Enhanced Financial Analysis
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <div className="text-sm text-gray-600">NPV</div>
-              <div className={`text-xl font-bold ${metrics.npv > 0 ? 'text-green-600' : 'text-red-600'}`}>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="text-center p-4 bg-muted/50 rounded-lg">
+              <div className="text-sm text-muted-foreground">NPV</div>
+              <div className={`text-xl font-bold ${metrics.npv > 0 ? 'text-success' : 'text-destructive'}`}>
                 ${metrics.npv.toFixed(2)}
               </div>
             </div>
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <div className="text-sm text-gray-600">IRR</div>
-              <div className="text-xl font-bold text-blue-600">
+            <div className="text-center p-4 bg-muted/50 rounded-lg">
+              <div className="text-sm text-muted-foreground">IRR</div>
+              <div className="text-xl font-bold text-primary">
                 {metrics.irr.toFixed(2)}%
               </div>
             </div>
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <div className="text-sm text-gray-600">CAGR</div>
-              <div className="text-xl font-bold text-purple-600">
+            <div className="text-center p-4 bg-muted/50 rounded-lg">
+              <div className="text-sm text-muted-foreground">Price CAGR</div>
+              <div className="text-xl font-bold text-secondary">
                 {metrics.cagr.toFixed(2)}%
               </div>
             </div>
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <div className="text-sm text-gray-600">ROI</div>
-              <div className="text-xl font-bold text-indigo-600">
-                {metrics.roi.toFixed(2)}%
+            <div className="text-center p-4 bg-muted/50 rounded-lg">
+              <div className="text-sm text-muted-foreground">Total Return CAGR</div>
+              <div className="text-xl font-bold text-accent">
+                {metrics.totalReturnCAGR.toFixed(2)}%
+              </div>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center p-4 bg-muted/30 rounded-lg">
+              <div className="text-sm text-muted-foreground">Price ROI</div>
+              <div className="text-lg font-semibold">
+                {metrics.priceROI.toFixed(1)}%
+              </div>
+            </div>
+            <div className="text-center p-4 bg-muted/30 rounded-lg">
+              <div className="text-sm text-muted-foreground">Staking ROI</div>
+              <div className="text-lg font-semibold">
+                {metrics.stakingROI.toFixed(1)}%
+              </div>
+            </div>
+            <div className="text-center p-4 bg-muted/30 rounded-lg">
+              <div className="text-sm text-muted-foreground">Total ROI</div>
+              <div className="text-lg font-semibold">
+                {metrics.roi.toFixed(1)}%
+              </div>
+            </div>
+            <div className="text-center p-4 bg-muted/30 rounded-lg">
+              <div className="text-sm text-muted-foreground">Risk-Adj NPV</div>
+              <div className="text-lg font-semibold">
+                ${metrics.riskAdjustedNPV.toLocaleString()}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Enhanced Risk Analysis */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Shield className="w-5 h-5 mr-2" />
+            Risk Analysis
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <div className="text-sm text-muted-foreground mb-1">Systematic Risk (Beta)</div>
+              <div className="flex items-center gap-2">
+                <div className={`text-2xl font-bold ${getBetaRiskLevel(metrics.beta).color}`}>
+                  {metrics.beta.toFixed(2)}
+                </div>
+                <Badge variant="outline">
+                  {metrics.betaConfidence}
+                </Badge>
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">
+                {getBetaRiskLevel(metrics.beta).level} Risk • {metrics.dataQuality}
+              </div>
+            </div>
+            
+            <div>
+              <div className="text-sm text-muted-foreground mb-1">Volatility</div>
+              <div className={`text-2xl font-bold ${metrics.standardDeviation > 50 ? 'text-destructive' : metrics.standardDeviation > 30 ? 'text-warning' : 'text-success'}`}>
+                {metrics.standardDeviation.toFixed(1)}%
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">
+                Annualized Standard Deviation
+              </div>
+            </div>
+            
+            <div>
+              <div className="text-sm text-muted-foreground mb-1">Sharpe Ratio</div>
+              <div className={`text-2xl font-bold ${metrics.sharpeRatio > 1.5 ? 'text-success' : metrics.sharpeRatio > 1.0 ? 'text-warning' : 'text-destructive'}`}>
+                {metrics.sharpeRatio.toFixed(2)}
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">
+                Risk-Adjusted Returns
+              </div>
+            </div>
+          </div>
+          
+          <Separator className="my-4" />
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <div className="text-sm text-muted-foreground mb-1">Expected Return (CAPM)</div>
+              <div className="text-lg font-semibold">{metrics.expectedReturn.toFixed(1)}%</div>
+            </div>
+            <div>
+              <div className="text-sm text-muted-foreground mb-1">Risk Factor</div>
+              <div className={`text-lg font-semibold ${getRiskColor(metrics.riskFactor)}`}>
+                {metrics.riskFactor}/5
               </div>
             </div>
           </div>
@@ -199,8 +296,8 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result }) => {
               <span>Outperformance</span>
               <span className={`text-lg ${
                 benchmarkComparison.coinPerformance > benchmarkComparison.benchmarkPerformance 
-                  ? 'text-green-600' 
-                  : 'text-red-600'
+                  ? 'text-success' 
+                  : 'text-destructive'
               }`}>
                 {(benchmarkComparison.coinPerformance - benchmarkComparison.benchmarkPerformance).toFixed(2)}%
               </span>
@@ -213,10 +310,13 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result }) => {
       {recommendation.marketAnalysis && (
         <Card>
           <CardHeader>
-            <CardTitle>Market Analysis</CardTitle>
+            <CardTitle className="flex items-center">
+              <BarChart3 className="w-5 h-5 mr-2" />
+              Market Analysis
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-700 mb-4">{recommendation.marketAnalysis}</p>
+            <p className="text-foreground mb-4">{recommendation.marketAnalysis}</p>
           </CardContent>
         </Card>
       )}
@@ -226,10 +326,10 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result }) => {
         {recommendation.conditions && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-green-700">Conditions</CardTitle>
+              <CardTitle className="text-success">Conditions</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-700">{recommendation.conditions}</p>
+              <p className="text-foreground">{recommendation.conditions}</p>
             </CardContent>
           </Card>
         )}
@@ -237,13 +337,13 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result }) => {
         {recommendation.risks && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-red-700 flex items-center">
+              <CardTitle className="text-destructive flex items-center">
                 <AlertTriangle className="w-5 h-5 mr-2" />
                 Risks
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-700">{recommendation.risks}</p>
+              <p className="text-foreground">{recommendation.risks}</p>
             </CardContent>
           </Card>
         )}
@@ -259,8 +359,8 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result }) => {
             <ul className="space-y-2">
               {recommendation.rebalancingActions.map((action, index) => (
                 <li key={index} className="flex items-start">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                  <span className="text-gray-700">{action}</span>
+                  <span className="w-2 h-2 bg-primary rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                  <span className="text-foreground">{action}</span>
                 </li>
               ))}
             </ul>
@@ -276,35 +376,47 @@ export const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result }) => {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
             <div>
-              <span className="text-gray-600">Basket:</span>
+              <span className="text-muted-foreground">Basket:</span>
               <div className="font-semibold">{coin.basket}</div>
             </div>
             <div>
-              <span className="text-gray-600">Current Price:</span>
+              <span className="text-muted-foreground">Current Price:</span>
               <div className="font-semibold">${coin.current_price.toLocaleString()}</div>
             </div>
             {coin.market_cap && (
               <div>
-                <span className="text-gray-600">Market Cap:</span>
+                <span className="text-muted-foreground">Market Cap:</span>
                 <div className="font-semibold">${(coin.market_cap / 1e9).toFixed(1)}B</div>
               </div>
             )}
             {coin.volatility && (
               <div>
-                <span className="text-gray-600">Volatility:</span>
+                <span className="text-muted-foreground">Volatility:</span>
                 <div className="font-semibold">{coin.volatility.toFixed(1)}%</div>
               </div>
             )}
             {coin.fundamentals_score && (
               <div>
-                <span className="text-gray-600">Fundamentals:</span>
+                <span className="text-muted-foreground">Fundamentals:</span>
                 <div className="font-semibold">{coin.fundamentals_score}/10</div>
               </div>
             )}
             {coin.staking_yield && (
               <div>
-                <span className="text-gray-600">Staking Yield:</span>
+                <span className="text-muted-foreground">Staking Yield:</span>
                 <div className="font-semibold">{coin.staking_yield.toFixed(1)}%</div>
+              </div>
+            )}
+            {coin.beta && (
+              <div>
+                <span className="text-muted-foreground">Beta:</span>
+                <div className="font-semibold">{coin.beta.toFixed(2)}</div>
+              </div>
+            )}
+            {coin.sharpe_ratio && (
+              <div>
+                <span className="text-muted-foreground">Sharpe Ratio:</span>
+                <div className="font-semibold">{coin.sharpe_ratio.toFixed(2)}</div>
               </div>
             )}
           </div>
