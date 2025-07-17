@@ -80,6 +80,12 @@ export interface AnalysisResult {
   metrics: FinancialMetrics;
   recommendation: InvestmentRecommendation;
   marketConditions: MarketConditions;
+  betaAnalysis?: {
+    beta: number;
+    confidence: 'low' | 'medium' | 'high';
+    source: 'estimated' | 'calculated' | 'api' | 'database';
+    lastCalculated?: string;
+  };
   benchmarkComparison: {
     coinPerformance: number;
     benchmarkPerformance: number;

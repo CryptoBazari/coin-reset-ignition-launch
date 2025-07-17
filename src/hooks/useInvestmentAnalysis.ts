@@ -4,6 +4,7 @@ import { fetchCoinData, fetchBasketAssumptions, fetchBenchmarkData, storeAnalysi
 import { calculateFinancialMetrics, calculateAllocation, calculateExpectedPrice, calculateAdjustedDiscountRate } from '@/services/investmentCalculationService';
 import { generateAdvancedRecommendation } from '@/services/recommendationService';
 import { createMarketConditions, getMarketData } from '@/services/marketAnalysisService';
+import { betaCalculationService } from '@/services/betaCalculationService';
 import type { InvestmentInputs, AnalysisResult, MarketDataResult } from '@/types/investment';
 
 export const useInvestmentAnalysis = () => {
@@ -15,21 +16,20 @@ export const useInvestmentAnalysis = () => {
     setError(null);
 
     try {
-      // Fetch coin data
+      // 1. Fetch core data
       const coinData = await fetchCoinData(inputs.coinId);
-
-      // Fetch assumptions for the basket
       const assumptions = await fetchBasketAssumptions(coinData.basket);
-
-      // Fetch benchmark data
       const benchmarkId = coinData.basket === 'Bitcoin' ? 'SP500' : 'BTC';
       const benchmark = await fetchBenchmarkData(benchmarkId);
 
-      // Get market data (now uses real APIs when available)
+      // 2. Get enhanced beta analysis
+      const betaAnalysis = await betaCalculationService.getBetaForCoin(inputs.coinId);
+      
+      // 3. Get real market data
       const marketDataResult: MarketDataResult = await getMarketData();
       const { fedRateChange, marketSentiment, realMarketData } = marketDataResult;
 
-      // Update coin data with real market data if available
+      // 4. Update coin data with real market data if available
       if (realMarketData) {
         const coinSymbolMap = {
           'BTC': 'BTC',
@@ -49,14 +49,20 @@ export const useInvestmentAnalysis = () => {
         }
       }
 
-      // Create market conditions object
-      const marketConditions = createMarketConditions(coinData, marketSentiment, fedRateChange);
+      // 5. Enhanced coin data with beta
+      const enhancedCoinData = { ...coinData, beta: betaAnalysis.beta };
 
-      // Calculate financial metrics with enhanced parameters
+      // 6. Create enhanced market conditions
+      const marketConditions = createMarketConditions(enhancedCoinData, marketSentiment, fedRateChange);
+
+      // 7. Calculate enhanced financial metrics with beta integration
       const adjustedDiscountRate = calculateAdjustedDiscountRate(assumptions, fedRateChange, coinData.basket);
-      const expectedPrice = calculateExpectedPrice(coinData, inputs, marketConditions);
-      const metrics = calculateFinancialMetrics(inputs, coinData, expectedPrice, adjustedDiscountRate, marketConditions);
-      const allocation = calculateAllocation(inputs, assumptions, coinData);
+      const expectedPrice = calculateExpectedPrice(enhancedCoinData, inputs, marketConditions);
+      const metrics = calculateFinancialMetrics(inputs, enhancedCoinData, expectedPrice, adjustedDiscountRate, marketConditions);
+      
+      // 8. Enhanced allocation analysis with current portfolio consideration
+      const currentPortfolioBreakdown = await getCurrentPortfolioBreakdown(); // You'd implement this
+      const allocation = calculateAllocation(inputs, assumptions, enhancedCoinData, currentPortfolioBreakdown);
 
       // Generate comprehensive recommendation with corrected allocation format
       const allocationForRecommendation = {
@@ -107,10 +113,11 @@ export const useInvestmentAnalysis = () => {
       });
 
       return {
-        coin: coinData,
+        coin: enhancedCoinData,
         metrics,
         recommendation,
         marketConditions,
+        betaAnalysis, // ✅ NEW: Include beta analysis results
         benchmarkComparison: {
           coinPerformance: coinData.cagr_36m || 0,
           benchmarkPerformance: benchmark.cagr_36m,
@@ -128,3 +135,10 @@ export const useInvestmentAnalysis = () => {
 
   return { analyzeInvestment, loading, error };
 };
+
+// Helper function to get current portfolio breakdown (you'd implement this based on your data structure)
+async function getCurrentPortfolioBreakdown(): Promise<{ bitcoin: number; blueChip: number; smallCap: number } | undefined> {
+  // This would fetch from your virtual portfolio or user portfolio data
+  // For now, return undefined to use enhanced allocation logic without current portfolio
+  return undefined;
+}
