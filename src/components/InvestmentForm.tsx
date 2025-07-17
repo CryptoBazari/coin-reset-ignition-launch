@@ -5,11 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
 import type { CoinData, InvestmentInputs } from '@/types/investment';
-import type { VirtualPortfolio, VirtualAsset } from '@/types/virtualPortfolio';
 
 interface InvestmentFormProps {
   onSubmit: (inputs: InvestmentInputs) => void;
@@ -17,15 +14,11 @@ interface InvestmentFormProps {
 }
 
 export const InvestmentForm: React.FC<InvestmentFormProps> = ({ onSubmit, loading }) => {
-  const { user } = useAuth();
   const [coins, setCoins] = useState<CoinData[]>([]);
-  const [portfolios, setPortfolios] = useState<VirtualPortfolio[]>([]);
-  const [portfolioAssets, setPortfolioAssets] = useState<VirtualAsset[]>([]);
   const [formData, setFormData] = useState<InvestmentInputs>({
     coinId: '',
     investmentAmount: 100,
     totalPortfolio: 10000,
-    portfolioId: undefined,
     investmentHorizon: 2,
     expectedPrice: undefined,
     stakingYield: undefined
@@ -33,10 +26,7 @@ export const InvestmentForm: React.FC<InvestmentFormProps> = ({ onSubmit, loadin
 
   useEffect(() => {
     fetchCoins();
-    if (user) {
-      fetchUserPortfolios();
-    }
-  }, [user]);
+  }, []);
 
   const fetchCoins = async () => {
     const { data, error } = await supabase
@@ -66,53 +56,6 @@ export const InvestmentForm: React.FC<InvestmentFormProps> = ({ onSubmit, loadin
     }
   };
 
-  const fetchUserPortfolios = async () => {
-    if (!user) return;
-    
-    const { data, error } = await supabase
-      .from('virtual_portfolios')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-      
-    if (data && !error) {
-      setPortfolios(data);
-      // Auto-select first portfolio and update total portfolio value
-      if (data.length > 0 && !formData.portfolioId) {
-        setFormData(prev => ({
-          ...prev,
-          portfolioId: data[0].id,
-          totalPortfolio: data[0].total_value
-        }));
-        fetchPortfolioAssets(data[0].id);
-      }
-    }
-  };
-
-  const fetchPortfolioAssets = async (portfolioId: string) => {
-    const { data, error } = await supabase
-      .from('virtual_assets')
-      .select(`
-        *,
-        virtual_coins (
-          id,
-          symbol,
-          name,
-          created_at
-        )
-      `)
-      .eq('portfolio_id', portfolioId);
-      
-    if (data && !error) {
-      // Type cast to ensure category matches the union type
-      const typedAssets = data.map(asset => ({
-        ...asset,
-        category: asset.category as 'Bitcoin' | 'Blue Chip' | 'Small-Cap'
-      }));
-      setPortfolioAssets(typedAssets);
-    }
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.coinId) {
@@ -121,31 +64,6 @@ export const InvestmentForm: React.FC<InvestmentFormProps> = ({ onSubmit, loadin
   };
 
   const selectedCoin = coins.find(coin => coin.coin_id === formData.coinId);
-  const selectedPortfolio = portfolios.find(p => p.id === formData.portfolioId);
-
-  // Calculate current portfolio allocation
-  const getPortfolioAllocation = () => {
-    if (!portfolioAssets.length || !selectedPortfolio) return null;
-    
-    const totalValue = selectedPortfolio.total_value;
-    const bitcoinValue = portfolioAssets
-      .filter(asset => asset.category === 'Bitcoin')
-      .reduce((sum, asset) => sum + asset.cost_basis, 0);
-    const blueChipValue = portfolioAssets
-      .filter(asset => asset.category === 'Blue Chip')
-      .reduce((sum, asset) => sum + asset.cost_basis, 0);
-    const smallCapValue = portfolioAssets
-      .filter(asset => asset.category === 'Small-Cap')
-      .reduce((sum, asset) => sum + asset.cost_basis, 0);
-      
-    return {
-      bitcoin: totalValue > 0 ? (bitcoinValue / totalValue) * 100 : 0,
-      blueChip: totalValue > 0 ? (blueChipValue / totalValue) * 100 : 0,
-      smallCap: totalValue > 0 ? (smallCapValue / totalValue) * 100 : 0,
-    };
-  };
-
-  const portfolioAllocation = getPortfolioAllocation();
 
   return (
     <Card className="w-full max-w-2xl mx-auto">
@@ -156,58 +74,6 @@ export const InvestmentForm: React.FC<InvestmentFormProps> = ({ onSubmit, loadin
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Portfolio Selection Section */}
-          {user && portfolios.length > 0 && (
-            <div className="space-y-4 p-4 bg-background border rounded-lg">
-              <div className="space-y-2">
-                <Label htmlFor="portfolio">Select Portfolio (Optional)</Label>
-                <Select 
-                  value={formData.portfolioId || 'manual'} 
-                  onValueChange={(value) => {
-                    const portfolioId = value === 'manual' ? undefined : value;
-                    const portfolio = portfolios.find(p => p.id === portfolioId);
-                    setFormData({ 
-                      ...formData, 
-                      portfolioId,
-                      totalPortfolio: portfolio?.total_value || formData.totalPortfolio 
-                    });
-                    if (portfolioId) fetchPortfolioAssets(portfolioId);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a portfolio for enhanced analysis" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="manual">Manual Portfolio Analysis</SelectItem>
-                    {portfolios.map((portfolio) => (
-                      <SelectItem key={portfolio.id} value={portfolio.id}>
-                        {portfolio.name} (${portfolio.total_value.toLocaleString()})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Portfolio Allocation Display */}
-              {selectedPortfolio && portfolioAllocation && (
-                <div className="space-y-2">
-                  <Label>Current Portfolio Allocation</Label>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="secondary">
-                      Bitcoin: {portfolioAllocation.bitcoin.toFixed(1)}%
-                    </Badge>
-                    <Badge variant="secondary">
-                      Blue Chip: {portfolioAllocation.blueChip.toFixed(1)}%
-                    </Badge>
-                    <Badge variant="secondary">
-                      Small-Cap: {portfolioAllocation.smallCap.toFixed(1)}%
-                    </Badge>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="coin">Select Cryptocurrency</Label>
@@ -244,10 +110,7 @@ export const InvestmentForm: React.FC<InvestmentFormProps> = ({ onSubmit, loadin
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="totalPortfolio">
-                Total Portfolio Value ($)
-                {selectedPortfolio && <span className="text-sm text-muted-foreground ml-1">(from selected portfolio)</span>}
-              </Label>
+              <Label htmlFor="totalPortfolio">Total Portfolio Value ($)</Label>
               <Input
                 id="totalPortfolio"
                 type="number"
@@ -258,7 +121,6 @@ export const InvestmentForm: React.FC<InvestmentFormProps> = ({ onSubmit, loadin
                 })}
                 min="1"
                 step="0.01"
-                disabled={!!selectedPortfolio}
               />
             </div>
 
