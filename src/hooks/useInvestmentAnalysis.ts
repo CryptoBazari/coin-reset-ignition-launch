@@ -117,6 +117,7 @@ export const useInvestmentAnalysis = () => {
         metrics,
         recommendation,
         marketConditions,
+        allocation,
         betaAnalysis, // ✅ NEW: Include beta analysis results
         benchmarkComparison: {
           coinPerformance: coinData.cagr_36m || 0,
@@ -141,4 +142,14 @@ async function getCurrentPortfolioBreakdown(): Promise<{ bitcoin: number; blueCh
   // This would fetch from your virtual portfolio or user portfolio data
   // For now, return undefined to use enhanced allocation logic without current portfolio
   return undefined;
+}
+
+// Helper function for basket multipliers
+function getCryptoBasketMultiplier(basket: string): number {
+  const multipliers = {
+    'Bitcoin': 1.0,
+    'Blue Chip': 1.2,
+    'Small-Cap': 1.8
+  };
+  return multipliers[basket] || 1.0;
 }

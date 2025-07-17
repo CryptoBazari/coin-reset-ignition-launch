@@ -80,6 +80,7 @@ export interface AnalysisResult {
   metrics: FinancialMetrics;
   recommendation: InvestmentRecommendation;
   marketConditions: MarketConditions;
+  allocation?: AllocationResult;
   betaAnalysis?: {
     beta: number;
     confidence: 'low' | 'medium' | 'high';
@@ -90,6 +91,49 @@ export interface AnalysisResult {
     coinPerformance: number;
     benchmarkPerformance: number;
     benchmarkName: string;
+  };
+}
+
+export interface BasketAllocationRules {
+  bitcoin: { min: number; max: number; recommended: [number, number] };
+  blueChip: { min: number; max: number; recommended: [number, number] };
+  smallCap: { min: number; max: number; recommended: [number, number] };
+}
+
+export interface AllocationResult {
+  portfolioPercentage: number;
+  basketType: 'bitcoin' | 'blueChip' | 'smallCap';
+  status: 'underexposed' | 'optimal' | 'overexposed';
+  recommendation: 'increase' | 'decrease' | 'maintain';
+  message: string;
+  targetRange: [number, number];
+}
+
+export interface AllocationAnalysis {
+  current: {
+    bitcoinPercentage: number;
+    blueChipPercentage: number;
+    smallCapPercentage: number;
+    totalAllocation: number;
+  };
+  recommended: {
+    bitcoinRange: [number, number];
+    blueChipRange: [number, number];
+    smallCapRange: [number, number];
+  };
+  validation: {
+    isCompliant: boolean;
+    violations: string[];
+    recommendations: string[];
+  };
+  rebalancing: {
+    required: boolean;
+    actions: Array<{
+      basket: string;
+      action: 'increase' | 'decrease' | 'maintain';
+      targetPercentage: number;
+      currentPercentage: number;
+    }>;
   };
 }
 
