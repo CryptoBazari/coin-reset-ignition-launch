@@ -50,6 +50,10 @@ export interface FinancialMetrics {
   // Confidence indicators
   betaConfidence: 'low' | 'medium' | 'high';
   dataQuality: 'estimated' | 'calculated' | 'api' | 'database';
+  // Glass Node specific metrics
+  cointimePrice?: number;
+  cointimeRatio?: number;
+  onChainScore?: number;
 }
 
 export interface MarketConditions {
@@ -91,6 +95,11 @@ export interface AnalysisResult {
     coinPerformance: number;
     benchmarkPerformance: number;
     benchmarkName: string;
+  };
+  glassNodeData?: {
+    onChainAnalysis: any;
+    cointimeMetrics: any;
+    onChainMetrics: any;
   };
 }
 

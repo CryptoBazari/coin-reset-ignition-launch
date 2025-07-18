@@ -108,7 +108,7 @@ export const useInvestmentAnalysis = () => {
           // Add Glass Node specific metrics
           cointimePrice: cointimeMetrics.cointimePrice,
           cointimeRatio: cointimeMetrics.cointimeRatio,
-          onChainHealthScore: calculateOnChainHealthScore(enhancedCoinData.onChainMetrics)
+          onChainScore: calculateOnChainHealthScore(enhancedCoinData.onChainMetrics)
         },
         recommendation,
         marketConditions,
