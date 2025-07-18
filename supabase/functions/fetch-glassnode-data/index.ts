@@ -11,6 +11,25 @@ interface GlassNodeResponse {
   v: number; // value
 }
 
+// Map of supported metrics for different assets
+const SUPPORTED_METRICS = {
+  'BTC': [
+    'market/price_usd_close',
+    'addresses/active_count',
+    'transactions/transfers_to_exchanges_sum',
+    'transactions/transfers_from_exchanges_sum',
+    'supply/liquid_sum',
+    'supply/illiquid_sum',
+    'indicators/cdd'
+  ],
+  'ETH': [
+    'market/price_usd_close',
+    'addresses/active_count',
+    'transactions/transfers_to_exchanges_sum',
+    'transactions/transfers_from_exchanges_sum'
+  ]
+};
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -28,6 +47,23 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: 'Glass Node API key not configured' }),
         { 
           status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    // Check if metric is supported for this asset
+    const supportedForAsset = SUPPORTED_METRICS[asset as keyof typeof SUPPORTED_METRICS];
+    if (supportedForAsset && !supportedForAsset.includes(metric)) {
+      console.log(`Metric ${metric} not supported for ${asset}, returning empty data`);
+      return new Response(
+        JSON.stringify({ 
+          data: [], 
+          metric, 
+          asset, 
+          warning: `Metric ${metric} not available for ${asset}` 
+        }),
+        { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
@@ -69,13 +105,27 @@ Deno.serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
           }
         );
+      } else if (response.status === 404) {
+        // Return empty data for 404s instead of throwing error
+        console.log(`Metric ${metric} not found for ${asset}, returning empty data`);
+        return new Response(
+          JSON.stringify({ 
+            data: [], 
+            metric, 
+            asset, 
+            warning: `Metric not available: ${metric}` 
+          }),
+          { 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
       }
       
       throw new Error(`Glass Node API error: ${response.status}`);
     }
 
     const data: GlassNodeResponse[] = await response.json();
-    console.log(`Successfully fetched ${data.length} Glass Node data points`);
+    console.log(`Successfully fetched ${data.length} Glass Node data points for ${metric}`);
 
     // Transform the data to a more usable format
     const transformedData = data.map(point => ({

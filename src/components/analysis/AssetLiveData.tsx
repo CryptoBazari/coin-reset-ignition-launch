@@ -3,21 +3,24 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { TrendingUp, TrendingDown, RefreshCw, Search, Star, ExternalLink } from 'lucide-react';
-import { realTimeMarketService, CoinData } from '@/services/realTimeMarketService';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TrendingUp, TrendingDown, RefreshCw, Search, Star, ExternalLink, Activity, Shield } from 'lucide-react';
+import { enhancedRealTimeMarketService, GlassNodeCoinData } from '@/services/enhancedRealTimeMarketService';
+import { realTimeMarketService } from '@/services/realTimeMarketService';
 
 interface AssetLiveDataProps {
   coinId?: string;
-  onCoinSelect?: (coinData: CoinData) => void;
+  onCoinSelect?: (coinData: any) => void;
 }
 
 const AssetLiveData = ({ coinId = 'bitcoin', onCoinSelect }: AssetLiveDataProps) => {
-  const [coinData, setCoinData] = useState<CoinData | null>(null);
+  const [coinData, setCoinData] = useState<GlassNodeCoinData | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Array<{id: string, name: string, symbol: string, thumb: string}>>([]);
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [dataSource, setDataSource] = useState<'glassnode' | 'coingecko'>('coingecko');
 
   useEffect(() => {
     fetchCoinData(coinId);
@@ -38,9 +41,31 @@ const AssetLiveData = ({ coinId = 'bitcoin', onCoinSelect }: AssetLiveDataProps)
   const fetchCoinData = async (id: string) => {
     try {
       setLoading(true);
-      const data = await realTimeMarketService.getCoinData(id);
-      setCoinData(data);
-      setLastUpdated(new Date());
+      
+      // Try enhanced Glass Node data first
+      try {
+        console.log('Fetching enhanced Glass Node data for:', id);
+        const enhancedData = await enhancedRealTimeMarketService.getEnhancedCoinData(id);
+        
+        if (enhancedData && enhancedData.onChainMetrics) {
+          console.log('✅ Using Glass Node enhanced data');
+          setCoinData(enhancedData);
+          setDataSource('glassnode');
+          setLastUpdated(new Date());
+          return;
+        }
+      } catch (error) {
+        console.log('Glass Node data unavailable, falling back to CoinGecko:', error);
+      }
+      
+      // Fallback to basic CoinGecko data
+      console.log('Using CoinGecko fallback data for:', id);
+      const basicData = await realTimeMarketService.getCoinData(id);
+      if (basicData) {
+        setCoinData(basicData as GlassNodeCoinData);
+        setDataSource('coingecko');
+        setLastUpdated(new Date());
+      }
     } catch (error) {
       console.error('Error fetching coin data:', error);
     } finally {
@@ -66,10 +91,7 @@ const AssetLiveData = ({ coinId = 'bitcoin', onCoinSelect }: AssetLiveDataProps)
     await fetchCoinData(selectedCoinId);
     
     if (onCoinSelect && coinData) {
-      const selectedCoinData = await realTimeMarketService.getCoinData(selectedCoinId);
-      if (selectedCoinData) {
-        onCoinSelect(selectedCoinData);
-      }
+      onCoinSelect(coinData);
     }
   };
 
@@ -101,7 +123,7 @@ const AssetLiveData = ({ coinId = 'bitcoin', onCoinSelect }: AssetLiveDataProps)
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-64 text-muted-foreground">
-            Loading asset data...
+            Loading real-time asset data...
           </div>
         </CardContent>
       </Card>
@@ -111,7 +133,12 @@ const AssetLiveData = ({ coinId = 'bitcoin', onCoinSelect }: AssetLiveDataProps)
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <CardTitle>Live Asset Data</CardTitle>
+        <div className="flex items-center gap-3">
+          <CardTitle>Live Asset Data</CardTitle>
+          <Badge variant={dataSource === 'glassnode' ? 'default' : 'secondary'}>
+            {dataSource === 'glassnode' ? 'Glass Node Enhanced' : 'CoinGecko'}
+          </Badge>
+        </div>
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">
             Updated {lastUpdated.toLocaleTimeString()}
@@ -166,138 +193,233 @@ const AssetLiveData = ({ coinId = 'bitcoin', onCoinSelect }: AssetLiveDataProps)
         </div>
 
         {coinData && (
-          <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="font-bold text-2xl">{coinData.name}</div>
-                <Badge variant="outline" className="uppercase">
-                  {coinData.symbol}
-                </Badge>
-                <Badge variant="secondary">
-                  Rank #{coinData.market_cap_rank}
-                </Badge>
-              </div>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Star className="h-4 w-4" />
-                Watchlist
-              </Button>
-            </div>
+          <Tabs defaultValue="overview" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="overview">Market Overview</TabsTrigger>
+              <TabsTrigger value="onchain" disabled={!coinData.onChainMetrics}>
+                On-Chain Data {coinData.onChainMetrics && <Badge className="ml-2 h-4 text-xs">Live</Badge>}
+              </TabsTrigger>
+            </TabsList>
 
-            {/* Price Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="space-y-2">
-                <span className="text-sm text-muted-foreground">Current Price</span>
-                <div className="text-3xl font-bold">
-                  {formatCurrency(coinData.current_price)}
+            <TabsContent value="overview" className="space-y-6">
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="font-bold text-2xl">{coinData.name}</div>
+                  <Badge variant="outline" className="uppercase">
+                    {coinData.symbol}
+                  </Badge>
+                  <Badge variant="secondary">
+                    Rank #{coinData.market_cap_rank}
+                  </Badge>
                 </div>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Star className="h-4 w-4" />
+                  Watchlist
+                </Button>
               </div>
 
-              <div className="space-y-2">
-                <span className="text-sm text-muted-foreground">24h Change</span>
-                <div className={`text-2xl font-bold flex items-center gap-2 ${
-                  coinData.price_change_percentage_24h >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {coinData.price_change_percentage_24h >= 0 ? (
-                    <TrendingUp className="h-5 w-5" />
-                  ) : (
-                    <TrendingDown className="h-5 w-5" />
-                  )}
-                  {formatPercentage(coinData.price_change_percentage_24h)}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <span className="text-sm text-muted-foreground">7d Change</span>
-                <div className={`text-xl font-bold ${
-                  coinData.price_change_percentage_7d >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {formatPercentage(coinData.price_change_percentage_7d)}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <span className="text-sm text-muted-foreground">30d Change</span>
-                <div className={`text-xl font-bold ${
-                  coinData.price_change_percentage_30d >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {formatPercentage(coinData.price_change_percentage_30d)}
-                </div>
-              </div>
-            </div>
-
-            {/* Market Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="space-y-2">
-                <span className="text-sm text-muted-foreground">Market Cap</span>
-                <div className="text-xl font-bold">
-                  {formatLargeNumber(coinData.market_cap)}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <span className="text-sm text-muted-foreground">Circulating Supply</span>
-                <div className="text-lg font-medium">
-                  {coinData.circulating_supply?.toLocaleString() || 'N/A'}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <span className="text-sm text-muted-foreground">Max Supply</span>
-                <div className="text-lg font-medium">
-                  {coinData.max_supply?.toLocaleString() || 'N/A'}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <span className="text-sm text-muted-foreground">All-Time High</span>
-                <div className="space-y-1">
-                  <div className="text-lg font-medium">
-                    {formatCurrency(coinData.ath)}
+              {/* Price Section */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="space-y-2">
+                  <span className="text-sm text-muted-foreground">Current Price</span>
+                  <div className="text-3xl font-bold">
+                    {formatCurrency(coinData.current_price)}
                   </div>
-                  <div className={`text-sm ${
-                    coinData.ath_change_percentage >= 0 ? 'text-green-600' : 'text-red-600'
+                </div>
+
+                <div className="space-y-2">
+                  <span className="text-sm text-muted-foreground">24h Change</span>
+                  <div className={`text-2xl font-bold flex items-center gap-2 ${
+                    coinData.price_change_percentage_24h >= 0 ? 'text-green-600' : 'text-red-600'
                   }`}>
-                    {formatPercentage(coinData.ath_change_percentage)}
+                    {coinData.price_change_percentage_24h >= 0 ? (
+                      <TrendingUp className="h-5 w-5" />
+                    ) : (
+                      <TrendingDown className="h-5 w-5" />
+                    )}
+                    {formatPercentage(coinData.price_change_percentage_24h)}
                   </div>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <span className="text-sm text-muted-foreground">All-Time Low</span>
-                <div className="space-y-1">
-                  <div className="text-lg font-medium">
-                    {formatCurrency(coinData.atl)}
-                  </div>
-                  <div className={`text-sm ${
-                    coinData.atl_change_percentage >= 0 ? 'text-green-600' : 'text-red-600'
+                <div className="space-y-2">
+                  <span className="text-sm text-muted-foreground">7d Change</span>
+                  <div className={`text-xl font-bold ${
+                    coinData.price_change_percentage_7d >= 0 ? 'text-green-600' : 'text-red-600'
                   }`}>
-                    {formatPercentage(coinData.atl_change_percentage)}
+                    {formatPercentage(coinData.price_change_percentage_7d)}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <span className="text-sm text-muted-foreground">30d Change</span>
+                  <div className={`text-xl font-bold ${
+                    coinData.price_change_percentage_30d >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {formatPercentage(coinData.price_change_percentage_30d)}
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <span className="text-sm text-muted-foreground">Last Updated</span>
-                <div className="text-lg font-medium">
-                  {new Date(coinData.last_updated).toLocaleString()}
+              {/* Market Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                  <span className="text-sm text-muted-foreground">Market Cap</span>
+                  <div className="text-xl font-bold">
+                    {formatLargeNumber(coinData.market_cap)}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <span className="text-sm text-muted-foreground">Circulating Supply</span>
+                  <div className="text-lg font-medium">
+                    {coinData.circulating_supply?.toLocaleString() || 'N/A'}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <span className="text-sm text-muted-foreground">Max Supply</span>
+                  <div className="text-lg font-medium">
+                    {coinData.max_supply?.toLocaleString() || 'N/A'}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <span className="text-sm text-muted-foreground">All-Time High</span>
+                  <div className="space-y-1">
+                    <div className="text-lg font-medium">
+                      {formatCurrency(coinData.ath)}
+                    </div>
+                    <div className={`text-sm ${
+                      coinData.ath_change_percentage >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {formatPercentage(coinData.ath_change_percentage)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <span className="text-sm text-muted-foreground">All-Time Low</span>
+                  <div className="space-y-1">
+                    <div className="text-lg font-medium">
+                      {formatCurrency(coinData.atl)}
+                    </div>
+                    <div className={`text-sm ${
+                      coinData.atl_change_percentage >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {formatPercentage(coinData.atl_change_percentage)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <span className="text-sm text-muted-foreground">Last Updated</span>
+                  <div className="text-lg font-medium">
+                    {new Date(coinData.last_updated).toLocaleString()}
+                  </div>
                 </div>
               </div>
-            </div>
+            </TabsContent>
 
-            {/* Action Buttons */}
-            <div className="flex gap-3 pt-4 border-t">
-              <Button 
-                onClick={() => onCoinSelect?.(coinData)}
-                className="gap-2"
-              >
-                Analyze Asset
-              </Button>
-              <Button variant="outline" className="gap-2">
-                <ExternalLink className="h-4 w-4" />
-                View on CoinGecko
-              </Button>
-            </div>
+            {coinData.onChainMetrics && (
+              <TabsContent value="onchain" className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Active Addresses</CardTitle>
+                      <Activity className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {(coinData.onChainMetrics.activeAddresses || 0).toLocaleString()}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Network activity indicator
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Exchange Flow</CardTitle>
+                      <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {((coinData.onChainMetrics.exchangeOutflow || 0) - (coinData.onChainMetrics.exchangeInflow || 0)).toLocaleString()}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Net outflow (bullish signal)
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Liquid Supply</CardTitle>
+                      <Shield className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {((coinData.onChainMetrics.liquidSupply || 0) / 1000000).toFixed(1)}M
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Available for trading
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">HODLed Supply</CardTitle>
+                      <Shield className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {((coinData.onChainMetrics.illiquidSupply || 0) / 1000000).toFixed(1)}M
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Long-term holders
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="mt-6 p-4 bg-muted/50 rounded-lg">
+                  <h4 className="font-semibold mb-2">Glass Node Insights</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <strong>Network Health:</strong> {
+                        (coinData.onChainMetrics.activeAddresses || 0) > 100000 ? 
+                        'Strong' : (coinData.onChainMetrics.activeAddresses || 0) > 50000 ? 
+                        'Moderate' : 'Weak'
+                      }
+                    </div>
+                    <div>
+                      <strong>Holder Behavior:</strong> {
+                        (coinData.onChainMetrics.exchangeOutflow || 0) > (coinData.onChainMetrics.exchangeInflow || 0) ? 
+                        'Accumulating' : 'Distributing'
+                      }
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+            )}
+          </Tabs>
+        )}
+
+        {coinData && (
+          <div className="flex gap-3 pt-4 border-t">
+            <Button 
+              onClick={() => onCoinSelect?.(coinData)}
+              className="gap-2"
+            >
+              Analyze Asset
+            </Button>
+            <Button variant="outline" className="gap-2">
+              <ExternalLink className="h-4 w-4" />
+              View on CoinGecko
+            </Button>
           </div>
         )}
       </CardContent>

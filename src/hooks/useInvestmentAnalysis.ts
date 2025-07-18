@@ -1,11 +1,13 @@
+
 import { useState } from 'react';
-import { fetchCoinData, fetchBasketAssumptions, fetchBenchmarkData, storeAnalysisResult } from '@/services/investmentDataService';
+import { fetchBasketAssumptions, fetchBenchmarkData, storeAnalysisResult } from '@/services/investmentDataService';
 import { calculateFinancialMetrics, calculateAllocation, calculateExpectedPrice, calculateAdjustedDiscountRate } from '@/services/investmentCalculationService';
 import { generateAdvancedRecommendation } from '@/services/recommendationService';
 import { createMarketConditions, getMarketData } from '@/services/marketAnalysisService';
 import { betaCalculationService } from '@/services/betaCalculationService';
 import { enhancedRealTimeMarketService } from '@/services/enhancedRealTimeMarketService';
 import { getOnChainAnalysis, calculateCointimeMetrics } from '@/services/glassNodeService';
+import { realTimeMarketService } from '@/services/realTimeMarketService';
 import type { InvestmentInputs, AnalysisResult, MarketDataResult } from '@/types/investment';
 
 export const useInvestmentAnalysis = () => {
@@ -19,143 +21,125 @@ export const useInvestmentAnalysis = () => {
     try {
       console.log('🚀 Starting Glass Node enhanced investment analysis for:', inputs.coinId);
 
-      // Use Glass Node enhanced real-time service
-      const enhancedCoinData = await enhancedRealTimeMarketService.getEnhancedCoinData(inputs.coinId);
-      if (!enhancedCoinData) {
-        console.log('Falling back to basic analysis...');
-        return await performBasicAnalysis(inputs);
+      // Step 1: Try to get enhanced real-time data from Glass Node + CoinGecko
+      let coinData: any = null;
+      let glassNodeData: any = null;
+      
+      try {
+        // First, get basic real-time data from CoinGecko
+        const basicCoinData = await realTimeMarketService.getCoinData(inputs.coinId);
+        if (!basicCoinData) {
+          throw new Error('Failed to fetch basic coin data');
+        }
+
+        // Try to enhance with Glass Node data
+        const enhancedCoinData = await enhancedRealTimeMarketService.getEnhancedCoinData(inputs.coinId);
+        
+        if (enhancedCoinData && enhancedCoinData.onChainMetrics) {
+          console.log('✅ Using Glass Node enhanced data');
+          
+          // Get comprehensive on-chain analysis
+          const coinSymbol = getCoinSymbol(inputs.coinId);
+          const onChainAnalysis = await getOnChainAnalysis(coinSymbol, 30);
+          
+          // Calculate cointime metrics
+          const cointimeMetrics = calculateCointimeMetrics(
+            onChainAnalysis.price,
+            onChainAnalysis.cointime
+          );
+
+          // Convert to our coin data format with real-time prices
+          coinData = {
+            id: basicCoinData.id,
+            coin_id: basicCoinData.id,
+            name: basicCoinData.name,
+            symbol: basicCoinData.symbol,
+            basket: getBasketForCoin(basicCoinData.symbol.toUpperCase()),
+            current_price: basicCoinData.current_price, // Real-time price from CoinGecko
+            market_cap: basicCoinData.market_cap,
+            cagr_36m: basicCoinData.price_change_percentage_30d || 20,
+            fundamentals_score: 7,
+            volatility: calculateVolatilityFromOnChain(enhancedCoinData.onChainMetrics),
+            aviv_ratio: cointimeMetrics.cointimeRatio,
+            active_supply: enhancedCoinData.onChainMetrics?.liquidSupply || basicCoinData.circulating_supply,
+            vaulted_supply: enhancedCoinData.onChainMetrics?.illiquidSupply || 0,
+            cointime_inflation: cointimeMetrics.cointimePrice,
+            staking_yield: 0,
+            beta: 1.0
+          };
+
+          glassNodeData = {
+            onChainAnalysis,
+            cointimeMetrics,
+            onChainMetrics: enhancedCoinData.onChainMetrics
+          };
+        } else {
+          console.log('⚠️ Glass Node data unavailable, using CoinGecko data');
+          
+          // Fallback to CoinGecko-only data
+          coinData = {
+            id: basicCoinData.id,
+            coin_id: basicCoinData.id,
+            name: basicCoinData.name,
+            symbol: basicCoinData.symbol,
+            basket: getBasketForCoin(basicCoinData.symbol.toUpperCase()),
+            current_price: basicCoinData.current_price,
+            market_cap: basicCoinData.market_cap,
+            cagr_36m: basicCoinData.price_change_percentage_30d || 20,
+            fundamentals_score: 7,
+            volatility: Math.abs(basicCoinData.price_change_percentage_24h) || 50,
+            aviv_ratio: 1.0,
+            active_supply: basicCoinData.circulating_supply,
+            vaulted_supply: 0,
+            cointime_inflation: 0,
+            staking_yield: 0,
+            beta: 1.0
+          };
+        }
+      } catch (apiError) {
+        console.error('Real-time API failed:', apiError);
+        // Last resort: use fallback data but with a clear indication
+        coinData = createFallbackCoinData(inputs.coinId);
+        setError('Using fallback data - real-time APIs unavailable');
       }
 
-      // Get Glass Node on-chain analysis
-      const coinSymbol = getCoinSymbol(inputs.coinId);
-      const onChainAnalysis = await getOnChainAnalysis(coinSymbol, 30);
-      
-      // Calculate cointime metrics
-      const cointimeMetrics = calculateCointimeMetrics(
-        onChainAnalysis.price,
-        onChainAnalysis.cointime
-      );
-
-      // Convert enhanced data to coin data format
-      const coinData = await convertEnhancedToCoinData(enhancedCoinData, cointimeMetrics);
-      
+      // Step 2: Get assumptions and benchmark data
       const assumptions = await fetchBasketAssumptions(coinData.basket);
       const benchmarkId = coinData.basket === 'Bitcoin' ? 'SP500' : 'BTC';
       const benchmark = await fetchBenchmarkData(benchmarkId);
       const betaAnalysis = await betaCalculationService.getBetaForCoin(inputs.coinId);
 
-      // Enhanced market conditions with Glass Node data
-      const marketConditions = createMarketConditions(
-        coinData,
-        {
-          sentiment_score: calculateSentimentFromGlassNode(enhancedCoinData.onChainMetrics),
-          smart_money_activity: detectSmartMoneyFromGlassNode(enhancedCoinData.onChainMetrics)
-        },
-        0 // Fed rate change
-      );
-
-      const adjustedDiscountRate = calculateAdjustedDiscountRate(assumptions, 0, coinData.basket);
-      const expectedPrice = calculateExpectedPrice(coinData, inputs, marketConditions);
-      const metrics = calculateFinancialMetrics(inputs, coinData, expectedPrice, adjustedDiscountRate, marketConditions);
-      const allocation = calculateAllocation(inputs, assumptions, coinData);
-
-      // Enhanced recommendation with Glass Node insights
-      const recommendation = generateAdvancedRecommendation(
-        metrics.npv,
-        metrics.irr,
-        assumptions.hurdle_rate,
-        coinData,
-        inputs.investmentAmount,
-        inputs.totalPortfolio,
-        assumptions.target_allocation,
-        marketConditions,
-        allocation
-      );
-
-      // Store analysis result with Glass Node data
-      await storeAnalysisResult({
-        coin_id: inputs.coinId,
-        investment_amount: inputs.investmentAmount,
-        total_portfolio: inputs.totalPortfolio,
-        investment_horizon: inputs.investmentHorizon || 2,
-        expected_price: expectedPrice,
-        npv: metrics.npv,
-        irr: metrics.irr,
-        cagr: metrics.cagr,
-        roi: metrics.roi,
-        risk_factor: metrics.riskFactor,
-        recommendation: recommendation.recommendation,
-        conditions: recommendation.conditions,
-        risks: recommendation.risks,
-        price_cagr: metrics.cagr,
-        total_return_cagr: metrics.totalReturnCAGR,
-        price_roi: metrics.priceROI,
-        staking_roi: metrics.stakingROI,
-        beta: metrics.beta,
-        standard_deviation: metrics.standardDeviation,
-        sharpe_ratio: metrics.sharpeRatio,
-        risk_adjusted_npv: metrics.riskAdjustedNPV,
-        allocation_status: allocation.status,
-        portfolio_compliant: allocation.status === 'optimal'
-      });
-
-      console.log('✅ Glass Node enhanced analysis completed');
-
-      return {
-        coin: coinData,
-        metrics: {
-          ...metrics,
-          // Add Glass Node specific metrics
-          cointimePrice: cointimeMetrics.cointimePrice,
-          cointimeRatio: cointimeMetrics.cointimeRatio,
-          onChainScore: calculateOnChainHealthScore(enhancedCoinData.onChainMetrics)
-        },
-        recommendation,
-        marketConditions,
-        allocation,
-        betaAnalysis,
-        benchmarkComparison: {
-          coinPerformance: coinData.cagr_36m || 0,
-          benchmarkPerformance: benchmark.cagr_36m,
-          benchmarkName: benchmark.name
-        },
-        glassNodeData: {
-          onChainAnalysis,
-          cointimeMetrics,
-          onChainMetrics: enhancedCoinData.onChainMetrics
-        }
-      };
-
-    } catch (err) {
-      console.error('Glass Node analysis failed, attempting fallback:', err);
-      // Fallback to basic analysis without Glass Node
-      return await performBasicAnalysis(inputs);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fallback function for when Glass Node data is unavailable
-  const performBasicAnalysis = async (inputs: InvestmentInputs): Promise<AnalysisResult | null> => {
-    try {
-      console.log('Performing basic analysis without Glass Node...');
-      
-      const coinData = await fetchCoinData(inputs.coinId);
-      const assumptions = await fetchBasketAssumptions(coinData.basket);
-      const benchmarkId = coinData.basket === 'Bitcoin' ? 'SP500' : 'BTC';
-      const benchmark = await fetchBenchmarkData(benchmarkId);
-      const betaAnalysis = await betaCalculationService.getBetaForCoin(inputs.coinId);
-
-      const enhancedCoinData = { ...coinData, beta: betaAnalysis.beta };
-      const marketDataResult = await getMarketData();
+      // Step 3: Create market conditions
+      const marketDataResult: MarketDataResult = await getMarketData();
       const { fedRateChange, marketSentiment } = marketDataResult;
       
-      const marketConditions = createMarketConditions(enhancedCoinData, marketSentiment, fedRateChange);
-      const adjustedDiscountRate = calculateAdjustedDiscountRate(assumptions, fedRateChange, coinData.basket);
-      const expectedPrice = calculateExpectedPrice(enhancedCoinData, inputs, marketConditions);
-      const metrics = calculateFinancialMetrics(inputs, enhancedCoinData, expectedPrice, adjustedDiscountRate, marketConditions);
-      const allocation = calculateAllocation(inputs, assumptions, enhancedCoinData);
+      const marketConditions = createMarketConditions(
+        coinData,
+        glassNodeData ? {
+          sentiment_score: calculateSentimentFromGlassNode(glassNodeData.onChainMetrics),
+          smart_money_activity: detectSmartMoneyFromGlassNode(glassNodeData.onChainMetrics)
+        } : marketSentiment,
+        fedRateChange
+      );
 
+      // Step 4: Calculate financial metrics
+      const adjustedDiscountRate = calculateAdjustedDiscountRate(assumptions, fedRateChange, coinData.basket);
+      const expectedPrice = calculateExpectedPrice(coinData, inputs, marketConditions);
+      const metrics = calculateFinancialMetrics(inputs, coinData, expectedPrice, adjustedDiscountRate, marketConditions);
+
+      // Add Glass Node specific metrics if available
+      if (glassNodeData) {
+        Object.assign(metrics, {
+          cointimePrice: glassNodeData.cointimeMetrics.cointimePrice,
+          cointimeRatio: glassNodeData.cointimeMetrics.cointimeRatio,
+          onChainScore: calculateOnChainHealthScore(glassNodeData.onChainMetrics)
+        });
+      }
+
+      // Step 5: Calculate allocation
+      const allocation = calculateAllocation(inputs, assumptions, coinData);
+
+      // Step 6: Generate recommendation
       const recommendation = generateAdvancedRecommendation(
         metrics.npv,
         metrics.irr,
@@ -168,6 +152,7 @@ export const useInvestmentAnalysis = () => {
         allocation
       );
 
+      // Step 7: Store analysis result
       await storeAnalysisResult({
         coin_id: inputs.coinId,
         investment_amount: inputs.investmentAmount,
@@ -194,8 +179,10 @@ export const useInvestmentAnalysis = () => {
         portfolio_compliant: allocation.status === 'optimal'
       });
 
-      return {
-        coin: enhancedCoinData,
+      console.log('✅ Investment analysis completed with real-time data');
+
+      const result: AnalysisResult = {
+        coin: coinData,
         metrics,
         recommendation,
         marketConditions,
@@ -208,9 +195,19 @@ export const useInvestmentAnalysis = () => {
         }
       };
 
+      // Add Glass Node data if available
+      if (glassNodeData) {
+        result.glassNodeData = glassNodeData;
+      }
+
+      return result;
+
     } catch (err) {
+      console.error('Investment analysis failed:', err);
       setError(err instanceof Error ? err.message : 'Analysis failed');
       return null;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -233,26 +230,6 @@ function getCoinSymbol(coinId: string): string {
   return symbolMap[coinId] || 'BTC';
 }
 
-async function convertEnhancedToCoinData(enhancedData: any, cointimeMetrics: any): Promise<any> {
-  return {
-    id: enhancedData.id,
-    coin_id: enhancedData.id,
-    name: enhancedData.name,
-    basket: getBasketForCoin(enhancedData.symbol),
-    current_price: enhancedData.current_price,
-    market_cap: enhancedData.market_cap,
-    cagr_36m: enhancedData.price_change_percentage_30d || 20,
-    fundamentals_score: 7,
-    volatility: calculateVolatilityFromOnChain(enhancedData.onChainMetrics),
-    aviv_ratio: cointimeMetrics.cointimeRatio,
-    active_supply: enhancedData.onChainMetrics?.liquidSupply || 0,
-    vaulted_supply: enhancedData.onChainMetrics?.illiquidSupply || 0,
-    cointime_inflation: cointimeMetrics.cointimePrice,
-    staking_yield: 0,
-    beta: 1.0
-  };
-}
-
 function getBasketForCoin(symbol: string): 'Bitcoin' | 'Blue Chip' | 'Small-Cap' {
   if (symbol === 'BTC') return 'Bitcoin';
   if (['ETH'].includes(symbol)) return 'Blue Chip';
@@ -262,8 +239,8 @@ function getBasketForCoin(symbol: string): 'Bitcoin' | 'Blue Chip' | 'Small-Cap'
 function calculateSentimentFromGlassNode(metrics: any): number {
   if (!metrics) return 0;
   
-  const netFlow = metrics.exchangeOutflow - metrics.exchangeInflow;
-  const flowRatio = netFlow / (metrics.exchangeInflow + 1);
+  const netFlow = (metrics.exchangeOutflow || 0) - (metrics.exchangeInflow || 0);
+  const flowRatio = netFlow / ((metrics.exchangeInflow || 0) + 1);
   
   return Math.max(-1, Math.min(1, flowRatio));
 }
@@ -271,13 +248,13 @@ function calculateSentimentFromGlassNode(metrics: any): number {
 function detectSmartMoneyFromGlassNode(metrics: any): boolean {
   if (!metrics) return false;
   
-  return metrics.exchangeOutflow > metrics.exchangeInflow * 1.5;
+  return (metrics.exchangeOutflow || 0) > (metrics.exchangeInflow || 0) * 1.5;
 }
 
 function calculateVolatilityFromOnChain(metrics: any): number {
   if (!metrics) return 50;
   
-  const activityScore = (metrics.exchangeInflow + metrics.exchangeOutflow) / 2;
+  const activityScore = ((metrics.exchangeInflow || 0) + (metrics.exchangeOutflow || 0)) / 2;
   return Math.min(100, Math.max(20, activityScore / 1000));
 }
 
@@ -286,9 +263,39 @@ function calculateOnChainHealthScore(metrics: any): number {
   
   let score = 5;
   
-  if (metrics.activeAddresses > 100000) score += 1;
-  if (metrics.exchangeOutflow > metrics.exchangeInflow) score += 1;
-  if (metrics.liquidSupply > metrics.illiquidSupply * 2) score -= 1;
+  if ((metrics.activeAddresses || 0) > 100000) score += 1;
+  if ((metrics.exchangeOutflow || 0) > (metrics.exchangeInflow || 0)) score += 1;
+  if ((metrics.liquidSupply || 0) > (metrics.illiquidSupply || 0) * 2) score -= 1;
   
   return Math.max(1, Math.min(10, score));
+}
+
+function createFallbackCoinData(coinId: string): any {
+  const fallbackData = {
+    'bitcoin': { name: 'Bitcoin', symbol: 'BTC', price: 45000, marketCap: 850000000000 },
+    'ethereum': { name: 'Ethereum', symbol: 'ETH', price: 2500, marketCap: 300000000000 },
+    'solana': { name: 'Solana', symbol: 'SOL', price: 100, marketCap: 40000000000 },
+    'cardano': { name: 'Cardano', symbol: 'ADA', price: 0.5, marketCap: 17000000000 }
+  };
+
+  const fallback = fallbackData[coinId as keyof typeof fallbackData] || fallbackData.bitcoin;
+  
+  return {
+    id: coinId,
+    coin_id: coinId,
+    name: fallback.name,
+    symbol: fallback.symbol,
+    basket: getBasketForCoin(fallback.symbol),
+    current_price: fallback.price,
+    market_cap: fallback.marketCap,
+    cagr_36m: 25,
+    fundamentals_score: 6,
+    volatility: 60,
+    aviv_ratio: 1.0,
+    active_supply: fallback.marketCap / fallback.price,
+    vaulted_supply: 0,
+    cointime_inflation: 0,
+    staking_yield: 0,
+    beta: 1.0
+  };
 }
