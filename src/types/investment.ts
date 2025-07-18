@@ -23,6 +23,39 @@ export interface CoinData {
   sharpe_ratio?: number;
 }
 
+// Enhanced coin data with live Glass Node metrics
+export interface EnhancedCoinData extends CoinData {
+  // Live Glass Node metrics
+  liveMetrics: {
+    avivRatio: number;
+    activeSupply: number;
+    vaultedSupply: number;
+    liveliness: number;
+    vaultedness: number;
+    realizedCap: number;
+    activeCap: number;
+    investorCap: number;
+  };
+  onChainData: {
+    transactionVolume: number;
+    networkValue: number;
+    activeAddresses: number;
+    networkGrowth: number;
+  };
+  technicalIndicators: {
+    nvtRatio: number;
+    sopr: number;
+    puellMultiple: number;
+    mvrv: number;
+  };
+  // Enhanced price data
+  priceHistory: {
+    daily: Array<{ timestamp: number; price: number; volume: number }>;
+    volatility30d: number;
+    volatility90d: number;
+  };
+}
+
 export interface InvestmentInputs {
   coinId: string;
   investmentAmount: number;
