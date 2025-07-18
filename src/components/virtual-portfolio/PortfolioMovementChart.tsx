@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { enhancedRealTimeMarketService } from '@/services/enhancedRealTimeMarketService';
+import { getOnChainAnalysis } from '@/services/glassNodeService';
 
 interface MovementData {
   date: string;
@@ -24,6 +26,7 @@ const PortfolioMovementChart = ({
   const [loading, setLoading] = useState(true);
   const [currentValue, setCurrentValue] = useState(0);
   const [previousValue, setPreviousValue] = useState(0);
+  const [glassNodeInsights, setGlassNodeInsights] = useState<any>(null);
 
   useEffect(() => {
     fetchMovementData();
@@ -42,44 +45,102 @@ const PortfolioMovementChart = ({
 
       if (portfolioError) throw portfolioError;
 
-      // For now, generate mock historical data
-      // In a real app, this would come from a portfolio_history table
-      const mockData = generateMockMovementData(portfolio.total_value, timeframe);
-      
-      setData(mockData);
+      // Get portfolio assets to analyze with Glass Node
+      const { data: assets, error: assetsError } = await supabase
+        .from('virtual_assets')
+        .select(`
+          total_amount,
+          virtual_coins!inner(symbol, name)
+        `)
+        .eq('portfolio_id', portfolioId);
+
+      if (assetsError) throw assetsError;
+
+      // Try to get Glass Node historical data for major assets
+      let enhancedData: MovementData[] = [];
+      let insights = null;
+
+      if (assets.length > 0) {
+        try {
+          const majorAsset = assets[0]; // Use the first asset for Glass Node analysis
+          const coinSymbol = majorAsset.virtual_coins.symbol;
+          
+          // Get Glass Node price history
+          const priceHistory = await enhancedRealTimeMarketService.getGlassNodePriceHistory(
+            coinSymbol.toLowerCase(),
+            getDaysFromTimeframe(timeframe)
+          );
+
+          if (priceHistory.length > 0) {
+            enhancedData = priceHistory.map(([timestamp, price]) => ({
+              date: new Date(timestamp).toISOString().split('T')[0],
+              value: price * majorAsset.total_amount, // Approximate portfolio value
+              timestamp: new Date(timestamp).toISOString()
+            }));
+
+            // Get on-chain insights
+            const onChainAnalysis = await getOnChainAnalysis(coinSymbol, getDaysFromTimeframe(timeframe));
+            insights = {
+              activeAddresses: onChainAnalysis.activeAddresses[onChainAnalysis.activeAddresses.length - 1]?.value || 0,
+              exchangeFlow: {
+                inflow: onChainAnalysis.exchangeFlow.inflow[onChainAnalysis.exchangeFlow.inflow.length - 1]?.value || 0,
+                outflow: onChainAnalysis.exchangeFlow.outflow[onChainAnalysis.exchangeFlow.outflow.length - 1]?.value || 0
+              }
+            };
+          }
+        } catch (glassNodeError) {
+          console.log('Glass Node data unavailable, using mock data:', glassNodeError);
+        }
+      }
+
+      // Fallback to mock data if Glass Node data is unavailable
+      if (enhancedData.length === 0) {
+        enhancedData = generateMockMovementData(portfolio.total_value, timeframe);
+      }
+
+      setData(enhancedData);
+      setGlassNodeInsights(insights);
       setCurrentValue(portfolio.total_value);
-      setPreviousValue(mockData[0]?.value || portfolio.total_value);
+      setPreviousValue(enhancedData[0]?.value || portfolio.total_value);
     } catch (error) {
       console.error('Error fetching movement data:', error);
+      // Fallback to mock data
+      const mockData = generateMockMovementData(10000, timeframe);
+      setData(mockData);
+      setCurrentValue(10000);
+      setPreviousValue(mockData[0]?.value || 10000);
     } finally {
       setLoading(false);
     }
   };
 
-  const generateMockMovementData = (currentValue: number, timeframe: string): MovementData[] => {
-    let days = 30;
+  const getDaysFromTimeframe = (timeframe: string): number => {
     switch (timeframe) {
-      case '1D': days = 1; break;
-      case '1W': days = 7; break;
-      case '1M': days = 30; break;
-      case '3M': days = 90; break;
-      case '1Y': days = 365; break;
-      case 'ALL': days = 365 * 2; break;
+      case '1D': return 1;
+      case '1W': return 7;
+      case '1M': return 30;
+      case '3M': return 90;
+      case '1Y': return 365;
+      case 'ALL': return 365 * 2;
+      default: return 30;
     }
+  };
+
+  const generateMockMovementData = (currentValue: number, timeframe: string): MovementData[] => {
+    let days = getDaysFromTimeframe(timeframe);
 
     return Array.from({ length: days }, (_, i) => {
       const date = new Date();
       date.setDate(date.getDate() - (days - 1 - i));
       
-      // Generate realistic price movement
       const progress = i / days;
-      const trend = currentValue * 0.8; // Assume 20% growth over period
-      const noise = (Math.random() - 0.5) * currentValue * 0.1; // 10% volatility
+      const trend = currentValue * 0.8;
+      const noise = (Math.random() - 0.5) * currentValue * 0.1;
       const value = trend + (currentValue - trend) * progress + noise;
       
       return {
         date: date.toISOString().split('T')[0],
-        value: Math.max(value, currentValue * 0.5), // Minimum 50% of current value
+        value: Math.max(value, currentValue * 0.5),
         timestamp: date.toISOString()
       };
     });
@@ -142,7 +203,7 @@ const PortfolioMovementChart = ({
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-64 text-muted-foreground">
-            Loading performance data...
+            Loading Glass Node enhanced performance data...
           </div>
         </CardContent>
       </Card>
@@ -191,6 +252,25 @@ const PortfolioMovementChart = ({
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {/* Glass Node Insights */}
+        {glassNodeInsights && (
+          <div className="mb-4 p-3 bg-muted rounded-lg">
+            <div className="text-sm font-medium mb-2">📊 Glass Node Insights</div>
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <div>
+                <span className="text-muted-foreground">Active Addresses:</span>
+                <div className="font-medium">{glassNodeInsights.activeAddresses.toLocaleString()}</div>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Exchange Net Flow:</span>
+                <div className={`font-medium ${glassNodeInsights.exchangeFlow.outflow > glassNodeInsights.exchangeFlow.inflow ? 'text-green-600' : 'text-red-600'}`}>
+                  {(glassNodeInsights.exchangeFlow.outflow - glassNodeInsights.exchangeFlow.inflow).toLocaleString()}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
