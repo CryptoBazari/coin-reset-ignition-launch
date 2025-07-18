@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Shield, TrendingUp, Activity } from 'lucide-react';
 import EnhancedCoinSelector from '@/components/EnhancedCoinSelector';
+import GlassNodeStatusCard from '@/components/analysis/GlassNodeStatusCard';
 import { GlassNodeAsset } from '@/services/glassNodeAssetService';
 import type { InvestmentInputs } from '@/types/investment';
 
@@ -52,6 +53,11 @@ export const InvestmentForm: React.FC<InvestmentFormProps> = ({ onSubmit, loadin
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {/* Glass Node Status Card */}
+        <div className="mb-6">
+          <GlassNodeStatusCard />
+        </div>
+        
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">

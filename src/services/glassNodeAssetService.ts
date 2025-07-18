@@ -15,6 +15,9 @@ export interface GlassNodeAsset {
   volatility?: number;
   staking_yield?: number;
   market_cap?: number;
+  logo_url?: string;
+  coingecko_id?: string;
+  api_status?: string;
 }
 
 export interface GlassNodeAssetStatus {
@@ -58,7 +61,10 @@ export const fetchGlassNodeSupportedAssets = async (): Promise<GlassNodeAsset[]>
       cagr_36m: coin.cagr_36m,
       volatility: coin.volatility,
       staking_yield: coin.staking_yield,
-      market_cap: coin.market_cap
+      market_cap: coin.market_cap,
+      logo_url: coin.logo_url,
+      coingecko_id: coin.coingecko_id,
+      api_status: coin.api_status
     }));
 
     console.log(`Successfully fetched ${assets.length} Glass Node supported assets`);
@@ -102,7 +108,10 @@ export const fetchAllAvailableAssets = async (): Promise<GlassNodeAsset[]> => {
       cagr_36m: coin.cagr_36m,
       volatility: coin.volatility,
       staking_yield: coin.staking_yield,
-      market_cap: coin.market_cap
+      market_cap: coin.market_cap,
+      logo_url: coin.logo_url,
+      coingecko_id: coin.coingecko_id,
+      api_status: coin.api_status
     }));
 
     console.log(`Successfully fetched ${assets.length} total assets`);
@@ -135,5 +144,48 @@ export const getDataQualityBadge = (quality: 'high' | 'medium' | 'low' | 'unavai
     case 'medium': return 'Glass Node Basic';
     case 'low': return 'Limited Data';
     case 'unavailable': return 'Static Data';
+  }
+};
+
+// New function to trigger Glass Node discovery
+export const triggerGlassNodeDiscovery = async (): Promise<any> => {
+  try {
+    console.log('Triggering Glass Node asset discovery...');
+    
+    const { data, error } = await supabase.functions.invoke('discover-glass-node-assets', {
+      body: { trigger: 'manual' }
+    });
+
+    if (error) {
+      console.error('Error triggering discovery:', error);
+      throw new Error('Failed to trigger Glass Node discovery');
+    }
+
+    console.log('Glass Node discovery completed:', data);
+    return data;
+  } catch (error) {
+    console.error('Error triggering Glass Node discovery:', error);
+    throw error;
+  }
+};
+
+// Function to get discovery logs
+export const getDiscoveryLogs = async (limit: number = 10) => {
+  try {
+    const { data, error } = await supabase
+      .from('glass_node_discovery_logs')
+      .select('*')
+      .order('discovery_run_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('Error fetching discovery logs:', error);
+      throw new Error('Failed to fetch discovery logs');
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching discovery logs:', error);
+    throw error;
   }
 };

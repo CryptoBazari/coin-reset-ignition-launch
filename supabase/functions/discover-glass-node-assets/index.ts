@@ -1,20 +1,26 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
+
 // CORS headers for web app compatibility
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface GlassNodeMetric {
-  metric: string;
-  category: string;
-  subcategory: string;
-  assets: string[];
-  resolutions: string[];
-  tier: string;
+interface GlassNodeAsset {
+  symbol: string;
+  available: boolean;
+  premium: boolean;
+  dataQuality: number;
+  name?: string;
+  logo_url?: string;
+  coingecko_id?: string;
 }
 
-interface GlassNodeAssetsResponse {
-  metrics: GlassNodeMetric[];
+interface CoinGeckoSearchResult {
+  id: string;
+  symbol: string;
+  name: string;
+  large: string;
 }
 
 Deno.serve(async (req) => {
@@ -23,98 +29,227 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
+  let discoveredAssets = 0;
+  let updatedAssets = 0;
+  let apiStatus = 'unknown';
+  let errorMessage: string | null = null;
+
   try {
     const GLASSNODE_API_KEY = Deno.env.get('GLASSNODE_API_KEY');
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     if (!GLASSNODE_API_KEY) {
       throw new Error('GLASSNODE_API_KEY is not configured');
     }
 
-    console.log('Discovering Glass Node supported assets...');
-
-    // Fetch available metrics from Glass Node API
-    const metricsUrl = `https://api.glassnode.com/v1/metrics/market/price?api_key=${GLASSNODE_API_KEY}&format=json&limit=1`;
-    
-    const response = await fetch(metricsUrl);
-    
-    if (!response.ok) {
-      throw new Error(`Glass Node API error: ${response.status} ${response.statusText}`);
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('Supabase configuration missing');
     }
 
-    // Get supported assets from the price endpoint (it lists all supported assets)
-    const priceData = await response.json();
-    
-    // Query supported assets from a different endpoint that lists all available assets
-    const assetsUrl = `https://api.glassnode.com/v1/metrics/assets?api_key=${GLASSNODE_API_KEY}`;
-    
-    let supportedAssets: string[] = [];
-    
-    try {
-      const assetsResponse = await fetch(assetsUrl);
-      if (assetsResponse.ok) {
-        const assetsData = await assetsResponse.json();
-        supportedAssets = assetsData || [];
-      }
-    } catch (error) {
-      console.log('Assets endpoint not available, using fallback list');
-      // Fallback to known supported assets
-      supportedAssets = ['BTC', 'ETH', 'LTC', 'ADA', 'DOT', 'LINK', 'XLM', 'UNI', 'AAVE', 'SOL', 'MATIC', 'AVAX'];
-    }
+    // Initialize Supabase client with service role key for database writes
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Test asset availability by trying to fetch price data for each
-    const assetAvailability = await Promise.allSettled(
-      supportedAssets.map(async (asset) => {
-        try {
-          const testUrl = `https://api.glassnode.com/v1/metrics/market/price?a=${asset}&api_key=${GLASSNODE_API_KEY}&s=1d&f=json&limit=1`;
-          const testResponse = await fetch(testUrl);
-          
-          if (testResponse.ok) {
-            const testData = await testResponse.json();
-            return {
-              asset,
-              available: Array.isArray(testData) && testData.length > 0,
-              premium: true, // Most Glass Node metrics require premium
-              dataQuality: testResponse.status === 200 ? 8 : 5
-            };
-          }
-          
-          return {
-            asset,
-            available: false,
-            premium: false,
-            dataQuality: 0
-          };
-        } catch {
-          return {
-            asset,
-            available: false,
-            premium: false,
-            dataQuality: 0
-          };
-        }
-      })
+    console.log('Starting Glass Node asset discovery and synchronization...');
+
+    // Get current assets from database
+    const { data: existingCoins } = await supabase
+      .from('coins')
+      .select('coin_id, glass_node_supported, coingecko_id, logo_url');
+
+    const existingCoinMap = new Map(
+      existingCoins?.map(coin => [coin.coin_id.toLowerCase(), coin]) || []
     );
 
-    // Process results
-    const availableAssets = assetAvailability
-      .filter(result => result.status === 'fulfilled')
-      .map(result => result.value)
-      .filter(asset => asset.available);
+    // Glass Node supported assets (expanded list)
+    const knownGlassNodeAssets = [
+      'BTC', 'ETH', 'LTC', 'BCH', 'BSV', 'ADA', 'DOT', 'LINK', 'XLM', 'UNI', 
+      'AAVE', 'SOL', 'MATIC', 'AVAX', 'ATOM', 'LUNA', 'UST', 'CRV', 'COMP',
+      'MKR', 'SNX', 'YFI', 'SUSHI', 'GRT', 'FIL', 'THETA', 'VET', 'TRX',
+      'XTZ', 'EOS', 'IOTA', 'NEO', 'DASH', 'ZEC', 'XMR', 'ETC', 'OMG',
+      'BAT', 'ZRX', 'REP', 'KNC', 'LRC', 'BNT', 'REN', 'STORJ', 'MANA',
+      'ENJ', 'CHZ', 'HOT', 'DOGE', 'SHIB', 'FTT', 'NEAR', 'ALGO', 'FLOW'
+    ];
 
-    console.log(`Discovered ${availableAssets.length} available Glass Node assets`);
+    // Function to get CoinGecko data for asset
+    const getCoinGeckoData = async (symbol: string): Promise<Partial<CoinGeckoSearchResult> | null> => {
+      try {
+        // Search for the coin on CoinGecko
+        const searchResponse = await fetch(`https://api.coingecko.com/api/v3/search?query=${symbol}`);
+        if (!searchResponse.ok) return null;
+        
+        const searchData = await searchResponse.json();
+        const coin = searchData.coins?.find((c: any) => 
+          c.symbol.toLowerCase() === symbol.toLowerCase()
+        );
+        
+        if (coin) {
+          return {
+            id: coin.id,
+            symbol: coin.symbol,
+            name: coin.name,
+            large: coin.large
+          };
+        }
+        return null;
+      } catch (error) {
+        console.log(`Failed to fetch CoinGecko data for ${symbol}:`, error);
+        return null;
+      }
+    };
+
+    // Test asset availability and gather data
+    const assetResults: GlassNodeAsset[] = [];
+    
+    for (const symbol of knownGlassNodeAssets) {
+      try {
+        // Test Glass Node API availability
+        const testUrl = `https://api.glassnode.com/v1/metrics/market/price?a=${symbol}&api_key=${GLASSNODE_API_KEY}&s=1d&f=json&limit=1`;
+        const testResponse = await fetch(testUrl);
+        
+        const available = testResponse.ok;
+        let dataQuality = 0;
+        let premium = false;
+        
+        if (available) {
+          const testData = await testResponse.json();
+          dataQuality = Array.isArray(testData) && testData.length > 0 ? 8 : 5;
+          premium = testResponse.status === 200;
+          apiStatus = 'operational';
+        }
+
+        // Get CoinGecko data for logo and additional info
+        const coinGeckoData = await getCoinGeckoData(symbol);
+        
+        assetResults.push({
+          symbol,
+          available,
+          premium,
+          dataQuality,
+          name: coinGeckoData?.name || symbol,
+          logo_url: coinGeckoData?.large || null,
+          coingecko_id: coinGeckoData?.id || null
+        });
+
+        discoveredAssets++;
+        
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+      } catch (error) {
+        console.log(`Error testing asset ${symbol}:`, error);
+        assetResults.push({
+          symbol,
+          available: false,
+          premium: false,
+          dataQuality: 0
+        });
+      }
+    }
+
+    // Update database with discovered assets
+    for (const asset of assetResults) {
+      const coinId = asset.symbol.toLowerCase();
+      const existingCoin = existingCoinMap.get(coinId);
+      
+      try {
+        if (existingCoin) {
+          // Update existing coin
+          const updateData: any = {
+            glass_node_supported: asset.available,
+            premium_metrics_available: asset.premium,
+            glass_node_data_quality: asset.dataQuality,
+            last_glass_node_update: new Date().toISOString(),
+            api_status: asset.available ? 'operational' : 'unavailable',
+            glass_node_last_discovered: new Date().toISOString()
+          };
+
+          // Update logo and CoinGecko data if available
+          if (asset.logo_url && !existingCoin.logo_url) {
+            updateData.logo_url = asset.logo_url;
+          }
+          if (asset.coingecko_id && !existingCoin.coingecko_id) {
+            updateData.coingecko_id = asset.coingecko_id;
+          }
+
+          const { error: updateError } = await supabase
+            .from('coins')
+            .update(updateData)
+            .eq('coin_id', coinId);
+
+          if (updateError) {
+            console.error(`Error updating ${coinId}:`, updateError);
+          } else {
+            updatedAssets++;
+          }
+        } else if (asset.available) {
+          // Insert new Glass Node supported asset
+          const { error: insertError } = await supabase
+            .from('coins')
+            .insert({
+              coin_id: coinId,
+              name: asset.name || asset.symbol,
+              current_price: 0, // Will be updated by price sync
+              basket: asset.symbol === 'BTC' ? 'Bitcoin' : 
+                     ['ETH', 'ADA', 'SOL', 'DOT', 'AVAX', 'MATIC'].includes(asset.symbol) ? 'Blue Chip' : 
+                     'Small-Cap',
+              glass_node_supported: true,
+              premium_metrics_available: asset.premium,
+              glass_node_data_quality: asset.dataQuality,
+              last_glass_node_update: new Date().toISOString(),
+              api_status: 'operational',
+              glass_node_last_discovered: new Date().toISOString(),
+              logo_url: asset.logo_url,
+              coingecko_id: asset.coingecko_id,
+              glass_node_asset_name: asset.symbol
+            });
+
+          if (insertError) {
+            console.error(`Error inserting ${coinId}:`, insertError);
+          } else {
+            updatedAssets++;
+          }
+        }
+      } catch (error) {
+        console.error(`Database operation failed for ${coinId}:`, error);
+      }
+    }
+
+    const duration = Date.now() - startTime;
+
+    // Log discovery run
+    await supabase
+      .from('glass_node_discovery_logs')
+      .insert({
+        discovery_run_at: new Date().toISOString(),
+        assets_discovered: discoveredAssets,
+        assets_updated: updatedAssets,
+        api_status: apiStatus,
+        discovery_duration_ms: duration
+      });
+
+    console.log(`Discovery completed: ${discoveredAssets} discovered, ${updatedAssets} updated in ${duration}ms`);
 
     return new Response(
       JSON.stringify({
         success: true,
         discovered_at: new Date().toISOString(),
-        total_assets: availableAssets.length,
-        assets: availableAssets,
-        supported_assets: availableAssets.map(asset => ({
-          symbol: asset.asset,
+        discovery_duration_ms: duration,
+        stats: {
+          total_discovered: discoveredAssets,
+          database_updated: updatedAssets,
+          glass_node_available: assetResults.filter(a => a.available).length,
+          api_status: apiStatus
+        },
+        available_assets: assetResults.filter(a => a.available).map(asset => ({
+          symbol: asset.symbol,
+          name: asset.name,
           glass_node_supported: asset.available,
           premium_metrics_available: asset.premium,
           glass_node_data_quality: asset.dataQuality,
-          last_glass_node_update: new Date().toISOString()
+          logo_url: asset.logo_url,
+          coingecko_id: asset.coingecko_id
         }))
       }),
       { 
@@ -123,18 +258,44 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error discovering Glass Node assets:', error);
+    console.error('Glass Node discovery error:', error);
+    errorMessage = error.message;
+    
+    const duration = Date.now() - startTime;
+
+    // Log error
+    try {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      );
+      
+      await supabase
+        .from('glass_node_discovery_logs')
+        .insert({
+          discovery_run_at: new Date().toISOString(),
+          assets_discovered: discoveredAssets,
+          assets_updated: updatedAssets,
+          api_status: 'error',
+          error_message: errorMessage,
+          discovery_duration_ms: duration
+        });
+    } catch (logError) {
+      console.error('Failed to log error:', logError);
+    }
     
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message,
+        error: errorMessage,
+        discovered_at: new Date().toISOString(),
+        discovery_duration_ms: duration,
         fallback_assets: [
-          { symbol: 'BTC', glass_node_supported: true, premium_metrics_available: true, glass_node_data_quality: 8 },
-          { symbol: 'ETH', glass_node_supported: true, premium_metrics_available: true, glass_node_data_quality: 8 },
-          { symbol: 'SOL', glass_node_supported: true, premium_metrics_available: true, glass_node_data_quality: 7 },
-          { symbol: 'ADA', glass_node_supported: true, premium_metrics_available: true, glass_node_data_quality: 7 },
-          { symbol: 'LINK', glass_node_supported: true, premium_metrics_available: true, glass_node_data_quality: 7 }
+          { symbol: 'BTC', name: 'Bitcoin', glass_node_supported: true, premium_metrics_available: true, glass_node_data_quality: 8 },
+          { symbol: 'ETH', name: 'Ethereum', glass_node_supported: true, premium_metrics_available: true, glass_node_data_quality: 8 },
+          { symbol: 'SOL', name: 'Solana', glass_node_supported: true, premium_metrics_available: true, glass_node_data_quality: 7 },
+          { symbol: 'ADA', name: 'Cardano', glass_node_supported: true, premium_metrics_available: true, glass_node_data_quality: 7 },
+          { symbol: 'DOT', name: 'Polkadot', glass_node_supported: true, premium_metrics_available: true, glass_node_data_quality: 7 }
         ]
       }),
       { 

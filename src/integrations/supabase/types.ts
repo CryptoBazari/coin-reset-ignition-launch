@@ -113,6 +113,7 @@ export type Database = {
       coins: {
         Row: {
           active_supply: number | null
+          api_status: string | null
           aviv_ratio: number | null
           basket: Database["public"]["Enums"]["basket_type"]
           beta: number | null
@@ -121,14 +122,17 @@ export type Database = {
           beta_last_calculated: string | null
           cagr_36m: number | null
           coin_id: string
+          coingecko_id: string | null
           created_at: string | null
           current_price: number
           fundamentals_score: number | null
           glass_node_asset_name: string | null
           glass_node_data_quality: number | null
+          glass_node_last_discovered: string | null
           glass_node_supported: boolean | null
           id: string
           last_glass_node_update: string | null
+          logo_url: string | null
           market_cap: number | null
           name: string
           premium_metrics_available: boolean | null
@@ -142,6 +146,7 @@ export type Database = {
         }
         Insert: {
           active_supply?: number | null
+          api_status?: string | null
           aviv_ratio?: number | null
           basket: Database["public"]["Enums"]["basket_type"]
           beta?: number | null
@@ -150,14 +155,17 @@ export type Database = {
           beta_last_calculated?: string | null
           cagr_36m?: number | null
           coin_id: string
+          coingecko_id?: string | null
           created_at?: string | null
           current_price: number
           fundamentals_score?: number | null
           glass_node_asset_name?: string | null
           glass_node_data_quality?: number | null
+          glass_node_last_discovered?: string | null
           glass_node_supported?: boolean | null
           id?: string
           last_glass_node_update?: string | null
+          logo_url?: string | null
           market_cap?: number | null
           name: string
           premium_metrics_available?: boolean | null
@@ -171,6 +179,7 @@ export type Database = {
         }
         Update: {
           active_supply?: number | null
+          api_status?: string | null
           aviv_ratio?: number | null
           basket?: Database["public"]["Enums"]["basket_type"]
           beta?: number | null
@@ -179,14 +188,17 @@ export type Database = {
           beta_last_calculated?: string | null
           cagr_36m?: number | null
           coin_id?: string
+          coingecko_id?: string | null
           created_at?: string | null
           current_price?: number
           fundamentals_score?: number | null
           glass_node_asset_name?: string | null
           glass_node_data_quality?: number | null
+          glass_node_last_discovered?: string | null
           glass_node_supported?: boolean | null
           id?: string
           last_glass_node_update?: string | null
+          logo_url?: string | null
           market_cap?: number | null
           name?: string
           premium_metrics_available?: boolean | null
@@ -360,6 +372,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      glass_node_discovery_logs: {
+        Row: {
+          api_status: string | null
+          assets_discovered: number | null
+          assets_updated: number | null
+          discovery_duration_ms: number | null
+          discovery_run_at: string
+          error_message: string | null
+          id: string
+        }
+        Insert: {
+          api_status?: string | null
+          assets_discovered?: number | null
+          assets_updated?: number | null
+          discovery_duration_ms?: number | null
+          discovery_run_at?: string
+          error_message?: string | null
+          id?: string
+        }
+        Update: {
+          api_status?: string | null
+          assets_discovered?: number | null
+          assets_updated?: number | null
+          discovery_duration_ms?: number | null
+          discovery_run_at?: string
+          error_message?: string | null
+          id?: string
+        }
+        Relationships: []
       }
       investment_analyses: {
         Row: {

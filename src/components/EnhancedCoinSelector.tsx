@@ -96,7 +96,8 @@ const EnhancedCoinSelector = ({
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-3">
             <Avatar className="h-6 w-6">
-              <AvatarFallback className="text-xs bg-gray-200">
+              <AvatarImage src={asset.logo_url || undefined} alt={`${asset.name} logo`} />
+              <AvatarFallback className="text-xs bg-primary/10 text-primary font-medium">
                 {asset.symbol.slice(0, 2)}
               </AvatarFallback>
             </Avatar>
