@@ -10,6 +10,7 @@ export interface CoinMarketCapCoin {
   price_change_24h: number;
   price_change_7d?: number;
   price_change_30d?: number;
+  volume_24h?: number;
   logo?: string;
 }
 
