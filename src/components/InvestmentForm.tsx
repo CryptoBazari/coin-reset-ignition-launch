@@ -1,12 +1,14 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { supabase } from '@/integrations/supabase/client';
-import type { CoinData, InvestmentInputs } from '@/types/investment';
+import { Badge } from '@/components/ui/badge';
+import { Shield, TrendingUp, Activity } from 'lucide-react';
+import EnhancedCoinSelector from '@/components/EnhancedCoinSelector';
+import { GlassNodeAsset } from '@/services/glassNodeAssetService';
+import type { InvestmentInputs } from '@/types/investment';
 
 interface InvestmentFormProps {
   onSubmit: (inputs: InvestmentInputs) => void;
@@ -14,7 +16,7 @@ interface InvestmentFormProps {
 }
 
 export const InvestmentForm: React.FC<InvestmentFormProps> = ({ onSubmit, loading }) => {
-  const [coins, setCoins] = useState<CoinData[]>([]);
+  const [selectedAsset, setSelectedAsset] = useState<GlassNodeAsset | null>(null);
   const [formData, setFormData] = useState<InvestmentInputs>({
     coinId: '',
     investmentAmount: 100,
@@ -24,36 +26,13 @@ export const InvestmentForm: React.FC<InvestmentFormProps> = ({ onSubmit, loadin
     stakingYield: undefined
   });
 
-  useEffect(() => {
-    fetchCoins();
-  }, []);
-
-  const fetchCoins = async () => {
-    const { data, error } = await supabase
-      .from('coins')
-      .select('*')
-      .order('name');
-    
-    if (data && !error) {
-      // Convert the database records to match our CoinData interface
-      const convertedCoins: CoinData[] = data.map(coin => ({
-        id: coin.id,
-        coin_id: coin.coin_id,
-        name: coin.name,
-        basket: coin.basket as 'Bitcoin' | 'Blue Chip' | 'Small-Cap',
-        current_price: coin.current_price,
-        market_cap: coin.market_cap,
-        price_history: coin.price_history,
-        cagr_36m: coin.cagr_36m,
-        fundamentals_score: coin.fundamentals_score,
-        volatility: coin.volatility,
-        aviv_ratio: coin.aviv_ratio,
-        active_supply: coin.active_supply,
-        vaulted_supply: coin.vaulted_supply,
-        staking_yield: coin.staking_yield
-      }));
-      setCoins(convertedCoins);
-    }
+  const handleAssetChange = (coinId: string, assetData: GlassNodeAsset) => {
+    setSelectedAsset(assetData);
+    setFormData({ 
+      ...formData, 
+      coinId,
+      stakingYield: assetData.staking_yield || undefined
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -63,7 +42,7 @@ export const InvestmentForm: React.FC<InvestmentFormProps> = ({ onSubmit, loadin
     }
   };
 
-  const selectedCoin = coins.find(coin => coin.coin_id === formData.coinId);
+  
 
   return (
     <Card className="w-full max-w-2xl mx-auto">
@@ -77,21 +56,12 @@ export const InvestmentForm: React.FC<InvestmentFormProps> = ({ onSubmit, loadin
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="coin">Select Cryptocurrency</Label>
-              <Select 
-                value={formData.coinId} 
-                onValueChange={(value) => setFormData({ ...formData, coinId: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a coin" />
-                </SelectTrigger>
-                <SelectContent>
-                  {coins.map((coin) => (
-                    <SelectItem key={coin.coin_id} value={coin.coin_id}>
-                      {coin.name} ({coin.basket})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <EnhancedCoinSelector
+                value={formData.coinId}
+                onValueChange={handleAssetChange}
+                placeholder="Choose a cryptocurrency"
+                showOnlyGlassNodeSupported={false}
+              />
             </div>
 
             <div className="space-y-2">
@@ -164,7 +134,7 @@ export const InvestmentForm: React.FC<InvestmentFormProps> = ({ onSubmit, loadin
                   ...formData, 
                   stakingYield: e.target.value ? parseFloat(e.target.value) : undefined 
                 })}
-                placeholder={selectedCoin?.staking_yield ? `Default: ${selectedCoin.staking_yield}%` : "0%"}
+                placeholder={selectedAsset?.staking_yield ? `Default: ${selectedAsset.staking_yield}%` : "0%"}
                 step="0.01"
                 min="0"
                 max="50"
@@ -172,15 +142,73 @@ export const InvestmentForm: React.FC<InvestmentFormProps> = ({ onSubmit, loadin
             </div>
           </div>
 
-          {selectedCoin && (
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <h3 className="font-semibold mb-2">Selected Coin Info</h3>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>Current Price: ${selectedCoin.current_price.toLocaleString()}</div>
-                <div>Basket: {selectedCoin.basket}</div>
-                <div>36M CAGR: {selectedCoin.cagr_36m || 'N/A'}%</div>
-                <div>Volatility: {selectedCoin.volatility || 'N/A'}%</div>
+          {selectedAsset && (
+            <div className="p-4 border border-gray-200 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-lg">{selectedAsset.name}</h3>
+                <div className="flex items-center gap-2">
+                  {selectedAsset.glass_node_supported && (
+                    <Badge variant="default" className="bg-green-100 text-green-800">
+                      <Shield className="h-3 w-3 mr-1" />
+                      Glass Node
+                    </Badge>
+                  )}
+                  <Badge variant="outline" className="text-gray-600">
+                    {selectedAsset.basket}
+                  </Badge>
+                </div>
               </div>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-blue-600" />
+                  <div>
+                    <div className="font-medium">Current Price</div>
+                    <div className="text-lg font-bold text-blue-600">
+                      ${selectedAsset.current_price.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: selectedAsset.current_price < 1 ? 6 : 2
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {selectedAsset.cagr_36m && (
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-green-600" />
+                    <div>
+                      <div className="font-medium">36M CAGR</div>
+                      <div className="text-lg font-bold text-green-600">
+                        {selectedAsset.cagr_36m.toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {selectedAsset.volatility && (
+                  <div>
+                    <div className="font-medium text-gray-600">Volatility</div>
+                    <div className="text-lg font-bold text-orange-600">
+                      {selectedAsset.volatility.toFixed(1)}%
+                    </div>
+                  </div>
+                )}
+
+                {selectedAsset.staking_yield && (
+                  <div>
+                    <div className="font-medium text-gray-600">Staking Yield</div>
+                    <div className="text-lg font-bold text-purple-600">
+                      {selectedAsset.staking_yield.toFixed(1)}%
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {selectedAsset.glass_node_supported && selectedAsset.last_glass_node_update && (
+                <div className="mt-3 text-xs text-gray-500">
+                  Last Glass Node update: {new Date(selectedAsset.last_glass_node_update).toLocaleDateString()}
+                </div>
+              )}
             </div>
           )}
 

@@ -124,9 +124,14 @@ export type Database = {
           created_at: string | null
           current_price: number
           fundamentals_score: number | null
+          glass_node_asset_name: string | null
+          glass_node_data_quality: number | null
+          glass_node_supported: boolean | null
           id: string
+          last_glass_node_update: string | null
           market_cap: number | null
           name: string
+          premium_metrics_available: boolean | null
           price_history: Json | null
           sharpe_ratio: number | null
           staking_yield: number | null
@@ -148,9 +153,14 @@ export type Database = {
           created_at?: string | null
           current_price: number
           fundamentals_score?: number | null
+          glass_node_asset_name?: string | null
+          glass_node_data_quality?: number | null
+          glass_node_supported?: boolean | null
           id?: string
+          last_glass_node_update?: string | null
           market_cap?: number | null
           name: string
+          premium_metrics_available?: boolean | null
           price_history?: Json | null
           sharpe_ratio?: number | null
           staking_yield?: number | null
@@ -172,9 +182,14 @@ export type Database = {
           created_at?: string | null
           current_price?: number
           fundamentals_score?: number | null
+          glass_node_asset_name?: string | null
+          glass_node_data_quality?: number | null
+          glass_node_supported?: boolean | null
           id?: string
+          last_glass_node_update?: string | null
           market_cap?: number | null
           name?: string
+          premium_metrics_available?: boolean | null
           price_history?: Json | null
           sharpe_ratio?: number | null
           staking_yield?: number | null
