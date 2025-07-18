@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Newspaper, BookOpen, Coins, Users, CreditCard, TrendingUp } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
+import ApiStatusMonitor from '@/components/admin/ApiStatusMonitor';
 
 interface DashboardStats {
   totalNews: number;
@@ -141,6 +142,8 @@ const AdminDashboard = () => {
             );
           })}
         </div>
+
+        <ApiStatusMonitor />
 
         <div className="grid gap-4 md:grid-cols-2">
           <Card>
