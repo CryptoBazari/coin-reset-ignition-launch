@@ -42,13 +42,15 @@ class RealTimeGlassNodeService {
         activeAddressData,
         liquidSupplyData,
         illiquidSupplyData,
-        marketCapData
+        marketCapData,
+        avivData
       ] = await Promise.all([
         fetchGlassNodeMetric(GLASS_NODE_METRICS.PRICE_USD, asset, since),
         fetchGlassNodeMetric(GLASS_NODE_METRICS.ACTIVE_ADDRESSES, asset, since),
         fetchGlassNodeMetric(GLASS_NODE_METRICS.LIQUID_SUPPLY, asset, since),
         fetchGlassNodeMetric(GLASS_NODE_METRICS.ILLIQUID_SUPPLY, asset, since),
-        fetchGlassNodeMetric(GLASS_NODE_METRICS.MARKET_CAP, asset, since)
+        fetchGlassNodeMetric(GLASS_NODE_METRICS.MARKET_CAP, asset, since),
+        fetchGlassNodeMetric(GLASS_NODE_METRICS.AVIV_RATIO, asset, since)
       ]);
 
       console.log(`📊 Received ${priceData.length} price points for ${coinId}`);
@@ -59,12 +61,13 @@ class RealTimeGlassNodeService {
       // Calculate real 36-month CAGR
       const cagr36m = this.calculateReal36MonthCAGR(priceData);
       
-      // Calculate live AVIV ratio and supply metrics
+      // Calculate live supply metrics and get real AVIV ratio
       const { avivRatio, activeSupply, vaultedSupply } = this.calculateCointimeMetrics(
         priceData,
         liquidSupplyData,
         illiquidSupplyData,
-        marketCapData
+        marketCapData,
+        avivData
       );
 
       // Get technical indicators (Premium Glass Node metrics)
@@ -136,7 +139,8 @@ class RealTimeGlassNodeService {
     priceData: Array<{ value: number }>,
     liquidSupplyData: Array<{ value: number }>,
     illiquidSupplyData: Array<{ value: number }>,
-    marketCapData: Array<{ value: number }>
+    marketCapData: Array<{ value: number }>,
+    avivData: Array<{ value: number }>
   ) {
     console.log(`🔄 Calculating live Cointime metrics from Glass Node data`);
     
@@ -149,11 +153,21 @@ class RealTimeGlassNodeService {
     const activeSupply = totalSupply > 0 ? (latestLiquidSupply / totalSupply) * 100 : 50;
     const vaultedSupply = totalSupply > 0 ? (latestIlliquidSupply / totalSupply) * 100 : 50;
 
-    // AVIV Ratio: Market Cap / Realized Cap approximation
-    const realizedCapApprox = latestMarketCap * 0.7; // Conservative estimate
-    const avivRatio = realizedCapApprox > 0 ? latestMarketCap / realizedCapApprox : 1.0;
+    // Real AVIV Ratio from Glass Node API or fallback calculation
+    let avivRatio = 1.0;
+    
+    if (avivData && avivData.length > 0) {
+      // Use real AVIV ratio from Glass Node
+      avivRatio = avivData[avivData.length - 1]?.value || 1.0;
+      console.log(`✅ Using real AVIV ratio from Glass Node: ${avivRatio.toFixed(3)}`);
+    } else {
+      // Fallback: Market Cap / Realized Cap approximation
+      const realizedCapApprox = latestMarketCap * 0.7;
+      avivRatio = realizedCapApprox > 0 ? latestMarketCap / realizedCapApprox : 1.0;
+      console.log(`⚠️ Using estimated AVIV ratio (Glass Node data unavailable): ${avivRatio.toFixed(3)}`);
+    }
 
-    console.log(`📊 Live Cointime metrics - AVIV: ${avivRatio.toFixed(2)}, Active: ${activeSupply.toFixed(1)}%, Vaulted: ${vaultedSupply.toFixed(1)}%`);
+    console.log(`📊 Live Cointime metrics - AVIV: ${avivRatio.toFixed(3)}, Active: ${activeSupply.toFixed(1)}%, Vaulted: ${vaultedSupply.toFixed(1)}%`);
 
     return { avivRatio, activeSupply, vaultedSupply };
   }

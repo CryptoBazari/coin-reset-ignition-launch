@@ -20,13 +20,15 @@ const SUPPORTED_METRICS = {
     'transactions/transfers_from_exchanges_sum',
     'supply/liquid_sum',
     'supply/illiquid_sum',
-    'indicators/cdd'
+    'indicators/cdd',
+    'indicators/aviv'
   ],
   'ETH': [
     'market/price_usd_close',
     'addresses/active_count',
     'transactions/transfers_to_exchanges_sum',
-    'transactions/transfers_from_exchanges_sum'
+    'transactions/transfers_from_exchanges_sum',
+    'indicators/aviv'
   ]
 };
 

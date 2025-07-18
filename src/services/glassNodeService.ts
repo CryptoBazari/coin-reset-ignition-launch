@@ -50,7 +50,10 @@ export const GLASS_NODE_METRICS = {
   // Cointime metrics
   COINTIME_DESTROYED: 'indicators/cdd',
   COINTIME_PRICE: 'indicators/ctp',
-  COINTIME_CAP: 'indicators/ctc'
+  COINTIME_CAP: 'indicators/ctc',
+  
+  // AVIV Ratio - Premium Glass Node metric
+  AVIV_RATIO: 'indicators/aviv'
 };
 
 export const fetchGlassNodeMetric = async (
