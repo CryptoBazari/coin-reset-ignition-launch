@@ -3,35 +3,38 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Navbar from '@/components/Navbar';
-import { InvestmentForm } from '@/components/InvestmentForm';
-import { AnalysisResults } from '@/components/AnalysisResults';
+import { EnhancedInvestmentForm } from '@/components/EnhancedInvestmentForm';
+import { EnhancedAnalysisResults } from '@/components/EnhancedAnalysisResults';
 import SubscriptionButton from '@/components/subscription/SubscriptionButton';
 import MarketOverview from '@/components/analysis/MarketOverview';
 import AssetLiveData from '@/components/analysis/AssetLiveData';
 import GlassNodeDashboard from '@/components/analysis/GlassNodeDashboard';
 import { useSubscription } from '@/hooks/useSubscription';
-import { useInvestmentAnalysis } from '@/hooks/useInvestmentAnalysis';
+import { useEnhancedInvestmentAnalysis } from '@/hooks/useEnhancedInvestmentAnalysis';
 import { Lock, BarChart3, Globe, TrendingUp, Calculator, Activity } from 'lucide-react';
-import type { InvestmentInputs, AnalysisResult } from '@/types/investment';
+import type { InvestmentInputs } from '@/types/investment';
 import type { CoinData } from '@/services/realTimeMarketService';
 
 const CryptoAnalysis = () => {
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [enhancedAnalysisResult, setEnhancedAnalysisResult] = useState(null);
   const [selectedCoin, setSelectedCoin] = useState<CoinData | null>(null);
   const [selectedCoinSymbol, setSelectedCoinSymbol] = useState<string>('BTC');
   const { hasActiveSubscription, user } = useSubscription();
-  const { analyzeInvestment, loading, error } = useInvestmentAnalysis();
+  const { analyzeInvestment, loading, error } = useEnhancedInvestmentAnalysis();
 
-  const handleAnalysis = async (inputs: InvestmentInputs) => {
+  const handleEnhancedAnalysis = async (inputs: InvestmentInputs) => {
+    console.log('🚀 Starting enhanced Glass Node analysis with inputs:', inputs);
     const result = await analyzeInvestment(inputs);
     if (result) {
-      setAnalysisResult(result);
+      console.log('✅ Enhanced analysis completed:', result);
+      setEnhancedAnalysisResult(result);
+    } else {
+      console.error('❌ Enhanced analysis failed');
     }
   };
 
   const handleCoinSelect = (coinData: CoinData) => {
     setSelectedCoin(coinData);
-    // Extract symbol from coin data for Glass Node
     const symbol = coinData.symbol?.toUpperCase() || 'BTC';
     setSelectedCoinSymbol(symbol);
     console.log('Selected coin for Glass Node analysis:', symbol);
@@ -43,11 +46,11 @@ const CryptoAnalysis = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Crypto Investment Analyzer
+            Enhanced Crypto Investment Analyzer
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Make informed investment decisions with our advanced analysis tools powered by Glass Node on-chain data. 
-            Get personalized recommendations based on your portfolio and risk tolerance.
+            Get personalized recommendations based on real-time blockchain metrics and your portfolio requirements.
           </p>
         </div>
 
@@ -60,11 +63,11 @@ const CryptoAnalysis = () => {
                 </div>
                 <CardTitle>Sign In Required</CardTitle>
                 <CardDescription>
-                  Please sign in to access the crypto investment analyzer
+                  Please sign in to access the enhanced crypto investment analyzer
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <SubscriptionButton feature="analysis tools" size="lg" />
+                <SubscriptionButton feature="enhanced analysis tools" size="lg" />
               </CardContent>
             </Card>
           ) : !hasActiveSubscription ? (
@@ -75,11 +78,11 @@ const CryptoAnalysis = () => {
                 </div>
                 <CardTitle>Premium Feature</CardTitle>
                 <CardDescription>
-                  Upgrade to access advanced crypto investment analysis tools with Glass Node data
+                  Upgrade to access advanced crypto investment analysis with live Glass Node data
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <SubscriptionButton feature="analysis tools" size="lg" />
+                <SubscriptionButton feature="enhanced analysis tools" size="lg" />
               </CardContent>
             </Card>
           ) : (
@@ -99,7 +102,7 @@ const CryptoAnalysis = () => {
                 </TabsTrigger>
                 <TabsTrigger value="analysis" className="gap-2">
                   <Calculator className="h-4 w-4" />
-                  Investment Analysis
+                  Enhanced Analysis
                 </TabsTrigger>
                 <TabsTrigger value="insights" className="gap-2">
                   <TrendingUp className="h-4 w-4" />
@@ -149,51 +152,53 @@ const CryptoAnalysis = () => {
                     </Card>
                   )}
                   
-                  <InvestmentForm onSubmit={handleAnalysis} loading={loading} />
-                  {analysisResult && (
+                  <EnhancedInvestmentForm onSubmit={handleEnhancedAnalysis} loading={loading} />
+                  
+                  {enhancedAnalysisResult && (
                     <div className="space-y-6">
-                      <AnalysisResults result={analysisResult} />
+                      <EnhancedAnalysisResults result={enhancedAnalysisResult} />
                       
-                      {analysisResult.glassNodeData && (
+                      {enhancedAnalysisResult.dataQuality && (
                         <Card>
                           <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                               <Activity className="h-5 w-5" />
-                              Glass Node Enhanced Metrics
+                              Enhanced Data Quality Report
                             </CardTitle>
                             <CardDescription>
-                              Additional insights from on-chain analysis
+                              Analysis powered by {enhancedAnalysisResult.dataQuality.glassnodeConnection ? 'Live Glass Node Data' : 'Basic Market Data'}
                             </CardDescription>
                           </CardHeader>
                           <CardContent>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                               <div className="space-y-2">
-                                <span className="text-sm font-medium">Cointime Price</span>
+                                <span className="text-sm font-medium">Data Source</span>
                                 <div className="text-2xl font-bold">
-                                  ${analysisResult.glassNodeData.cointimeMetrics.cointimePrice.toFixed(2)}
+                                  {enhancedAnalysisResult.dataQuality.glassnodeConnection ? '🟢 Live' : '🟡 Basic'}
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                  Price adjusted for cointime destruction
+                                  {enhancedAnalysisResult.dataQuality.glassnodeConnection ? 
+                                    'Real-time Glass Node metrics' : 'Market price data only'}
                                 </p>
                               </div>
                               
                               <div className="space-y-2">
-                                <span className="text-sm font-medium">Cointime Ratio</span>
+                                <span className="text-sm font-medium">Confidence Score</span>
                                 <div className="text-2xl font-bold">
-                                  {analysisResult.glassNodeData.cointimeMetrics.cointimeRatio.toFixed(2)}
+                                  {enhancedAnalysisResult.dataQuality.confidenceScore}%
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                  Current vs historical average
+                                  Analysis reliability score
                                 </p>
                               </div>
                               
                               <div className="space-y-2">
-                                <span className="text-sm font-medium">On-Chain Health</span>
+                                <span className="text-sm font-medium">Data Completeness</span>
                                 <div className="text-2xl font-bold">
-                                  {analysisResult.metrics.onChainScore || 'N/A'}/10
+                                  {enhancedAnalysisResult.dataQuality.dataCompleteness || 'N/A'}%
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                  Network health composite score
+                                  Available metrics coverage
                                 </p>
                               </div>
                             </div>
@@ -214,11 +219,53 @@ const CryptoAnalysis = () => {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Activity className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                      <h3 className="text-lg font-semibold mb-2">Enhanced AI Insights Coming Soon</h3>
-                      <p>AI-powered analysis combining Glass Node on-chain data with market sentiment and technical indicators will be available soon.</p>
-                    </div>
+                    {enhancedAnalysisResult?.insights ? (
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <h3 className="text-lg font-semibold mb-3">Market Analysis</h3>
+                            <div className="space-y-2">
+                              <p className="text-sm"><strong>Risk Profile:</strong> {enhancedAnalysisResult.insights.riskProfile}</p>
+                              <p className="text-sm"><strong>Market Timing:</strong> {enhancedAnalysisResult.insights.marketTiming}</p>
+                              <p className="text-sm"><strong>Position Sizing:</strong> {enhancedAnalysisResult.insights.positionSizing}</p>
+                            </div>
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-semibold mb-3">Glass Node Insights</h3>
+                            <ul className="text-sm space-y-1">
+                              {enhancedAnalysisResult.insights.glassnodeInsights.map((insight, index) => (
+                                <li key={index}>• {insight}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <h3 className="text-lg font-semibold mb-3 text-red-600">Key Risks</h3>
+                            <ul className="text-sm space-y-1">
+                              {enhancedAnalysisResult.insights.keyRisks.map((risk, index) => (
+                                <li key={index} className="text-red-700">⚠️ {risk}</li>
+                              ))}
+                            </ul>
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-semibold mb-3 text-green-600">Opportunities</h3>
+                            <ul className="text-sm space-y-1">
+                              {enhancedAnalysisResult.insights.opportunities.map((opportunity, index) => (
+                                <li key={index} className="text-green-700">✅ {opportunity}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Activity className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                        <h3 className="text-lg font-semibold mb-2">Run Enhanced Analysis</h3>
+                        <p>Perform an investment analysis to see AI-powered insights based on Glass Node data.</p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>

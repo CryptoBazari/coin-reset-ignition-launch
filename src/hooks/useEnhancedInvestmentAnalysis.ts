@@ -67,21 +67,35 @@ export const useEnhancedInvestmentAnalysis = () => {
 
     try {
       console.log('🚀 Starting Glass Node enhanced investment analysis for:', inputs.coinId);
+      console.log('📊 Input parameters:', inputs);
 
       // 1. Fetch enhanced coin data with live Glass Node metrics
-      console.log('Fetching enhanced data with Glass Node integration...');
+      console.log('📡 Fetching enhanced data with Glass Node integration...');
       const enhancedCoinData = await enhancedInvestmentDataService.fetchEnhancedCoinData(inputs.coinId);
+      
+      console.log('📈 Enhanced coin data received:', {
+        coinId: enhancedCoinData.coin_id,
+        currentPrice: enhancedCoinData.current_price,
+        avivRatio: enhancedCoinData.liveMetrics?.avivRatio,
+        activeSupply: enhancedCoinData.liveMetrics?.activeSupply,
+        vaultedSupply: enhancedCoinData.liveMetrics?.vaultedSupply,
+        activeAddresses: enhancedCoinData.onChainData?.activeAddresses,
+        networkGrowth: enhancedCoinData.onChainData?.networkGrowth
+      });
 
       // 2. Get basket assumptions and benchmark data
+      console.log('🎯 Fetching basket assumptions and benchmark data...');
       const assumptions = await fetchBasketAssumptions(enhancedCoinData.basket);
       const benchmarkId = enhancedCoinData.basket === 'Bitcoin' ? 'SP500' : 'BTC';
       const benchmark = await fetchBenchmarkData(benchmarkId);
 
       // 3. Get market conditions with real-time data
+      console.log('🌐 Analyzing market conditions...');
       const marketDataResult: MarketDataResult = await getMarketData();
       const marketConditions = createMarketConditions(enhancedCoinData, marketDataResult.marketSentiment, marketDataResult.fedRateChange);
 
       // 4. Calculate enhanced financial metrics
+      console.log('💰 Calculating enhanced financial metrics...');
       const npvResult = calculateEnhancedNPV(
         inputs.investmentAmount,
         enhancedCoinData,
@@ -97,13 +111,16 @@ export const useEnhancedInvestmentAnalysis = () => {
       );
 
       // 5. Get market data for Beta calculation
+      console.log('📊 Calculating beta with market correlation...');
       const marketReturns = await getMarketReturns();
       const betaResult = calculateEnhancedBeta(enhancedCoinData, marketReturns);
 
       // 6. Calculate enhanced risk factors
+      console.log('⚠️ Assessing risk factors...');
       const riskResult = calculateEnhancedRiskFactor(enhancedCoinData, marketConditions);
 
       // 7. Generate enhanced recommendation
+      console.log('🎯 Generating investment recommendation...');
       const recommendation = generateEnhancedRecommendation({
         npv: npvResult.npv,
         irr: irrResult.networkEffectIRR,
@@ -114,6 +131,7 @@ export const useEnhancedInvestmentAnalysis = () => {
       });
 
       // 8. Generate comprehensive insights
+      console.log('🧠 Generating Glass Node insights...');
       const insights = generateGlassNodeInsights(enhancedCoinData, {
         npv: npvResult,
         cagr: cagrResult,
@@ -124,8 +142,16 @@ export const useEnhancedInvestmentAnalysis = () => {
 
       // 9. Calculate data completeness score
       const dataCompleteness = calculateDataCompleteness(enhancedCoinData);
+      const glassnodeConnection = checkGlassNodeConnection(enhancedCoinData);
+
+      console.log('📋 Data quality assessment:', {
+        glassnodeConnection,
+        dataCompleteness,
+        confidenceScore: npvResult.confidenceScore
+      });
 
       // 10. Store enhanced analysis result
+      console.log('💾 Storing analysis result...');
       await storeEnhancedAnalysisResult({
         ...inputs,
         enhancedMetrics: {
@@ -146,7 +172,7 @@ export const useEnhancedInvestmentAnalysis = () => {
 
       console.log('✅ Enhanced Glass Node analysis completed successfully');
 
-      return {
+      const result: EnhancedAnalysisResult = {
         enhancedCoinData,
         metrics: {
           npv: npvResult,
@@ -158,7 +184,7 @@ export const useEnhancedInvestmentAnalysis = () => {
         recommendation,
         marketConditions,
         dataQuality: {
-          glassnodeConnection: true,
+          glassnodeConnection,
           confidenceScore: npvResult.confidenceScore,
           lastUpdated: new Date().toISOString(),
           dataCompleteness
@@ -171,11 +197,21 @@ export const useEnhancedInvestmentAnalysis = () => {
         insights
       };
 
+      console.log('📤 Returning enhanced analysis result:', {
+        recommendation: result.recommendation.recommendation,
+        npv: result.metrics.npv.npv,
+        confidence: result.dataQuality.confidenceScore,
+        glassnodeConnection: result.dataQuality.glassnodeConnection
+      });
+
+      return result;
+
     } catch (err) {
-      console.error('Enhanced analysis failed:', err);
+      console.error('❌ Enhanced analysis failed:', err);
       setError(err instanceof Error ? err.message : 'Analysis failed');
       
       // Fallback to basic analysis if Glass Node fails
+      console.log('🔄 Attempting fallback analysis...');
       return await fallbackToBasicAnalysis(inputs);
     } finally {
       setLoading(false);
@@ -193,6 +229,28 @@ export const useEnhancedInvestmentAnalysis = () => {
 };
 
 // Helper functions
+
+function checkGlassNodeConnection(coinData: EnhancedCoinData): boolean {
+  // Check if we have real Glass Node data vs fallback data
+  const hasLiveMetrics = coinData.liveMetrics && 
+    coinData.liveMetrics.avivRatio !== 1.0 && 
+    coinData.liveMetrics.activeSupply !== 50;
+  
+  const hasOnChainData = coinData.onChainData && 
+    coinData.onChainData.activeAddresses > 0;
+    
+  const hasTechnicalIndicators = coinData.technicalIndicators && 
+    coinData.technicalIndicators.sopr !== 1;
+
+  console.log('🔍 Glass Node connection check:', {
+    hasLiveMetrics,
+    hasOnChainData,
+    hasTechnicalIndicators,
+    overall: hasLiveMetrics || hasOnChainData || hasTechnicalIndicators
+  });
+
+  return hasLiveMetrics || hasOnChainData || hasTechnicalIndicators;
+}
 
 async function getMarketReturns(): Promise<number[]> {
   try {
