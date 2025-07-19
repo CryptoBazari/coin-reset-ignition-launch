@@ -272,7 +272,9 @@ class RealTimeGlassNodeService {
     
     return {
       priceHistory: [],
+      realizedPriceHistory: [],
       volatility: 60,
+      realizedVolatility: 60,
       cagr36m: 20,
       avivRatio: 1.0,
       activeSupply: 50,
