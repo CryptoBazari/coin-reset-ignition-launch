@@ -4,7 +4,7 @@ import { fetchBasketAssumptions, fetchBenchmarkData, storeAnalysisResult } from 
 import { calculateFinancialMetrics, calculateAllocation, calculateExpectedPrice, calculateAdjustedDiscountRate } from '@/services/investmentCalculationService';
 import { generateAdvancedRecommendation } from '@/services/recommendationService';
 import { createMarketConditions, getMarketData } from '@/services/marketAnalysisService';
-import { betaCalculationService } from '@/services/betaCalculationService';
+import { realBetaCalculationService } from '@/services/realBetaCalculationService';
 import { enhancedRealTimeMarketService } from '@/services/enhancedRealTimeMarketService';
 import { getOnChainAnalysis, calculateCointimeMetrics } from '@/services/glassNodeService';
 import { realTimeMarketService } from '@/services/realTimeMarketService';
@@ -107,7 +107,11 @@ export const useInvestmentAnalysis = () => {
       const assumptions = await fetchBasketAssumptions(coinData.basket);
       const benchmarkId = coinData.basket === 'Bitcoin' ? 'SP500' : 'BTC';
       const benchmark = await fetchBenchmarkData(benchmarkId);
-      const betaAnalysis = await betaCalculationService.getBetaForCoin(inputs.coinId);
+      
+      // Use REAL beta calculation service
+      console.log('📊 Calculating REAL beta with Glass Node data...');
+      const betaAnalysis = await realBetaCalculationService.calculateRealBeta(inputs.coinId);
+      console.log(`📈 Real Beta: ${betaAnalysis.beta.toFixed(3)} (${betaAnalysis.confidence}, ${betaAnalysis.source})`);
 
       // Step 3: Create market conditions
       const marketDataResult: MarketDataResult = await getMarketData();
@@ -122,10 +126,15 @@ export const useInvestmentAnalysis = () => {
         fedRateChange
       );
 
-      // Step 4: Calculate financial metrics
+      // Step 4: Calculate financial metrics with REAL beta
       const adjustedDiscountRate = calculateAdjustedDiscountRate(assumptions, fedRateChange, coinData.basket);
       const expectedPrice = calculateExpectedPrice(coinData, inputs, marketConditions);
       const metrics = calculateFinancialMetrics(inputs, coinData, expectedPrice, adjustedDiscountRate, marketConditions);
+
+      // Update metrics with REAL beta data
+      metrics.beta = betaAnalysis.beta;
+      metrics.betaConfidence = betaAnalysis.confidence;
+      metrics.dataQuality = betaAnalysis.source;
 
       // Add Glass Node specific metrics if available
       if (glassNodeData) {
@@ -152,7 +161,7 @@ export const useInvestmentAnalysis = () => {
         allocation
       );
 
-      // Step 7: Store analysis result
+      // Step 7: Store analysis result with REAL beta
       await storeAnalysisResult({
         coin_id: inputs.coinId,
         investment_amount: inputs.investmentAmount,
@@ -165,8 +174,8 @@ export const useInvestmentAnalysis = () => {
         roi: metrics.roi,
         risk_factor: metrics.riskFactor,
         recommendation: recommendation.recommendation,
-        conditions: recommendation.conditions,
-        risks: recommendation.risks,
+        conditions: `Real Beta: ${betaAnalysis.beta.toFixed(3)} (${betaAnalysis.confidence}) - ${recommendation.conditions}`,
+        risks: `Beta Source: ${betaAnalysis.source} - ${recommendation.risks}`,
         price_cagr: metrics.cagr,
         total_return_cagr: metrics.totalReturnCAGR,
         price_roi: metrics.priceROI,
@@ -179,7 +188,8 @@ export const useInvestmentAnalysis = () => {
         portfolio_compliant: allocation.status === 'optimal'
       });
 
-      console.log('✅ Investment analysis completed with real-time data');
+      console.log('✅ Investment analysis completed with REAL Glass Node beta data');
+      console.log(`📊 Final Beta: ${betaAnalysis.beta.toFixed(3)} (${betaAnalysis.confidence}, ${betaAnalysis.source})`);
 
       const result: AnalysisResult = {
         coin: coinData,

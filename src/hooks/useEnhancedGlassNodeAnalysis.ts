@@ -6,7 +6,7 @@ import { calculateFinancialMetrics, calculateAllocation, calculateExpectedPrice,
 import { generateAdvancedRecommendation } from '@/services/recommendationService';
 import { createMarketConditions } from '@/services/marketAnalysisService';
 import { getOnChainAnalysis, calculateCointimeMetrics } from '@/services/glassNodeService';
-import { betaCalculationService } from '@/services/betaCalculationService';
+import { realBetaCalculationService } from '@/services/realBetaCalculationService';
 import type { InvestmentInputs, AnalysisResult, MarketDataResult } from '@/types/investment';
 
 export const useEnhancedGlassNodeAnalysis = () => {
@@ -42,8 +42,9 @@ export const useEnhancedGlassNodeAnalysis = () => {
       const benchmarkId = coinData.basket === 'Bitcoin' ? 'SP500' : 'BTC';
       const benchmark = await fetchBenchmarkData(benchmarkId);
 
-      // 5. Get beta analysis
-      const betaAnalysis = await betaCalculationService.getBetaForCoin(inputs.coinId);
+      // 5. Get REAL beta analysis using Glass Node data
+      console.log('🎯 Calculating real beta with Glass Node data...');
+      const betaAnalysis = await realBetaCalculationService.calculateRealBeta(inputs.coinId);
 
       // 6. Create market conditions with enhanced data
       const marketConditions = createMarketConditions(
@@ -62,6 +63,11 @@ export const useEnhancedGlassNodeAnalysis = () => {
       const adjustedDiscountRate = calculateAdjustedDiscountRate(assumptions, 0, coinData.basket);
       const metrics = calculateFinancialMetrics(inputs, coinData, expectedPrice, adjustedDiscountRate, marketConditions);
 
+      // Update metrics with real beta data
+      metrics.beta = betaAnalysis.beta;
+      metrics.betaConfidence = betaAnalysis.confidence;
+      metrics.dataQuality = betaAnalysis.source;
+
       // 9. Calculate allocation
       const allocation = calculateAllocation(inputs, assumptions, coinData);
 
@@ -78,7 +84,7 @@ export const useEnhancedGlassNodeAnalysis = () => {
         allocation
       );
 
-      // 11. Store analysis result
+      // 11. Store analysis result with real beta data
       await storeAnalysisResult({
         coin_id: inputs.coinId,
         investment_amount: inputs.investmentAmount,
@@ -91,8 +97,8 @@ export const useEnhancedGlassNodeAnalysis = () => {
         roi: metrics.roi,
         risk_factor: metrics.riskFactor,
         recommendation: recommendation.recommendation,
-        conditions: recommendation.conditions,
-        risks: recommendation.risks,
+        conditions: `Beta: ${betaAnalysis.beta.toFixed(3)} (${betaAnalysis.confidence}) - ${recommendation.conditions}`,
+        risks: `Beta Source: ${betaAnalysis.source} - ${recommendation.risks}`,
         price_cagr: metrics.cagr,
         total_return_cagr: metrics.totalReturnCAGR,
         price_roi: metrics.priceROI,
@@ -105,7 +111,9 @@ export const useEnhancedGlassNodeAnalysis = () => {
         portfolio_compliant: allocation.status === 'optimal'
       });
 
-      console.log('✅ Enhanced Glass Node analysis completed');
+      console.log('✅ Enhanced Glass Node analysis completed with REAL beta data');
+      console.log(`📊 Real Beta: ${betaAnalysis.beta.toFixed(3)} (${betaAnalysis.confidence})`);
+      console.log(`📈 Data Source: ${betaAnalysis.source}`);
 
       return {
         coin: coinData,

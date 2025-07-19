@@ -1,3 +1,4 @@
+
 // =============================================================================
 // PHASE 4: GLASS NODE ENHANCED INVESTMENT ANALYSIS HOOK
 // Integrates Glass Node real-time data with comprehensive financial analysis
@@ -16,7 +17,7 @@ import {
 import { generateAdvancedRecommendation } from '@/services/recommendationService';
 import { createMarketConditions, getMarketData } from '@/services/marketAnalysisService';
 import { realTimeMarketService } from '@/services/realTimeMarketService';
-import { betaCalculationService } from '@/services/betaCalculationService';
+import { realBetaCalculationService } from '@/services/realBetaCalculationService';
 import type { InvestmentInputs, EnhancedCoinData, MarketDataResult, InvestmentRecommendation, MarketConditions } from '@/types/investment';
 
 export interface EnhancedAnalysisResult {
@@ -110,10 +111,17 @@ export const useEnhancedInvestmentAnalysis = () => {
         inputs.investmentHorizon || 2
       );
 
-      // 5. Get market data for Beta calculation
-      console.log('📊 Calculating beta with market correlation...');
-      const marketReturns = await getMarketReturns();
-      const betaResult = calculateEnhancedBeta(enhancedCoinData, marketReturns);
+      // 5. Get REAL market data for Beta calculation using Glass Node
+      console.log('📊 Calculating REAL beta with Glass Node data...');
+      const realBetaResult = await realBetaCalculationService.calculateRealBeta(inputs.coinId);
+      console.log(`📈 Real Beta calculated: ${realBetaResult.beta.toFixed(3)} (${realBetaResult.confidence})`);
+
+      // Use real beta in enhanced calculation
+      const betaResult = {
+        traditionalBeta: realBetaResult.beta,
+        onChainBeta: realBetaResult.beta, // Use same value for now
+        adjustedBeta: realBetaResult.beta
+      };
 
       // 6. Calculate enhanced risk factors
       console.log('⚠️ Assessing risk factors...');
@@ -147,18 +155,20 @@ export const useEnhancedInvestmentAnalysis = () => {
       console.log('📋 Data quality assessment:', {
         glassnodeConnection,
         dataCompleteness,
-        confidenceScore: npvResult.confidenceScore
+        confidenceScore: npvResult.confidenceScore,
+        realBeta: realBetaResult.beta,
+        betaSource: realBetaResult.source
       });
 
-      // 10. Store enhanced analysis result
-      console.log('💾 Storing analysis result...');
+      // 10. Store enhanced analysis result with REAL beta
+      console.log('💾 Storing analysis result with real beta data...');
       await storeEnhancedAnalysisResult({
         ...inputs,
         enhancedMetrics: {
           npv: npvResult.npv,
           irr: irrResult.networkEffectIRR,
           cagr: cagrResult.volatilityAdjustedCAGR,
-          beta: betaResult.adjustedBeta,
+          beta: realBetaResult.beta, // Store REAL beta
           risk: riskResult.overallRisk,
           confidence: npvResult.confidenceScore
         },
@@ -166,11 +176,13 @@ export const useEnhancedInvestmentAnalysis = () => {
         glassnodeData: {
           liveMetrics: enhancedCoinData.liveMetrics,
           onChainData: enhancedCoinData.onChainData,
-          technicalIndicators: enhancedCoinData.technicalIndicators
+          technicalIndicators: enhancedCoinData.technicalIndicators,
+          realBeta: realBetaResult // Include real beta data
         }
       });
 
-      console.log('✅ Enhanced Glass Node analysis completed successfully');
+      console.log('✅ Enhanced Glass Node analysis completed successfully with REAL beta');
+      console.log(`📊 Final Beta: ${realBetaResult.beta.toFixed(3)} (${realBetaResult.confidence}, ${realBetaResult.source})`);
 
       const result: EnhancedAnalysisResult = {
         enhancedCoinData,
@@ -197,11 +209,12 @@ export const useEnhancedInvestmentAnalysis = () => {
         insights
       };
 
-      console.log('📤 Returning enhanced analysis result:', {
+      console.log('📤 Returning enhanced analysis result with real beta:', {
         recommendation: result.recommendation.recommendation,
         npv: result.metrics.npv.npv,
         confidence: result.dataQuality.confidenceScore,
-        glassnodeConnection: result.dataQuality.glassnodeConnection
+        glassnodeConnection: result.dataQuality.glassnodeConnection,
+        realBeta: realBetaResult.beta
       });
 
       return result;
@@ -222,9 +235,9 @@ export const useEnhancedInvestmentAnalysis = () => {
     analyzeInvestment, 
     loading, 
     error,
-    // Utility functions
+    // Utility functions - now using REAL beta service
     updateCache: () => enhancedInvestmentDataService.clearCache(),
-    getBetaData: (coinId: string) => betaCalculationService.getBetaForCoin(coinId)
+    getBetaData: (coinId: string) => realBetaCalculationService.calculateRealBeta(coinId)
   };
 };
 

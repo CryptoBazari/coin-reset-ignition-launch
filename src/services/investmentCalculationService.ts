@@ -15,16 +15,16 @@ import {
   calculateExpectedReturn,
   getEstimatedBeta
 } from '@/utils/financialCalculations';
-import { betaCalculationService } from './betaCalculationService';
+import { realBetaCalculationService } from '@/services/realBetaCalculationService';
 import type { CoinData, InvestmentInputs, FinancialMetrics, MarketConditions } from '@/types/investment';
 
-export const calculateFinancialMetrics = (
+export const calculateFinancialMetrics = async (
   inputs: InvestmentInputs,
   coinData: CoinData,
   expectedPrice: number,
   adjustedDiscountRate: number,
   marketConditions: MarketConditions
-): FinancialMetrics => {
+): Promise<FinancialMetrics> => {
   // Generate cash flows
   const cashFlows = generateCashFlows(
     inputs.investmentAmount,
@@ -57,10 +57,26 @@ export const calculateFinancialMetrics = (
   const totalROI = calculateROI(inputs.investmentAmount, cashFlows[cashFlows.length - 1]);
   const stakingROI = totalROI - priceROI;
   
-  // Get beta (from database or estimate)
-  const beta = coinData.beta || getEstimatedBeta(coinData.coin_id, coinData.basket);
+  // Get REAL beta (from Glass Node API or estimate)
+  console.log('📊 Getting REAL beta for financial metrics...');
+  let beta: number;
+  let betaConfidence: 'low' | 'medium' | 'high' = 'low';
+  let dataQuality: 'estimated' | 'calculated' | 'api' | 'database' = 'estimated';
   
-  // Calculate enhanced risk factor with beta
+  try {
+    const betaResult = await realBetaCalculationService.calculateRealBeta(inputs.coinId);
+    beta = betaResult.beta;
+    betaConfidence = betaResult.confidence;
+    dataQuality = betaResult.source;
+    console.log(`📈 Using Real Beta: ${beta.toFixed(3)} (${betaConfidence}, ${dataQuality})`);
+  } catch (error) {
+    console.warn('⚠️ Real beta calculation failed, using estimated beta:', error);
+    beta = coinData.beta || getEstimatedBeta(coinData.coin_id, coinData.basket);
+    betaConfidence = 'low';
+    dataQuality = 'estimated';
+  }
+  
+  // Calculate enhanced risk factor with REAL beta
   const riskFactor = calculateEnhancedRiskFactor(
     coinData.basket,
     coinData.volatility || 50,
@@ -73,7 +89,7 @@ export const calculateFinancialMetrics = (
     marketConditions.smartMoneyActivity
   );
   
-  // Calculate risk-adjusted metrics
+  // Calculate risk-adjusted metrics with REAL beta
   const riskFreeRate = 0.045; // 4.5% Treasury rate
   const marketRiskPremium = 0.15; // 15% crypto market premium
   const riskAdjustedNPV = calculateRiskAdjustedNPV(
@@ -83,7 +99,7 @@ export const calculateFinancialMetrics = (
     beta
   );
   
-  // Calculate expected return using CAPM
+  // Calculate expected return using CAPM with REAL beta
   const expectedReturn = calculateExpectedReturn(
     riskFreeRate,
     0.25, // 25% crypto market return
@@ -94,6 +110,8 @@ export const calculateFinancialMetrics = (
   const volatility = coinData.volatility || 50;
   const sharpeRatio = calculateSharpeRatio(totalReturnCAGR, riskFreeRate * 100, volatility);
 
+  console.log('✅ Financial metrics calculated with REAL Glass Node beta');
+
   return { 
     npv, 
     irr, 
@@ -103,15 +121,15 @@ export const calculateFinancialMetrics = (
     priceROI,                  // Price appreciation ROI
     stakingROI,                // Staking contribution ROI
     riskFactor,
-    // Enhanced risk metrics
+    // Enhanced risk metrics with REAL beta
     beta,
     standardDeviation: volatility,
     sharpeRatio,
     riskAdjustedNPV,
     expectedReturn,
-    // Confidence indicators
-    betaConfidence: 'medium' as const,
-    dataQuality: 'estimated' as const
+    // Confidence indicators - now REAL
+    betaConfidence,
+    dataQuality
   };
 };
 
