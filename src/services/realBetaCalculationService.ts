@@ -166,8 +166,7 @@ class RealBetaCalculationService {
       
       const { error } = await supabase
         .from('coins')
-        .upsert({
-          coin_id: coinId,
+        .update({
           beta: betaResult.beta,
           beta_confidence: betaResult.confidence,
           beta_last_calculated: betaResult.lastCalculated,
@@ -175,9 +174,8 @@ class RealBetaCalculationService {
           glass_node_supported: betaResult.source === 'calculated',
           standard_deviation: betaResult.correlation * 100, // Store correlation as standard deviation placeholder
           updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'coin_id'
-        });
+        })
+        .eq('coin_id', coinId);
 
       if (error) {
         console.error(`❌ Failed to update database for ${coinId}:`, error);

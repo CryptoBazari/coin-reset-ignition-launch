@@ -129,7 +129,7 @@ export const useInvestmentAnalysis = () => {
       // Step 4: Calculate financial metrics with REAL beta
       const adjustedDiscountRate = calculateAdjustedDiscountRate(assumptions, fedRateChange, coinData.basket);
       const expectedPrice = calculateExpectedPrice(coinData, inputs, marketConditions);
-      const metrics = calculateFinancialMetrics(inputs, coinData, expectedPrice, adjustedDiscountRate, marketConditions);
+      const metrics = await calculateFinancialMetrics(inputs, coinData, expectedPrice, adjustedDiscountRate, marketConditions);
 
       // Update metrics with REAL beta data
       metrics.beta = betaAnalysis.beta;

@@ -61,7 +61,7 @@ export const useEnhancedGlassNodeAnalysis = () => {
       
       // 8. Calculate enhanced financial metrics
       const adjustedDiscountRate = calculateAdjustedDiscountRate(assumptions, 0, coinData.basket);
-      const metrics = calculateFinancialMetrics(inputs, coinData, expectedPrice, adjustedDiscountRate, marketConditions);
+      const metrics = await calculateFinancialMetrics(inputs, coinData, expectedPrice, adjustedDiscountRate, marketConditions);
 
       // Update metrics with real beta data
       metrics.beta = betaAnalysis.beta;
