@@ -1,10 +1,11 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { fetchGlassNodeMetric, GLASS_NODE_METRICS } from './glassNodeService';
+import { fetchGlassNodeMetric, fetchRealizedVolatility, fetchHistoricalRealizedPrice, GLASS_NODE_METRICS } from './glassNodeService';
 
 export interface RealTimeGlassNodeData {
   priceHistory: Array<{ timestamp: number; price: number }>;
+  realizedPriceHistory: Array<{ timestamp: number; price: number }>;
   volatility: number;
+  realizedVolatility: number;
   cagr36m: number;
   avivRatio: number;
   activeSupply: number;
@@ -36,9 +37,11 @@ class RealTimeGlassNodeService {
       const asset = this.mapCoinIdToGlassNodeAsset(coinId);
       const since = new Date(Date.now() - 36 * 30 * 24 * 60 * 60 * 1000); // 36 months
       
-      // Fetch real data from Glass Node Premium API
+      // Fetch real data from Glass Node API including new endpoints
       const [
         priceData,
+        realizedPriceData,
+        volatilityData,
         activeAddressData,
         liquidSupplyData,
         illiquidSupplyData,
@@ -46,6 +49,8 @@ class RealTimeGlassNodeService {
         avivData
       ] = await Promise.all([
         fetchGlassNodeMetric(GLASS_NODE_METRICS.PRICE_USD, asset, since),
+        fetchHistoricalRealizedPrice(asset, since),
+        fetchRealizedVolatility(asset, since),
         fetchGlassNodeMetric(GLASS_NODE_METRICS.ACTIVE_ADDRESSES, asset, since),
         fetchGlassNodeMetric(GLASS_NODE_METRICS.LIQUID_SUPPLY, asset, since),
         fetchGlassNodeMetric(GLASS_NODE_METRICS.ILLIQUID_SUPPLY, asset, since),
@@ -53,10 +58,11 @@ class RealTimeGlassNodeService {
         fetchGlassNodeMetric(GLASS_NODE_METRICS.AVIV_RATIO, asset, since)
       ]);
 
-      console.log(`📊 Received ${priceData.length} price points for ${coinId}`);
+      console.log(`📊 Received ${priceData.length} price points and ${volatilityData.length} volatility points for ${coinId}`);
 
-      // Calculate real volatility from historical returns
-      const volatility = this.calculateRealVolatility(priceData);
+      // Calculate real volatility from Glass Node data
+      const realizedVolatility = this.getLatestValue(volatilityData);
+      const volatility = realizedVolatility > 0 ? realizedVolatility : this.calculateRealVolatility(priceData);
       
       // Calculate real 36-month CAGR
       const cagr36m = this.calculateReal36MonthCAGR(priceData);
@@ -78,14 +84,19 @@ class RealTimeGlassNodeService {
           timestamp: p.unix_timestamp * 1000,
           price: p.value
         })),
+        realizedPriceHistory: realizedPriceData.map(p => ({
+          timestamp: p.unix_timestamp * 1000,
+          price: p.value
+        })),
         volatility,
+        realizedVolatility,
         cagr36m,
         avivRatio,
         activeSupply,
         vaultedSupply,
         technicalIndicators,
         lastUpdated: new Date().toISOString(),
-        dataQuality: this.calculateDataQuality(priceData, technicalIndicators)
+        dataQuality: this.calculateDataQuality(priceData, technicalIndicators, volatilityData)
       };
 
       this.setCache(cacheKey, realTimeData);
@@ -97,6 +108,10 @@ class RealTimeGlassNodeService {
       console.error(`❌ Failed to fetch real-time data for ${coinId}:`, error);
       return this.getFallbackData(coinId);
     }
+  }
+
+  private getLatestValue(data: any[]): number {
+    return data.length > 0 ? data[data.length - 1].value : 0;
   }
 
   private calculateRealVolatility(priceData: Array<{ value: number }>): number {
@@ -200,26 +215,37 @@ class RealTimeGlassNodeService {
     }
   }
 
-  private calculateDataQuality(priceData: any[], technicalIndicators: any): number {
+  private calculateDataQuality(priceData: any[], technicalIndicators: any, volatilityData?: any[]): number {
     let score = 0;
     let maxScore = 0;
 
-    // Price data quality (40 points)
-    maxScore += 40;
-    if (priceData.length > 1000) score += 40; // 3+ years of data
-    else if (priceData.length > 365) score += 30; // 1+ year
-    else if (priceData.length > 90) score += 20; // 3+ months
-    else score += 10; // Some data
-
-    // Technical indicators (30 points)
+    // Price data quality (30 points)
     maxScore += 30;
-    if (technicalIndicators.nvtRatio > 0) score += 10;
-    if (technicalIndicators.sopr !== 1) score += 10;
-    if (technicalIndicators.mvrv !== 1) score += 10;
+    if (priceData.length > 1000) score += 30; // 3+ years of data
+    else if (priceData.length > 365) score += 22; // 1+ year
+    else if (priceData.length > 90) score += 15; // 3+ months
+    else score += 8; // Some data
 
-    // Real-time freshness (30 points)
-    maxScore += 30;
-    score += 30; // Always fresh when fetched
+    // Volatility data quality (25 points)
+    maxScore += 25;
+    if (volatilityData && volatilityData.length > 0) {
+      if (volatilityData.length > 365) score += 25; // 1+ year volatility data
+      else if (volatilityData.length > 90) score += 20; // 3+ months
+      else if (volatilityData.length > 30) score += 15; // 1+ month
+      else score += 10; // Some volatility data
+    } else {
+      score += 5; // Calculated volatility fallback
+    }
+
+    // Technical indicators (25 points)
+    maxScore += 25;
+    if (technicalIndicators.nvtRatio > 0) score += 8;
+    if (technicalIndicators.sopr !== 1) score += 8;
+    if (technicalIndicators.mvrv !== 1) score += 9;
+
+    // Real-time freshness (20 points)
+    maxScore += 20;
+    score += 20; // Always fresh when fetched
 
     return Math.round((score / maxScore) * 100);
   }

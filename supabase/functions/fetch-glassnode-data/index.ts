@@ -15,6 +15,8 @@ interface GlassNodeResponse {
 const SUPPORTED_METRICS = {
   'BTC': [
     'market/price_usd_close',
+    'market/price_realized_usd',
+    'market/realized_volatility_all',
     'addresses/active_count',
     'transactions/transfers_to_exchanges_sum',
     'transactions/transfers_from_exchanges_sum',
@@ -25,6 +27,8 @@ const SUPPORTED_METRICS = {
   ],
   'ETH': [
     'market/price_usd_close',
+    'market/price_realized_usd',
+    'market/realized_volatility_all',
     'addresses/active_count',
     'transactions/transfers_to_exchanges_sum',
     'transactions/transfers_from_exchanges_sum',

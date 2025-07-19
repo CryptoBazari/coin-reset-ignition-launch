@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface GlassNodeDataPoint {
@@ -17,7 +16,11 @@ export interface GlassNodeMetric {
 export const GLASS_NODE_METRICS = {
   // Price metrics
   PRICE_USD: 'market/price_usd_close',
+  PRICE_REALIZED_USD: 'market/price_realized_usd',
   MARKET_CAP: 'market/marketcap_usd',
+  
+  // Volatility metrics
+  REALIZED_VOLATILITY: 'market/realized_volatility_all',
   
   // On-chain metrics
   ACTIVE_ADDRESSES: 'addresses/active_count',
@@ -109,6 +112,128 @@ export const fetchMultipleGlassNodeMetrics = async (
   } catch (error) {
     console.error('Error fetching multiple Glass Node metrics:', error);
     return [];
+  }
+};
+
+// Get historical price data using realized price
+export const fetchHistoricalRealizedPrice = async (
+  asset: string = 'BTC',
+  since?: Date,
+  until?: Date,
+  resolution?: '1h' | '24h' | '1w' | '1month'
+): Promise<GlassNodeDataPoint[]> => {
+  try {
+    console.log(`Fetching historical realized price data for ${asset}`);
+    
+    return await fetchGlassNodeMetric(
+      GLASS_NODE_METRICS.PRICE_REALIZED_USD,
+      asset,
+      since,
+      until,
+      resolution
+    );
+  } catch (error) {
+    console.error('Error fetching historical realized price:', error);
+    return [];
+  }
+};
+
+// Get volatility data
+export const fetchRealizedVolatility = async (
+  asset: string = 'BTC',
+  since?: Date,
+  until?: Date,
+  resolution?: '1h' | '24h' | '1w' | '1month'
+): Promise<GlassNodeDataPoint[]> => {
+  try {
+    console.log(`Fetching realized volatility data for ${asset}`);
+    
+    return await fetchGlassNodeMetric(
+      GLASS_NODE_METRICS.REALIZED_VOLATILITY,
+      asset,
+      since,
+      until,
+      resolution
+    );
+  } catch (error) {
+    console.error('Error fetching realized volatility:', error);
+    return [];
+  }
+};
+
+// Get comprehensive volatility and price analysis
+export const getVolatilityPriceAnalysis = async (
+  asset: string = 'BTC',
+  days: number = 30
+): Promise<{
+  historicalPrice: GlassNodeDataPoint[];
+  realizedPrice: GlassNodeDataPoint[];
+  realizedVolatility: GlassNodeDataPoint[];
+  analysis: {
+    currentVolatility: number;
+    averageVolatility: number;
+    priceDeviation: number;
+    volatilityTrend: 'increasing' | 'decreasing' | 'stable';
+  };
+}> => {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  const until = new Date();
+
+  try {
+    const [historicalPrice, realizedPrice, realizedVolatility] = await Promise.all([
+      fetchGlassNodeMetric(GLASS_NODE_METRICS.PRICE_USD, asset, since, until),
+      fetchHistoricalRealizedPrice(asset, since, until),
+      fetchRealizedVolatility(asset, since, until)
+    ]);
+
+    // Calculate analysis metrics
+    const currentVolatility = realizedVolatility.length > 0 
+      ? realizedVolatility[realizedVolatility.length - 1].value 
+      : 0;
+    
+    const averageVolatility = realizedVolatility.length > 0
+      ? realizedVolatility.reduce((sum, point) => sum + point.value, 0) / realizedVolatility.length
+      : 0;
+
+    // Calculate price deviation between historical and realized price
+    const priceDeviation = historicalPrice.length > 0 && realizedPrice.length > 0
+      ? Math.abs(historicalPrice[historicalPrice.length - 1].value - realizedPrice[realizedPrice.length - 1].value) / historicalPrice[historicalPrice.length - 1].value * 100
+      : 0;
+
+    // Determine volatility trend
+    let volatilityTrend: 'increasing' | 'decreasing' | 'stable' = 'stable';
+    if (realizedVolatility.length >= 10) {
+      const recent = realizedVolatility.slice(-5).reduce((sum, p) => sum + p.value, 0) / 5;
+      const earlier = realizedVolatility.slice(-10, -5).reduce((sum, p) => sum + p.value, 0) / 5;
+      
+      if (recent > earlier * 1.1) volatilityTrend = 'increasing';
+      else if (recent < earlier * 0.9) volatilityTrend = 'decreasing';
+    }
+
+    return {
+      historicalPrice,
+      realizedPrice,
+      realizedVolatility,
+      analysis: {
+        currentVolatility,
+        averageVolatility,
+        priceDeviation,
+        volatilityTrend
+      }
+    };
+  } catch (error) {
+    console.error('Error fetching volatility and price analysis:', error);
+    return {
+      historicalPrice: [],
+      realizedPrice: [],
+      realizedVolatility: [],
+      analysis: {
+        currentVolatility: 0,
+        averageVolatility: 0,
+        priceDeviation: 0,
+        volatilityTrend: 'stable'
+      }
+    };
   }
 };
 
