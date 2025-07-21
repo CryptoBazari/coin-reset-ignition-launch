@@ -115,8 +115,14 @@ class ComprehensiveGlassNodeAnalyzer {
         .eq('coin_id', coinId)
         .order('price_date', { ascending: true });
 
+      // Convert price_usd to string for consistency with calculation functions
+      const priceHistoryForCalc = priceHistory?.map(row => ({
+        price_date: row.price_date,
+        price_usd: row.price_usd.toString()
+      })) || [];
+
       // Calculate real CAGR from price history
-      const realCagr = this.calculateRealCAGR(priceHistory || []);
+      const realCagr = this.calculateRealCAGR(priceHistoryForCalc);
       
       // Get latest cointime metrics
       const { data: cointimeData } = await supabase
@@ -150,13 +156,16 @@ class ComprehensiveGlassNodeAnalyzer {
       console.log(`   - Real MVRV: ${mvrvZScore}`);
       console.log(`   - Real AVIV: ${realTimeData.avivRatio}`);
 
+      // Convert price history back to number format for other calculations
+      const priceHistoryNumbers = priceHistory?.map(p => ({ price: Number(p.price_usd), date: p.price_date })) || [];
+
       return {
         mvrv: mvrvZScore,
         volatility: realTimeData.realizedVolatility,
-        drawdown: this.calculateDrawdown(priceHistory || []),
+        drawdown: this.calculateDrawdown(priceHistoryForCalc),
         realizedProfitLoss: this.estimateRealizedPnL(mvrvZScore),
         volume: realTimeData.priceHistory.length,
-        prices: priceHistory?.map(p => ({ price: Number(p.price_usd), date: p.price_date })) || [],
+        prices: priceHistoryNumbers,
         cagr36m: realCagr,
         avivRatio: realTimeData.avivRatio,
         activeSupply: realTimeData.activeSupply,
