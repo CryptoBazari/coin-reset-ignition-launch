@@ -1,10 +1,9 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Activity, BarChart3, Calculator, Database, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Activity, BarChart3, Calculator, Database, TrendingUp, AlertTriangle, Target, Zap } from 'lucide-react';
 import { ComprehensiveAnalysisResult } from '@/services/comprehensiveGlassNodeAnalyzer';
 
 interface ComprehensiveAnalysisResultsProps {
@@ -16,36 +15,184 @@ export const ComprehensiveAnalysisResults: React.FC<ComprehensiveAnalysisResults
 }) => {
   return (
     <div className="space-y-6">
-      {/* Header Card */}
+      {/* Enhanced Header Card */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5 text-green-600" />
-            Comprehensive Analysis Results: {result.coinId.toUpperCase()}
+            <Target className="h-5 w-5 text-green-600" />
+            Enhanced Glassnode Analysis: {result.coinId.toUpperCase()}
             <Badge variant={result.dataQuality.qualityScore > 80 ? 'default' : 'secondary'}>
               {result.dataQuality.qualityScore}% Data Quality
             </Badge>
+            <Badge variant={result.enhancedNPV.confidenceLevel > 70 ? 'default' : 'destructive'}>
+              {result.enhancedNPV.confidenceLevel}% NPV Confidence
+            </Badge>
           </CardTitle>
           <CardDescription>
+            Market Cycle: {result.enhancedNPV.marketCyclePosition.toUpperCase()} | 
             Benchmark: {result.benchmark === 'SP500' ? 'S&P 500' : 'Bitcoin'} | 
-            Data Source: {result.dataSource} | 
-            Last Updated: {result.dataQuality.dataFreshness}
+            Profit Probability: {(result.monteCarloAnalysis.riskMetrics.probabilityOfPositiveNPV * 100).toFixed(1)}%
           </CardDescription>
         </CardHeader>
       </Card>
 
-      <Tabs defaultValue="metrics" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+      <Tabs defaultValue="enhanced-npv" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="enhanced-npv">Enhanced NPV</TabsTrigger>
+          <TabsTrigger value="monte-carlo">Monte Carlo</TabsTrigger>
           <TabsTrigger value="metrics">Financial Metrics</TabsTrigger>
           <TabsTrigger value="data">Monthly Data</TabsTrigger>
-          <TabsTrigger value="calculations">Detailed Calculations</TabsTrigger>
           <TabsTrigger value="reasoning">Analysis Reasoning</TabsTrigger>
           <TabsTrigger value="quality">Data Quality</TabsTrigger>
         </TabsList>
 
+        <TabsContent value="enhanced-npv">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Enhanced NPV Results */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-blue-600" />
+                  Glassnode-Powered NPV
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex justify-between">
+                  <span>Data-Driven NPV:</span>
+                  <span className={result.enhancedNPV.npv > 0 ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>
+                    ${result.enhancedNPV.npv.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Inflation-Adjusted:</span>
+                  <span className={result.enhancedNPV.adjustedNpv > 0 ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>
+                    ${result.enhancedNPV.adjustedNpv.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Confidence Level:</span>
+                  <Badge variant={result.enhancedNPV.confidenceLevel > 70 ? 'default' : 'secondary'}>
+                    {result.enhancedNPV.confidenceLevel}%
+                  </Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span>Market Cycle:</span>
+                  <Badge variant="outline">{result.enhancedNPV.marketCyclePosition}</Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span>Risk-Adj. Rate:</span>
+                  <span className="font-semibold">{(result.enhancedNPV.riskAdjustedDiscount * 100).toFixed(2)}%</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Price Projections */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">MVRV-Based Projections</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {result.enhancedNPV.priceProjections.map((proj, index) => (
+                    <div key={index} className="flex justify-between">
+                      <span>Year {proj.year}:</span>
+                      <span className="font-semibold">${proj.price.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Data Sources Used */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Real Data Sources</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-1">
+                  {result.enhancedNPV.dataSourcesUsed.map((source, index) => (
+                    <Badge key={index} variant="outline" className="mr-1 mb-1 text-xs">
+                      ✅ {source}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="monte-carlo">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Monte Carlo Results */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  Monte Carlo Analysis
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex justify-between">
+                  <span>Expected NPV:</span>
+                  <span className={result.monteCarloAnalysis.expectedNPV > 0 ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>
+                    ${result.monteCarloAnalysis.expectedNPV.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>90% Confidence Low:</span>
+                  <span className="text-red-600 font-semibold">
+                    ${result.monteCarloAnalysis.confidenceInterval.lower5.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>90% Confidence High:</span>
+                  <span className="text-green-600 font-semibold">
+                    ${result.monteCarloAnalysis.confidenceInterval.upper95.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Profit Probability:</span>
+                  <Badge variant={result.monteCarloAnalysis.riskMetrics.probabilityOfPositiveNPV > 0.6 ? 'default' : 'destructive'}>
+                    {(result.monteCarloAnalysis.riskMetrics.probabilityOfPositiveNPV * 100).toFixed(1)}%
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Risk Metrics */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-orange-600" />
+                  Risk Assessment
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex justify-between">
+                  <span>Value at Risk (5%):</span>
+                  <span className="text-red-600 font-semibold">
+                    ${result.monteCarloAnalysis.riskMetrics.valueAtRisk.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Expected Shortfall:</span>
+                  <span className="text-red-600 font-semibold">
+                    ${result.monteCarloAnalysis.riskMetrics.expectedShortfall.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Risk Level:</span>
+                  <Badge variant={result.monteCarloAnalysis.riskMetrics.valueAtRisk > result.enhancedNPV.npv ? 'destructive' : 'default'}>
+                    {result.monteCarloAnalysis.riskMetrics.valueAtRisk > result.enhancedNPV.npv ? 'HIGH' : 'MODERATE'}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
         <TabsContent value="metrics">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Core Financial Metrics */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Core Financial Metrics</CardTitle>
@@ -78,7 +225,6 @@ export const ComprehensiveAnalysisResults: React.FC<ComprehensiveAnalysisResults
               </CardContent>
             </Card>
 
-            {/* Risk Metrics */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Risk Assessment</CardTitle>
@@ -107,7 +253,6 @@ export const ComprehensiveAnalysisResults: React.FC<ComprehensiveAnalysisResults
               </CardContent>
             </Card>
 
-            {/* Advanced Metrics */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Advanced Metrics</CardTitle>
@@ -175,74 +320,12 @@ export const ComprehensiveAnalysisResults: React.FC<ComprehensiveAnalysisResults
           </Card>
         </TabsContent>
 
-        <TabsContent value="calculations">
-          <div className="space-y-6">
-            {/* Formulas */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calculator className="h-5 w-5" />
-                  Mathematical Formulas Used
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <h4 className="font-semibold">Net Present Value (NPV)</h4>
-                  <code className="block p-2 bg-muted rounded text-sm">
-                    {result.detailedCalculations.formulas.npvFormula}
-                  </code>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-semibold">Internal Rate of Return (IRR)</h4>
-                  <code className="block p-2 bg-muted rounded text-sm">
-                    {result.detailedCalculations.formulas.irrFormula}
-                  </code>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-semibold">Beta Coefficient</h4>
-                  <code className="block p-2 bg-muted rounded text-sm">
-                    {result.detailedCalculations.formulas.betaFormula}
-                  </code>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-semibold">Compound Annual Growth Rate (CAGR)</h4>
-                  <code className="block p-2 bg-muted rounded text-sm">
-                    {result.detailedCalculations.formulas.cagrFormula}
-                  </code>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Cash Flows */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Cash Flow Analysis</CardTitle>
-                <CardDescription>
-                  Projected cash flows including transaction costs and staking rewards
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {result.detailedCalculations.cashFlows.map((flow, index) => (
-                    <div key={index} className="flex justify-between p-2 border rounded">
-                      <span>Period {index}:</span>
-                      <span className={flow > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
-                        {flow > 0 ? '+' : ''}${flow.toLocaleString()}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
         <TabsContent value="reasoning">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5" />
-                Step-by-Step Analysis Reasoning
+                Enhanced Analysis Reasoning
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -329,6 +412,7 @@ export const ComprehensiveAnalysisResults: React.FC<ComprehensiveAnalysisResults
             </Card>
           </div>
         </TabsContent>
+
       </Tabs>
     </div>
   );
