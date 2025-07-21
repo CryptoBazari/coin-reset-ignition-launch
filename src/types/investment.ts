@@ -2,7 +2,7 @@ export interface CoinData {
   id: string;
   coin_id: string;
   name: string;
-  basket: 'Bitcoin' | 'Blue Chip' | 'Small-Cap';
+  basket: 'bitcoin' | 'blue_chip' | 'small_cap';
   current_price: number;
   market_cap?: number;
   price_history?: any;
@@ -146,7 +146,7 @@ export interface BasketAllocationRules {
 
 export interface AllocationResult {
   portfolioPercentage: number;
-  basketType: 'bitcoin' | 'blueChip' | 'smallCap';
+  basketType: 'bitcoin' | 'blue_chip' | 'small_cap';
   status: 'underexposed' | 'optimal' | 'overexposed';
   recommendation: 'increase' | 'decrease' | 'maintain';
   message: string;

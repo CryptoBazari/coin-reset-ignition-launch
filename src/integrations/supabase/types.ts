@@ -148,7 +148,7 @@ export type Database = {
           active_supply?: number | null
           api_status?: string | null
           aviv_ratio?: number | null
-          basket: Database["public"]["Enums"]["basket_type"]
+          basket?: Database["public"]["Enums"]["basket_type"]
           beta?: number | null
           beta_confidence?: string | null
           beta_data_source?: string | null
@@ -1219,7 +1219,7 @@ export type Database = {
       }
     }
     Enums: {
-      basket_type: "Bitcoin" | "Blue Chip" | "Small-Cap"
+      basket_type: "bitcoin" | "blue_chip" | "small_cap"
       crypto_network: "bitcoin" | "ethereum" | "arbitrum"
       crypto_token: "btc" | "usdt"
       payment_status: "pending" | "confirmed" | "failed" | "expired"
@@ -1354,7 +1354,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      basket_type: ["Bitcoin", "Blue Chip", "Small-Cap"],
+      basket_type: ["bitcoin", "blue_chip", "small_cap"],
       crypto_network: ["bitcoin", "ethereum", "arbitrum"],
       crypto_token: ["btc", "usdt"],
       payment_status: ["pending", "confirmed", "failed", "expired"],
