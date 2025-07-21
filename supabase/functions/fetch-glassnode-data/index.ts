@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -87,6 +86,33 @@ const SUPPORTED_METRICS = {
   ]
 };
 
+/**
+ * Sample data to monthly intervals with proper date alignment
+ */
+function sampleDataToMonthly(data: any[]): any[] {
+  if (!data || data.length === 0) return [];
+
+  // Group data by month and take the last entry of each month
+  const monthlyGroups = new Map<string, any>();
+  
+  data.forEach(point => {
+    const date = new Date(point.timestamp);
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    
+    // Keep the latest entry for each month
+    if (!monthlyGroups.has(monthKey) || new Date(point.timestamp) > new Date(monthlyGroups.get(monthKey)!.timestamp)) {
+      monthlyGroups.set(monthKey, point);
+    }
+  });
+
+  // Convert to array and sort by date
+  const monthlyData = Array.from(monthlyGroups.values())
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+  console.log(`📅 Properly sampled ${data.length} data points to ${monthlyData.length} monthly points`);
+  return monthlyData;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -137,21 +163,13 @@ Deno.serve(async (req) => {
       i: correctResolution // Use endpoint-specific resolution
     });
 
-    // Add time range if provided - convert to monthly sampling for large ranges
+    // Add time range if provided
     if (since) {
       const sinceTimestamp = Math.floor(new Date(since).getTime() / 1000);
       const untilTimestamp = until ? Math.floor(new Date(until).getTime() / 1000) : Math.floor(Date.now() / 1000);
       
-      // For ranges > 90 days, sample monthly to avoid too much data
-      const rangeDays = (untilTimestamp - sinceTimestamp) / (24 * 60 * 60);
-      if (rangeDays > 90) {
-        // Sample roughly monthly by taking every 30th day
-        params.append('s', sinceTimestamp.toString());
-        params.append('u', untilTimestamp.toString());
-      } else {
-        params.append('s', sinceTimestamp.toString());
-        if (until) params.append('u', untilTimestamp.toString());
-      }
+      params.append('s', sinceTimestamp.toString());
+      if (until) params.append('u', untilTimestamp.toString());
     }
 
     const glassNodeUrl = `https://api.glassnode.com/v1/metrics/${metric}?${params}`;
@@ -213,18 +231,16 @@ Deno.serve(async (req) => {
     const data: GlassNodeResponse[] = await response.json();
     console.log(`Successfully fetched ${data.length} Glass Node data points for ${metric}`);
 
-    // Transform the data and sample monthly if we have daily data
+    // Transform the data with proper monthly sampling
     let processedData = data.map(point => ({
       timestamp: new Date(point.t * 1000).toISOString(),
       value: point.v,
       unix_timestamp: point.t
     }));
 
-    // If we have more than 60 data points, sample roughly monthly
+    // Apply monthly sampling if we have daily data spanning more than 2 months
     if (processedData.length > 60) {
-      const step = Math.ceil(processedData.length / 36); // Target ~36 monthly points over 3 years
-      processedData = processedData.filter((_, index) => index % step === 0);
-      console.log(`Sampled data to ${processedData.length} points for monthly resolution`);
+      processedData = sampleDataToMonthly(processedData);
     }
 
     return new Response(

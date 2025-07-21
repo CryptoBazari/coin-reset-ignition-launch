@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface AnalysisInputs {
@@ -149,6 +148,37 @@ class ComprehensiveGlassNodeAnalyzer {
     return coinSymbol.toUpperCase() === 'BTC' ? 'SP500' : 'BTC';
   }
 
+  /**
+   * Sample data to monthly intervals with proper date alignment
+   */
+  private sampleToMonthlyData(data: Array<{ timestamp: string; value: number }>): Array<{ date: string; price: number }> {
+    if (!data || data.length === 0) return [];
+
+    // Group data by month and take the last entry of each month
+    const monthlyGroups = new Map<string, { timestamp: string; value: number }>();
+    
+    data.forEach(point => {
+      const date = new Date(point.timestamp);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      
+      // Keep the latest entry for each month
+      if (!monthlyGroups.has(monthKey) || new Date(point.timestamp) > new Date(monthlyGroups.get(monthKey)!.timestamp)) {
+        monthlyGroups.set(monthKey, point);
+      }
+    });
+
+    // Convert to array and sort by date
+    const monthlyData = Array.from(monthlyGroups.values())
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      .map(point => ({
+        date: point.timestamp,
+        price: point.value
+      }));
+
+    console.log(`📅 Sampled ${data.length} data points to ${monthlyData.length} monthly points`);
+    return monthlyData;
+  }
+
   private async fetchComprehensiveGlassNodeData(asset: string, startTime: number, endTime: number) {
     const results: any = {
       prices: [],
@@ -202,23 +232,24 @@ class ComprehensiveGlassNodeAnalyzer {
       try {
         switch (endpoint) {
           case 'market/price_usd_close':
-            results.prices = data.map((point: any) => ({
-              date: point.timestamp,
-              price: point.value
-            }));
+            // Sample to monthly data with proper date alignment
+            results.prices = this.sampleToMonthlyData(data);
             results.returns = this.calculateReturns(results.prices);
             break;
           
           case 'market/amer_30d_price_change':
-            results.regionalReturns.americas = data.map((point: any) => point.value || 0);
+            const americasData = this.sampleToMonthlyData(data);
+            results.regionalReturns.americas = americasData.map(point => point.price || 0);
             break;
           
           case 'market/apac_30d_price_change':
-            results.regionalReturns.apac = data.map((point: any) => point.value || 0);
+            const apacData = this.sampleToMonthlyData(data);
+            results.regionalReturns.apac = apacData.map(point => point.price || 0);
             break;
           
           case 'market/emea_30d_price_change':
-            results.regionalReturns.emea = data.map((point: any) => point.value || 0);
+            const emeaData = this.sampleToMonthlyData(data);
+            results.regionalReturns.emea = emeaData.map(point => point.price || 0);
             break;
           
           case 'market/realized_volatility_all':
@@ -311,10 +342,7 @@ class ComprehensiveGlassNodeAnalyzer {
           return this.generateFallbackBenchmarkData('BTC', startTime, endTime);
         }
 
-        return data.data.map((point: any) => ({
-          date: point.timestamp,
-          price: point.value
-        }));
+        return this.sampleToMonthlyData(data.data);
       } else {
         console.log('Fetching S&P 500 benchmark data');
         const { data, error } = await supabase.functions.invoke('fetch-sp500-data', {
@@ -459,6 +487,9 @@ class ComprehensiveGlassNodeAnalyzer {
     return marketVariance > 0 ? covariance / marketVariance : 1.0;
   }
 
+  /**
+   * Fixed cash flow generation with proper staking calculations
+   */
   private generateCashFlows(
     investmentAmount: number,
     finalPrice: number,
@@ -467,24 +498,39 @@ class ComprehensiveGlassNodeAnalyzer {
     stakingYield: number,
     transactionCosts: number
   ): number[] {
-    const cashFlows = [-(investmentAmount * (1 + transactionCosts / 100))];
+    console.log('💰 Generating cash flows:', { investmentAmount, finalPrice, initialPrice, holdingPeriod, stakingYield, transactionCosts });
     
+    // Initial investment (negative cash flow)
+    const initialInvestment = -(investmentAmount * (1 + transactionCosts / 100));
+    const cashFlows = [initialInvestment];
+    
+    // Calculate coin quantity purchased
     const coinQuantity = investmentAmount / initialPrice;
     let totalCoins = coinQuantity;
     
-    // Annual staking rewards with compounding
-    for (let i = 1; i < holdingPeriod; i++) {
+    // Generate intermediate cash flows for each year of holding period
+    for (let year = 1; year < holdingPeriod; year++) {
+      // Calculate staking rewards for this year
       const stakingRewardCoins = totalCoins * (stakingYield / 100);
-      totalCoins += stakingRewardCoins;
+      totalCoins += stakingRewardCoins; // Compound the rewards
       
-      const intermediatePrice = initialPrice * Math.pow(finalPrice / initialPrice, i / holdingPeriod);
+      // Calculate intermediate price based on linear interpolation
+      const priceAppreciationFactor = Math.pow(finalPrice / initialPrice, year / holdingPeriod);
+      const intermediatePrice = initialPrice * priceAppreciationFactor;
+      
+      // Cash flow from selling staking rewards (keep principal invested)
       const stakingCashValue = stakingRewardCoins * intermediatePrice * (1 - transactionCosts / 100);
       cashFlows.push(stakingCashValue);
+      
+      console.log(`Year ${year}: Staking rewards = ${stakingRewardCoins.toFixed(4)} coins, Price = $${intermediatePrice.toFixed(2)}, Cash flow = $${stakingCashValue.toFixed(2)}`);
     }
     
-    // Final sale with transaction costs
-    const finalValue = totalCoins * finalPrice * (1 - transactionCosts / 100);
-    cashFlows.push(finalValue);
+    // Final sale of all accumulated coins
+    const finalSaleValue = totalCoins * finalPrice * (1 - transactionCosts / 100);
+    cashFlows.push(finalSaleValue);
+    
+    console.log(`Final sale: ${totalCoins.toFixed(4)} coins at $${finalPrice.toFixed(2)} = $${finalSaleValue.toFixed(2)}`);
+    console.log('Complete cash flows:', cashFlows.map(cf => `$${cf.toFixed(2)}`));
     
     return cashFlows;
   }
@@ -529,9 +575,15 @@ class ComprehensiveGlassNodeAnalyzer {
     const coinReturns = this.calculateReturns(coinPrices);
     const benchmarkReturns = this.calculateReturns(benchmarkData);
 
-    for (let i = 0; i < Math.min(coinPrices.length, benchmarkData.length); i++) {
+    // Ensure both price arrays have the same length for comparison
+    const minLength = Math.min(coinPrices.length, benchmarkData.length);
+    
+    for (let i = 0; i < minLength; i++) {
+      const coinDate = new Date(coinPrices[i].date);
+      const benchmarkDate = new Date(benchmarkData[i].date);
+      
       monthlyPricesTable.push({
-        date: coinPrices[i].date.split('T')[0],
+        date: `${coinDate.getFullYear()}-${String(coinDate.getMonth() + 1).padStart(2, '0')}`,
         coinPrice: Math.round(coinPrices[i].price * 100) / 100,
         benchmarkPrice: Math.round(benchmarkData[i].price * 100) / 100,
         coinReturn: i > 0 ? Math.round(coinReturns[i - 1] * 100) / 100 : 0,
