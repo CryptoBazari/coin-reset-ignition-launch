@@ -18,7 +18,8 @@ import {
   PlayCircle,
   Clock,
   TrendingUp,
-  Settings 
+  Settings,
+  Zap
 } from 'lucide-react';
 
 interface DataStatus {
@@ -90,9 +91,14 @@ export const DataPopulation: React.FC = () => {
       setProgress(steps.map(s => ({ ...s, status: 'pending' as const })));
 
       toast({
-        title: "Data Population Started",
-        description: "This will take several minutes. Please wait...",
+        title: "🚀 Data Population Started",
+        description: "Populating your database with real market data. This will take 2-3 minutes...",
       });
+
+      // Simulate progress updates
+      const progressInterval = setInterval(() => {
+        setOverallProgress(prev => Math.min(prev + 5, 85));
+      }, 2000);
 
       // Call the initialize real data pipeline function
       console.log('🚀 Starting real data pipeline initialization...');
@@ -100,6 +106,8 @@ export const DataPopulation: React.FC = () => {
       const { data, error } = await supabase.functions.invoke('initialize-real-data-pipeline', {
         body: {}
       });
+
+      clearInterval(progressInterval);
 
       if (error) {
         console.error('❌ Real data pipeline failed:', error);
@@ -117,7 +125,7 @@ export const DataPopulation: React.FC = () => {
       setOverallProgress(100);
 
       toast({
-        title: "Data Population Completed!",
+        title: "✅ Data Population Completed!",
         description: `Successfully populated ${data.coinsInDatabase} coins with real market data.`,
       });
 
@@ -132,8 +140,8 @@ export const DataPopulation: React.FC = () => {
       ));
 
       toast({
-        title: "Data Population Failed",
-        description: error.message || "Unknown error occurred",
+        title: "❌ Data Population Failed",
+        description: error.message || "Unknown error occurred. Check console for details.",
         variant: "destructive"
       });
     } finally {
@@ -161,6 +169,45 @@ export const DataPopulation: React.FC = () => {
           Refresh Status
         </Button>
       </div>
+
+      {/* Emergency Data Population Card - Show prominently when data is empty */}
+      {isDataEmpty && (
+        <Card className="border-2 border-orange-200 bg-orange-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-orange-800">
+              <Zap className="h-5 w-5" />
+              ⚠️ DATABASE IS EMPTY - ACTION REQUIRED
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <p className="text-orange-700">
+                Your database has no real market data! The analysis pages won't work properly without this data.
+                Click the button below to populate your database with real market data from CoinMarketCap and Glass Node.
+              </p>
+              
+              <Button
+                onClick={startDataPopulation}
+                disabled={isPopulating}
+                size="lg"
+                className="w-full bg-orange-600 hover:bg-orange-700"
+              >
+                {isPopulating ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Populating Database...
+                  </>
+                ) : (
+                  <>
+                    <PlayCircle className="h-4 w-4 mr-2" />
+                    🚀 START REAL DATA POPULATION NOW
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="population" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
@@ -203,16 +250,6 @@ export const DataPopulation: React.FC = () => {
                     <div className="text-sm text-muted-foreground">Glass Node Metrics</div>
                   </div>
                 </div>
-              )}
-
-              {isDataEmpty && (
-                <Alert className="mb-4">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>Database is mostly empty!</strong> You need to populate it with real market data.
-                    This will fetch current prices, 36-month price history, and Glass Node metrics for 100+ coins.
-                  </AlertDescription>
-                </Alert>
               )}
 
               {isDataPartial && (

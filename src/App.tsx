@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -42,6 +43,9 @@ function App() {
           <Route path="/learning" element={<ProtectedRoute><Learning /></ProtectedRoute>} />
           <Route path="/news" element={<ProtectedRoute><News /></ProtectedRoute>} />
           <Route path="/portfolio" element={<ProtectedRoute><VirtualPortfolio /></ProtectedRoute>} />
+          
+          {/* Analysis routes - fix the routing issue */}
+          <Route path="/analysis" element={<Navigate to="/analysis/bitcoin" replace />} />
           <Route path="/analysis/:coinId" element={<ProtectedRoute><CryptoAnalysis /></ProtectedRoute>} />
 
           {/* Admin routes */}
