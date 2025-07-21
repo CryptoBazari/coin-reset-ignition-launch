@@ -22,38 +22,73 @@ class RealDataPipelineService {
    * Initialize real data pipeline for all supported coins
    */
   async initializeRealDataPipeline(): Promise<void> {
-    console.log('🚀 Initializing REAL data pipeline - replacing all mock/estimated data');
-
+    console.log('🚀 Starting Real Data Pipeline Initialization...');
+    
     try {
-      // 1. Trigger Glass Node discovery
-      console.log('📡 Triggering Glass Node asset discovery...');
-      await supabase.functions.invoke('schedule-glass-node-discovery', {
-        body: { force: true, immediate: true }
-      });
-
-      // 2. Get list of supported coins
-      const { data: coins } = await supabase
+      // Step 1: Verify Glass Node API connectivity
+      console.log('Step 1: Verifying Glass Node API connectivity...');
+      const { data: apiVerification, error: apiError } = await supabase.functions.invoke(
+        'verify-glass-node-api',
+        { body: {} }
+      );
+      
+      if (apiError || !apiVerification?.success) {
+        console.warn('⚠️ Glass Node API verification failed:', apiError);
+      } else {
+        console.log(`✅ Glass Node API verified: ${apiVerification.qualityScore}% quality, ${apiVerification.metricsAvailable}/${apiVerification.totalMetrics} metrics available`);
+      }
+      
+      // Step 2: Trigger Glass Node discovery
+      console.log('Step 2: Triggering Glass Node asset discovery...');
+      const { data: discoveryData, error: discoveryError } = await supabase.functions.invoke(
+        'discover-glass-node-assets',
+        { body: { force: true } }
+      );
+      
+      if (discoveryError) {
+        console.error('Glass Node discovery failed:', discoveryError);
+      } else {
+        console.log(`✅ Glass Node discovery completed: ${discoveryData?.stats?.glass_node_available || 0} assets discovered`);
+      }
+      
+      // Step 3: Get list of coins to process (prioritize by market cap and Glass Node support)
+      const { data: coins, error: coinsError } = await supabase
         .from('coins')
-        .select('coin_id, name')
-        .limit(10); // Start with first 10 coins
-
-      if (!coins?.length) {
-        console.warn('⚠️ No coins found in database');
-        return;
+        .select('id, coin_id, name, glass_node_supported, market_cap')
+        .order('market_cap', { ascending: false })
+        .limit(10); // Process top 10 coins by market cap first
+      
+      if (coinsError) {
+        throw new Error(`Failed to fetch coins: ${coinsError.message}`);
       }
-
-      console.log(`🔄 Processing ${coins.length} coins with REAL data pipeline`);
-
-      // 3. Process each coin with real data
-      for (const coin of coins) {
-        await this.processRealDataForCoin(coin.coin_id);
-        // Rate limiting - wait 2 seconds between coins
-        await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      console.log(`Step 3: Processing ${coins?.length || 0} coins with real data pipeline...`);
+      
+      // Step 4: Process each coin with full real data pipeline
+      let successCount = 0;
+      for (const coin of coins || []) {
+        console.log(`🔄 Processing ${coin.name} (${coin.coin_id})...`);
+        try {
+          const result = await this.processRealDataForCoin(coin.coin_id);
+          if (result.success) {
+            successCount++;
+            console.log(`✅ ${coin.name}: Quality Score ${result.dataQualityScore}%`);
+          } else {
+            console.log(`⚠️ ${coin.name}: Partial success, Quality Score ${result.dataQualityScore}%`);
+          }
+        } catch (error) {
+          console.error(`❌ Failed to process ${coin.name}:`, error);
+        }
+        
+        // Rate limiting - wait 1 second between coins
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
-
-      console.log('✅ Real data pipeline initialization complete');
+      
+      console.log(`🎉 Real Data Pipeline Initialization Complete! ${successCount}/${coins?.length || 0} coins processed successfully.`);
+      
     } catch (error) {
-      console.error('❌ Failed to initialize real data pipeline:', error);
+      console.error('❌ Real Data Pipeline Initialization Failed:', error);
+      throw error;
     }
   }
 
