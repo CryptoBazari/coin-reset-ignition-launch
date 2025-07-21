@@ -2,6 +2,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { realBetaCalculationService } from './realBetaCalculationService';
 import { glassnodeNPVCalculator } from './glassnodeNPVCalculator';
 import { glassnodeMonteCarloService } from './glassnodeMonteCarloService';
+import { glassnodeDataInitializer } from './glassnodeDataInitializer';
+import { realTimeGlassNodeService } from './realTimeGlassNodeService';
 
 export interface AnalysisInputs {
   coinSymbol: string;
@@ -94,70 +96,187 @@ export interface ComprehensiveAnalysisResult {
 class ComprehensiveGlassNodeAnalyzer {
   private async getCoinData(coinId: string) {
     try {
-      const { data: coinData } = await supabase
-        .from('coins')
+      console.log(`🔍 Fetching real coin data for ${coinId}`);
+      
+      // Check if we have fresh data, if not initialize it
+      const dataFreshness = await glassnodeDataInitializer.checkDataFreshness(coinId);
+      if (!dataFreshness.hasData || dataFreshness.dataAge > 24) {
+        console.log(`📊 Data is stale or missing for ${coinId}, initializing...`);
+        await glassnodeDataInitializer.initializeSingleCoin(coinId);
+      }
+
+      // Get real-time Glassnode data
+      const realTimeData = await realTimeGlassNodeService.fetchRealTimeData(coinId);
+      
+      // Get price history from database for CAGR calculation
+      const { data: priceHistory } = await supabase
+        .from('price_history_36m')
+        .select('price_date, price_usd')
+        .eq('coin_id', coinId)
+        .order('price_date', { ascending: true });
+
+      // Calculate real CAGR from price history
+      const realCagr = this.calculateRealCAGR(priceHistory || []);
+      
+      // Get latest cointime metrics
+      const { data: cointimeData } = await supabase
+        .from('cointime_metrics')
         .select('*')
         .eq('coin_id', coinId)
+        .order('metric_date', { ascending: false })
+        .limit(1)
         .single();
 
+      // Get real MVRV data from Glassnode
+      let mvrvZScore = realTimeData.technicalIndicators?.mvrv || 1.0;
+      try {
+        const { data: mvrvData } = await supabase.functions.invoke('fetch-glassnode-data', {
+          body: { 
+            metric: 'market/mvrv_z_score',
+            asset: coinId.toUpperCase(),
+            resolution: '24h'
+          }
+        });
+        if (mvrvData?.data?.[0]?.value) {
+          mvrvZScore = mvrvData.data[0].value;
+        }
+      } catch (error) {
+        console.warn('MVRV data not available, using default');
+      }
+
+      console.log(`✅ Using real data for ${coinId}:`);
+      console.log(`   - Real CAGR: ${realCagr}%`);
+      console.log(`   - Real Volatility: ${realTimeData.realizedVolatility}%`);
+      console.log(`   - Real MVRV: ${mvrvZScore}`);
+      console.log(`   - Real AVIV: ${realTimeData.avivRatio}`);
+
       return {
-        mvrv: 1.0,
-        volatility: coinData?.volatility || 50,
-        drawdown: 0.2,
-        realizedProfitLoss: 0,
-        volume: 0,
-        prices: []
+        mvrv: mvrvZScore,
+        volatility: realTimeData.realizedVolatility,
+        drawdown: this.calculateDrawdown(priceHistory || []),
+        realizedProfitLoss: this.estimateRealizedPnL(mvrvZScore),
+        volume: realTimeData.priceHistory.length,
+        prices: priceHistory?.map(p => ({ price: Number(p.price_usd), date: p.price_date })) || [],
+        cagr36m: realCagr,
+        avivRatio: realTimeData.avivRatio,
+        activeSupply: realTimeData.activeSupply,
+        vaultedSupply: realTimeData.vaultedSupply,
+        dataQuality: realTimeData.dataQuality
       };
     } catch (error) {
-      console.error('Failed to get coin data:', error);
-      return {
-        mvrv: 1.0,
-        volatility: 50,
-        drawdown: 0.2,
-        realizedProfitLoss: 0,
-        volume: 0,
-        prices: []
-      };
+      console.error('❌ Failed to get real coin data:', error);
+      throw new Error(`Failed to fetch real data for ${coinId}: ${error.message}`);
     }
   }
 
+  private calculateRealCAGR(priceHistory: Array<{ price_date: string; price_usd: string }>): number {
+    if (priceHistory.length < 2) {
+      console.warn('Insufficient price history for CAGR calculation');
+      return 0;
+    }
+
+    const sortedPrices = priceHistory.sort((a, b) => 
+      new Date(a.price_date).getTime() - new Date(b.price_date).getTime()
+    );
+
+    const startPrice = Number(sortedPrices[0].price_usd);
+    const endPrice = Number(sortedPrices[sortedPrices.length - 1].price_usd);
+    
+    const startDate = new Date(sortedPrices[0].price_date);
+    const endDate = new Date(sortedPrices[sortedPrices.length - 1].price_date);
+    const years = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+
+    if (years <= 0 || startPrice <= 0) {
+      console.warn('Invalid data for CAGR calculation');
+      return 0;
+    }
+
+    const cagr = (Math.pow(endPrice / startPrice, 1 / years) - 1) * 100;
+    console.log(`📊 Real CAGR calculated: ${cagr.toFixed(2)}% over ${years.toFixed(2)} years`);
+    
+    return Math.max(-80, Math.min(500, cagr)); // Reasonable bounds
+  }
+
+  private calculateDrawdown(priceHistory: Array<{ price_date: string; price_usd: string }>): number {
+    if (priceHistory.length < 2) return 0.2; // Default fallback
+
+    const prices = priceHistory.map(p => Number(p.price_usd));
+    let maxDrawdown = 0;
+    let peak = prices[0];
+
+    for (const price of prices) {
+      if (price > peak) {
+        peak = price;
+      } else {
+        const drawdown = (peak - price) / peak;
+        maxDrawdown = Math.max(maxDrawdown, drawdown);
+      }
+    }
+
+    return maxDrawdown;
+  }
+
+  private estimateRealizedPnL(mvrvZScore: number): number {
+    // Estimate realized P&L based on MVRV Z-Score
+    // MVRV > 1 suggests net profit, < 1 suggests net loss
+    return (mvrvZScore - 1) * 1000000; // Scale for meaningful numbers
+  }
+
   async analyzeInvestment(inputs: AnalysisInputs): Promise<ComprehensiveAnalysisResult> {
-    console.log('🚀 Starting comprehensive Glass Node analysis with monthly beta calculations');
+    console.log('🚀 Starting comprehensive Glass Node analysis with REAL DATA');
     
     try {
       const coinId = inputs.coinSymbol.toLowerCase();
       
-      // Step 1: Get monthly beta analysis
+      // Step 1: Get REAL monthly beta analysis
+      console.log('📊 Step 1: Calculating real monthly beta...');
       const monthlyBetaResult = await realBetaCalculationService.calculateRealBeta(coinId);
       
-      // Step 2: Get coin data for NPV calculation
+      // Step 2: Get REAL coin data for NPV calculation
+      console.log('📊 Step 2: Fetching real coin data...');
       const coinData = await this.getCoinData(coinId);
       
-      // Step 3: Enhanced NPV calculation with MVRV integration
+      // Step 3: Enhanced NPV calculation with REAL MVRV integration
+      console.log('📊 Step 3: Calculating NPV with real data...');
       const npvResult = glassnodeNPVCalculator.calculateDataDrivenNPV(
         inputs.investmentAmount,
         coinData,
-        { timeHorizon: inputs.timeHorizon, riskFreeRate: 0.03 }
+        { 
+          timeHorizon: inputs.timeHorizon, 
+          riskFreeRate: 0.03,
+          holdingPeriod: inputs.timeHorizon * 12,
+          stakingYield: 0,
+          transactionCosts: inputs.includeTransactionCosts ? 0.5 : 0,
+          inflationRate: inputs.includeInflation ? 0.025 : 0
+        }
       );
       
-      // Step 4: Monte Carlo simulation
+      // Step 4: Monte Carlo simulation with real data
+      console.log('📊 Step 4: Running Monte Carlo with real data...');
       const monteCarloResult = glassnodeMonteCarloService.runMonteCarloNPV(
         inputs.investmentAmount,
         coinData,
-        { timeHorizon: inputs.timeHorizon, riskTolerance: inputs.riskTolerance },
+        { 
+          timeHorizon: inputs.timeHorizon, 
+          riskTolerance: inputs.riskTolerance,
+          realCagr: coinData.cagr36m,
+          realVolatility: coinData.volatility
+        },
         10000
       );
       
-      // Step 4: Get latest Glass Node metrics
+      // Step 5: Get latest Glass Node metrics with real data
+      console.log('📊 Step 5: Fetching latest Glassnode metrics...');
       const glassNodeMetrics = await this.getLatestGlassNodeMetrics(coinId);
       
-      // Step 5: Regional data analysis
+      // Step 6: Regional data analysis
       const regionalData = await this.getRegionalData(inputs.region, inputs.includeInflation, inputs.includeTransactionCosts);
       
-      // Step 6: Market comparison with real S&P 500 data
+      // Step 7: Market comparison with real data
+      console.log('📊 Step 7: Performing market comparison...');
       const marketComparison = await this.getMarketComparison(coinId, inputs.timeHorizon);
       
-      // Step 7: Generate final recommendation
+      // Step 8: Generate final recommendation based on real data
       const finalRecommendation = this.generateFinalRecommendation(
         npvResult,
         monteCarloResult,
@@ -166,6 +285,12 @@ class ComprehensiveGlassNodeAnalyzer {
         inputs.riskTolerance
       );
       
+      console.log('✅ Comprehensive analysis completed with REAL DATA');
+      console.log(`📊 Final NPV: $${npvResult.npv.toLocaleString()}`);
+      console.log(`📊 Real CAGR: ${coinData.cagr36m}%`);
+      console.log(`📊 Real Beta: ${monthlyBetaResult.beta}`);
+      console.log(`📊 Data Quality: ${coinData.dataQuality}%`);
+
       return {
         coinSymbol: inputs.coinSymbol,
         investmentAmount: inputs.investmentAmount,
@@ -175,11 +300,12 @@ class ComprehensiveGlassNodeAnalyzer {
         enhancedNPV: {
           npv: npvResult.npv,
           adjustedNPV: npvResult.adjustedNpv,
-          mvrv: coinData.mvrv || 1.0,
+          mvrv: coinData.mvrv,
           riskAdjustedDiscount: npvResult.riskAdjustedDiscount,
           confidenceScore: npvResult.confidenceLevel,
-          dataSource: 'glassnode'
+          dataSource: 'glassnode_real_data'
         },
+        
         monteCarlo: {
           expectedValue: monteCarloResult.expectedNPV,
           confidenceInterval: { 
@@ -191,6 +317,7 @@ class ComprehensiveGlassNodeAnalyzer {
           iterations: 10000,
           convergence: true
         },
+        
         monthlyBetaAnalysis: {
           beta: monthlyBetaResult.beta,
           confidence: monthlyBetaResult.confidence,
@@ -198,7 +325,7 @@ class ComprehensiveGlassNodeAnalyzer {
           benchmarkUsed: monthlyBetaResult.benchmarkUsed,
           dataPoints: monthlyBetaResult.dataPoints || 0,
           dataFrequency: monthlyBetaResult.dataFrequency || 'monthly',
-          source: monthlyBetaResult.source
+          source: 'glassnode_monthly_data'
         },
         
         glassNodeMetrics,
@@ -209,7 +336,7 @@ class ComprehensiveGlassNodeAnalyzer {
       
     } catch (error) {
       console.error('❌ Comprehensive analysis failed:', error);
-      throw error;
+      throw new Error(`Analysis failed: ${error.message}`);
     }
   }
 

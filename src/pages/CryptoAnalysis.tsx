@@ -19,6 +19,7 @@ import type { CoinData } from '@/services/realTimeMarketService';
 import { ComprehensiveInvestmentForm } from '@/components/ComprehensiveInvestmentForm';
 import { ComprehensiveAnalysisResults } from '@/components/ComprehensiveAnalysisResults';
 import { comprehensiveGlassNodeAnalyzer, AnalysisInputs, ComprehensiveAnalysisResult } from '@/services/comprehensiveGlassNodeAnalyzer';
+import { useGlassnodeDataInitialization } from '@/hooks/useGlassnodeDataInitialization';
 
 const CryptoAnalysis = () => {
   const [realAnalysisResult, setRealAnalysisResult] = useState(null);
@@ -27,10 +28,17 @@ const CryptoAnalysis = () => {
   const [selectedCoinSymbol, setSelectedCoinSymbol] = useState<string>('BTC');
   const [dataStatus, setDataStatus] = useState<any>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [dataInitialized, setDataInitialized] = useState(false);
   
   const { hasActiveSubscription, user } = useSubscription();
   const { analyzeInvestment, loading, error } = useRealInvestmentAnalysis();
   const { checkDataStatus } = useRealDataPopulation();
+  const { 
+    loading: initLoading, 
+    initializeAllData, 
+    initializeSingleCoin,
+    checkDataFreshness 
+  } = useGlassnodeDataInitialization();
 
   useEffect(() => {
     const loadDataStatus = async () => {
@@ -40,13 +48,31 @@ const CryptoAnalysis = () => {
     loadDataStatus();
   }, [checkDataStatus]);
 
+  // Auto-initialize data on component mount if needed
+  useEffect(() => {
+    const autoInitializeData = async () => {
+      if (hasActiveSubscription && !dataInitialized) {
+        try {
+          console.log('🔄 Auto-initializing Glassnode data...');
+          await initializeAllData();
+          setDataInitialized(true);
+          console.log('✅ Auto-initialization completed');
+        } catch (error) {
+          console.error('❌ Auto-initialization failed:', error);
+        }
+      }
+    };
+
+    autoInitializeData();
+  }, [hasActiveSubscription, dataInitialized, initializeAllData]);
+
   const handleRealAnalysis = async (inputs: InvestmentInputs) => {
-    console.log('🚀 Starting REAL Glass Node analysis (no more mock data!)');
+    console.log('🚀 Starting REAL Glass Node analysis with actual API data');
     console.log('📊 Analysis inputs:', inputs);
     
     const result = await analyzeInvestment(inputs);
     if (result) {
-      console.log('✅ REAL analysis completed:', result);
+      console.log('✅ REAL analysis completed with actual data:', result);
       setRealAnalysisResult(result);
     } else {
       console.error('❌ REAL analysis failed');
@@ -56,13 +82,22 @@ const CryptoAnalysis = () => {
   const handleCoinSelect = async (coinData: CoinData) => {
     setSelectedCoin(coinData);
     const symbol = coinData.symbol?.toUpperCase() || 'BTC';
+    const coinId = coinData.id || symbol.toLowerCase();
     setSelectedCoinSymbol(symbol);
-    console.log('🚀 Auto-starting analysis for:', symbol);
     
-    // Automatically start analysis when coin is selected
+    console.log(`🚀 Auto-starting analysis for: ${symbol} (${coinId})`);
+    
     try {
+      // Check if we have fresh data for this coin
+      const freshness = await checkDataFreshness(coinId);
+      if (!freshness.hasData || freshness.dataAge > 24) {
+        console.log(`📊 Initializing fresh data for ${coinId}...`);
+        await initializeSingleCoin(coinId);
+      }
+      
+      // Start analysis with real data
       const result = await enhancedGlassNodeAnalyzer.analyzeInvestment(symbol, 10000, 36);
-      console.log('✅ Auto-analysis completed:', result);
+      console.log('✅ Auto-analysis completed with real data:', result);
       setRealAnalysisResult(result);
     } catch (error) {
       console.error('❌ Auto-analysis failed:', error);
@@ -71,12 +106,20 @@ const CryptoAnalysis = () => {
 
   const handleComprehensiveAnalysis = async (inputs: AnalysisInputs) => {
     setAnalysisLoading(true);
-    console.log('🚀 Starting comprehensive Glass Node analysis');
+    console.log('🚀 Starting comprehensive Glass Node analysis with REAL DATA');
     console.log('📊 Analysis inputs:', inputs);
     
     try {
+      // Ensure we have fresh data before analysis
+      const coinId = inputs.coinSymbol.toLowerCase();
+      const freshness = await checkDataFreshness(coinId);
+      if (!freshness.hasData || freshness.dataAge > 24) {
+        console.log(`📊 Initializing fresh data for ${coinId} before analysis...`);
+        await initializeSingleCoin(coinId);
+      }
+      
       const result = await comprehensiveGlassNodeAnalyzer.analyzeInvestment(inputs);
-      console.log('✅ Comprehensive analysis completed:', result);
+      console.log('✅ Comprehensive analysis completed with REAL DATA:', result);
       setComprehensiveResult(result);
     } catch (error) {
       console.error('❌ Comprehensive analysis failed:', error);
@@ -92,6 +135,14 @@ const CryptoAnalysis = () => {
         {/* Real Data Status Banner */}
         <div className="mb-6">
           <RealDataStatus />
+          {initLoading && (
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                <span className="text-blue-700">Initializing real Glassnode data...</span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="text-center mb-8">
@@ -100,10 +151,9 @@ const CryptoAnalysis = () => {
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm font-semibold mr-2">
-              COMPREHENSIVE ANALYSIS
+              REAL GLASSNODE DATA
             </span>
-            Advanced investment analysis with 9 Glassnode endpoints, regional data, inflation adjustments, 
-            transaction costs, and real S&P 500 benchmarking.
+            Advanced investment analysis using real Glassnode API data for accurate NPV, CAGR, Beta, IRR, and ROI calculations.
           </p>
         </div>
 
@@ -116,11 +166,11 @@ const CryptoAnalysis = () => {
                 </div>
                 <CardTitle>Sign In Required</CardTitle>
                 <CardDescription>
-                  Please sign in to access the real-time crypto investment analyzer
+                  Please sign in to access the real-time crypto investment analyzer with Glassnode data
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <SubscriptionButton feature="real-time analysis tools" size="lg" />
+                <SubscriptionButton feature="real Glassnode analysis tools" size="lg" />
               </CardContent>
             </Card>
           ) : !hasActiveSubscription ? (
@@ -131,11 +181,11 @@ const CryptoAnalysis = () => {
                 </div>
                 <CardTitle>Premium Feature</CardTitle>
                 <CardDescription>
-                  Upgrade to access real-time crypto investment analysis with live Glass Node data
+                  Upgrade to access real-time crypto investment analysis with live Glassnode API data
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <SubscriptionButton feature="real-time analysis tools" size="lg" />
+                <SubscriptionButton feature="real Glassnode analysis tools" size="lg" />
               </CardContent>
             </Card>
           ) : (
@@ -155,8 +205,8 @@ const CryptoAnalysis = () => {
                 </TabsTrigger>
                 <TabsTrigger value="comprehensive" className="gap-2">
                   <Calculator className="h-4 w-4" />
-                  <Badge variant="outline" className="bg-blue-100 text-blue-800 text-xs ml-1">
-                    COMPREHENSIVE
+                  <Badge variant="outline" className="bg-green-100 text-green-800 text-xs ml-1">
+                    REAL DATA
                   </Badge>
                   Advanced Analysis
                 </TabsTrigger>
@@ -193,40 +243,43 @@ const CryptoAnalysis = () => {
                 </div>
               </TabsContent>
 
-              <TabsContent value="comprehensive" className="space-y-6">
+              <TabsContent value="comprehensive">
                 <div className="space-y-6">
-                  {/* Comprehensive Features Banner */}
-                  <Card className="border-blue-200 bg-blue-50">
-                    <CardContent className="pt-6">
-                      <div className="flex items-center gap-2 text-blue-800 mb-3">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
                         <Calculator className="h-5 w-5" />
-                        <div className="font-semibold">Comprehensive Analysis Features</div>
-                      </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-                        <Badge variant="outline">9 Glassnode Endpoints</Badge>
-                        <Badge variant="outline">Regional Price Data</Badge>
-                        <Badge variant="outline">Real S&P 500 Data</Badge>
-                        <Badge variant="outline">Inflation Adjustment</Badge>
-                        <Badge variant="outline">Transaction Costs</Badge>
-                        <Badge variant="outline">MVRV Z-Score</Badge>
-                        <Badge variant="outline">Liquidity Analysis</Badge>
-                        <Badge variant="outline">Detailed Calculations</Badge>
+                        Comprehensive Investment Analysis
+                        <Badge variant="outline" className="bg-green-100 text-green-800 text-xs">
+                          REAL GLASSNODE DATA
+                        </Badge>
+                      </CardTitle>
+                      <CardDescription>
+                        Advanced NPV, IRR, ROI, and Beta calculations using real Glassnode API data
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div>
+                          <ComprehensiveInvestmentForm 
+                            onSubmit={handleComprehensiveAnalysis}
+                            loading={analysisLoading || initLoading}
+                          />
+                        </div>
+                        <div>
+                          {comprehensiveResult && (
+                            <ComprehensiveAnalysisResults 
+                              result={comprehensiveResult}
+                            />
+                          )}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
-                  
-                  <ComprehensiveInvestmentForm 
-                    onSubmit={handleComprehensiveAnalysis} 
-                    loading={analysisLoading}
-                  />
-                  
-                  {comprehensiveResult && (
-                    <ComprehensiveAnalysisResults result={comprehensiveResult} />
-                  )}
                 </div>
               </TabsContent>
 
-              <TabsContent value="legacy" className="space-y-6">
+              <TabsContent value="legacy">
                 <div className="space-y-6">
                   {/* Data Quality Banner */}
                   <Card className={`${dataStatus?.isPopulated ? 'border-green-200 bg-green-50' : 'border-yellow-200 bg-yellow-50'}`}>
