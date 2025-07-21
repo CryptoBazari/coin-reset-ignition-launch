@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Navbar from '@/components/Navbar';
 import { EnhancedInvestmentForm } from '@/components/EnhancedInvestmentForm';
 import { EnhancedAnalysisResults } from '@/components/EnhancedAnalysisResults';
+import { RealDataStatus } from '@/components/analysis/RealDataStatus';
 import SubscriptionButton from '@/components/subscription/SubscriptionButton';
 import MarketOverview from '@/components/analysis/MarketOverview';
 import AssetLiveData from '@/components/analysis/AssetLiveData';
@@ -47,6 +48,11 @@ const CryptoAnalysis = () => {
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       <Navbar />
       <div className="container mx-auto px-4 py-8">
+        {/* Real Data Status Banner */}
+        <div className="mb-6">
+          <RealDataStatus />
+        </div>
+
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
             Real-Time Crypto Investment Analyzer
