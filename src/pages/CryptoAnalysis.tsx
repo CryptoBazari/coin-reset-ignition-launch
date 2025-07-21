@@ -110,14 +110,6 @@ const CryptoAnalysis = () => {
     console.log('📊 Analysis inputs:', inputs);
     
     try {
-      // Ensure we have fresh data before analysis
-      const coinId = inputs.coinSymbol.toLowerCase();
-      const freshness = await checkDataFreshness(coinId);
-      if (!freshness.hasData || freshness.dataAge > 24) {
-        console.log(`📊 Initializing fresh data for ${coinId} before analysis...`);
-        await initializeSingleCoin(coinId);
-      }
-      
       const result = await comprehensiveGlassNodeAnalyzer.analyzeInvestment(inputs);
       console.log('✅ Comprehensive analysis completed with REAL DATA:', result);
       setComprehensiveResult(result);

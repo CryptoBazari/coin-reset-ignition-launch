@@ -1,235 +1,211 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { realTimeGlassNodeService } from './realTimeGlassNodeService';
-import { bitcoinGlassNodeService } from './bitcoinGlassNodeService';
 
-export interface InitializationResult {
-  success: boolean;
+interface DataFreshnessCheck {
+  hasData: boolean;
+  dataAge: number; // in hours
+  lastUpdate: string | null;
   coinId: string;
-  dataPoints: number;
-  metricsPopulated: string[];
-  errors: string[];
 }
 
 class GlassnodeDataInitializer {
   private readonly supportedCoins = [
-    { coinId: 'bitcoin', symbol: 'BTC' },
-    { coinId: 'ethereum', symbol: 'ETH' },
-    { coinId: 'solana', symbol: 'SOL' },
-    { coinId: 'cardano', symbol: 'ADA' },
-    { coinId: 'chainlink', symbol: 'LINK' }
+    'bitcoin', 'ethereum', 'solana', 'cardano', 'chainlink', 'avalanche'
   ];
 
-  async initializeAllCoins(): Promise<InitializationResult[]> {
-    console.log('🚀 Starting comprehensive Glassnode data initialization');
-    
-    const results: InitializationResult[] = [];
-    
-    for (const coin of this.supportedCoins) {
-      try {
-        console.log(`📊 Initializing data for ${coin.coinId} (${coin.symbol})`);
-        const result = await this.initializeCoinData(coin.coinId, coin.symbol);
-        results.push(result);
-      } catch (error) {
-        console.error(`❌ Failed to initialize ${coin.coinId}:`, error);
-        results.push({
-          success: false,
-          coinId: coin.coinId,
-          dataPoints: 0,
-          metricsPopulated: [],
-          errors: [error.message]
-        });
-      }
-    }
-    
-    console.log('✅ Glassnode data initialization completed');
-    return results;
+  private readonly symbolMapping: Record<string, string> = {
+    'BTC': 'bitcoin',
+    'ETH': 'ethereum', 
+    'SOL': 'solana',
+    'ADA': 'cardano',
+    'LINK': 'chainlink',
+    'AVAX': 'avalanche',
+    // Handle lowercase versions
+    'btc': 'bitcoin',
+    'eth': 'ethereum',
+    'sol': 'solana',
+    'ada': 'cardano',
+    'link': 'chainlink',
+    'avax': 'avalanche'
+  };
+
+  /**
+   * Map coin symbol to coinId
+   */
+  private mapSymbolToCoinId(input: string): string {
+    return this.symbolMapping[input] || input.toLowerCase();
   }
 
-  async initializeCoinData(coinId: string, symbol: string): Promise<InitializationResult> {
-    const errors: string[] = [];
-    const metricsPopulated: string[] = [];
-    let totalDataPoints = 0;
+  /**
+   * Check if we have fresh data for a coin
+   */
+  async checkDataFreshness(coinInput: string): Promise<DataFreshnessCheck> {
+    const coinId = this.mapSymbolToCoinId(coinInput);
+    
+    console.log(`🔍 Checking data freshness for: ${coinInput} → ${coinId}`);
+    
+    if (!this.supportedCoins.includes(coinId)) {
+      console.warn(`❌ Unsupported coin: ${coinInput} (${coinId}). Supported coins: ${this.supportedCoins.join(', ')}`);
+      return {
+        hasData: false,
+        dataAge: 999,
+        lastUpdate: null,
+        coinId: coinId
+      };
+    }
 
     try {
-      // 1. Fetch real-time Glassnode data (includes 36 months of price history)
-      console.log(`🔄 Fetching real-time Glassnode data for ${symbol}`);
-      const realTimeData = await realTimeGlassNodeService.fetchRealTimeData(coinId);
+      // Check price history
+      const { data: priceData } = await supabase
+        .from('price_history_36m')
+        .select('price_date, created_at')
+        .eq('coin_id', coinId)
+        .order('price_date', { ascending: false })
+        .limit(1);
+
+      // Check cointime metrics
+      const { data: cointimeData } = await supabase
+        .from('cointime_metrics')
+        .select('metric_date, created_at')
+        .eq('coin_id', coinId)
+        .order('metric_date', { ascending: false })
+        .limit(1);
+
+      const hasData = (priceData && priceData.length > 0) || (cointimeData && cointimeData.length > 0);
       
-      if (realTimeData.priceHistory.length > 0) {
-        // Store price history in database
-        await this.storePriceHistory(coinId, realTimeData.priceHistory);
-        metricsPopulated.push('price_history');
-        totalDataPoints += realTimeData.priceHistory.length;
-        console.log(`✅ Stored ${realTimeData.priceHistory.length} price points for ${coinId}`);
+      if (!hasData) {
+        console.log(`📊 No data found for ${coinId}`);
+        return {
+          hasData: false,
+          dataAge: 999,
+          lastUpdate: null,
+          coinId: coinId
+        };
       }
 
-      // 2. Store cointime metrics
-      if (realTimeData.avivRatio > 0 || realTimeData.activeSupply > 0) {
-        await this.storeCointimeMetrics(coinId, realTimeData);
-        metricsPopulated.push('cointime_metrics');
-        console.log(`✅ Stored cointime metrics for ${coinId}`);
-      }
+      // Calculate data age from the most recent update
+      const priceDate = priceData?.[0]?.created_at;
+      const cointimeDate = cointimeData?.[0]?.created_at;
+      
+      const latestUpdate = [priceDate, cointimeDate]
+        .filter(Boolean)
+        .sort((a, b) => new Date(b!).getTime() - new Date(a!).getTime())[0];
 
-      // 3. Update coins table with real data
-      await this.updateCoinData(coinId, symbol, realTimeData);
-      metricsPopulated.push('coin_data');
+      const dataAge = latestUpdate 
+        ? (Date.now() - new Date(latestUpdate).getTime()) / (1000 * 60 * 60)
+        : 999;
 
-      // 4. For Bitcoin, use specialized service for additional metrics
-      if (symbol === 'BTC') {
-        const bitcoinData = await bitcoinGlassNodeService.getBitcoinCointimeData();
-        await this.storeBitcoinSpecificData(coinId, bitcoinData);
-        metricsPopulated.push('bitcoin_specific');
-        console.log(`✅ Stored Bitcoin-specific Glassnode data`);
-      }
-
+      console.log(`✅ Data freshness for ${coinId}: ${dataAge.toFixed(1)} hours old`);
+      
       return {
-        success: true,
-        coinId,
-        dataPoints: totalDataPoints,
-        metricsPopulated,
-        errors
+        hasData: true,
+        dataAge,
+        lastUpdate: latestUpdate || null,
+        coinId: coinId
       };
-
+      
     } catch (error) {
-      console.error(`❌ Error initializing data for ${coinId}:`, error);
-      errors.push(error.message);
+      console.error(`❌ Error checking data freshness for ${coinId}:`, error);
       return {
-        success: false,
-        coinId,
-        dataPoints: totalDataPoints,
-        metricsPopulated,
-        errors
+        hasData: false,
+        dataAge: 999,
+        lastUpdate: null,
+        coinId: coinId
       };
     }
   }
 
-  private async storePriceHistory(coinId: string, priceHistory: Array<{ timestamp: number; price: number }>) {
-    const priceEntries = priceHistory.map(point => ({
-      coin_id: coinId,
-      price_date: new Date(point.timestamp).toISOString().split('T')[0],
-      price_usd: point.price,
-      volume_24h: null,
-      market_cap: null,
-      data_source: 'glassnode'
-    }));
-
-    const { error } = await supabase
-      .from('price_history_36m')
-      .upsert(priceEntries, { onConflict: 'coin_id,price_date' });
-
-    if (error) {
-      throw new Error(`Failed to store price history: ${error.message}`);
-    }
-  }
-
-  private async storeCointimeMetrics(coinId: string, data: any) {
-    const { error } = await supabase
-      .from('cointime_metrics')
-      .upsert({
-        coin_id: coinId,
-        metric_date: new Date().toISOString().split('T')[0],
-        aviv_ratio: data.avivRatio,
-        active_supply_pct: data.activeSupply,
-        vaulted_supply_pct: data.vaultedSupply,
-        liquid_supply_pct: data.activeSupply,
-        confidence_score: data.dataQuality,
-        data_source: 'glassnode'
-      }, { onConflict: 'coin_id,metric_date' });
-
-    if (error) {
-      throw new Error(`Failed to store cointime metrics: ${error.message}`);
-    }
-  }
-
-  private async updateCoinData(coinId: string, symbol: string, data: any) {
-    const { error } = await supabase
-      .from('coins')
-      .upsert({
-        coin_id: coinId,
-        name: this.getCoinName(symbol),
-        current_price: data.priceHistory[data.priceHistory.length - 1]?.price || 0,
-        cagr_36m: data.cagr36m,
-        volatility: data.realizedVolatility,
-        aviv_ratio: data.avivRatio,
-        active_supply: data.activeSupply,
-        vaulted_supply: data.vaultedSupply,
-        glass_node_supported: true,
-        premium_metrics_available: true,
-        last_glass_node_update: new Date().toISOString(),
-        glass_node_data_quality: data.dataQuality,
-        api_status: 'healthy',
-        beta_data_source: 'glassnode',
-        beta_confidence: data.dataQuality > 70 ? 'high' : 'medium',
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'coin_id' });
-
-    if (error) {
-      throw new Error(`Failed to update coin data: ${error.message}`);
-    }
-  }
-
-  private async storeBitcoinSpecificData(coinId: string, bitcoinData: any) {
-    // Store additional Bitcoin metrics if available
-    const { error } = await supabase
-      .from('cointime_metrics')
-      .upsert({
-        coin_id: coinId,
-        metric_date: new Date().toISOString().split('T')[0],
-        aviv_ratio: bitcoinData.avivRatio,
-        cointime_destroyed: bitcoinData.cointimeDestroyed,
-        liquid_supply_pct: bitcoinData.liquidSupply,
-        confidence_score: 95, // Bitcoin has highest quality data
-        data_source: 'glassnode_bitcoin'
-      }, { onConflict: 'coin_id,metric_date' });
-
-    if (error) {
-      throw new Error(`Failed to store Bitcoin-specific data: ${error.message}`);
-    }
-  }
-
-  private getCoinName(symbol: string): string {
-    const names: Record<string, string> = {
-      'BTC': 'Bitcoin',
-      'ETH': 'Ethereum',
-      'SOL': 'Solana',
-      'ADA': 'Cardano',
-      'LINK': 'Chainlink'
-    };
-    return names[symbol] || symbol;
-  }
-
-  // Method to initialize data for a specific coin
-  async initializeSingleCoin(coinId: string): Promise<InitializationResult> {
-    const coin = this.supportedCoins.find(c => c.coinId === coinId);
-    if (!coin) {
-      throw new Error(`Unsupported coin: ${coinId}`);
-    }
+  /**
+   * Initialize data for a single coin
+   */
+  async initializeSingleCoin(coinInput: string): Promise<void> {
+    const coinId = this.mapSymbolToCoinId(coinInput);
     
-    return this.initializeCoinData(coin.coinId, coin.symbol);
-  }
-
-  // Method to check if data exists and is recent
-  async checkDataFreshness(coinId: string): Promise<{ hasData: boolean; lastUpdate: string | null; dataAge: number }> {
-    const { data } = await supabase
-      .from('coins')
-      .select('last_glass_node_update')
-      .eq('coin_id', coinId)
-      .single();
-
-    if (!data || !data.last_glass_node_update) {
-      return { hasData: false, lastUpdate: null, dataAge: Infinity };
+    console.log(`🚀 Initializing data for: ${coinInput} → ${coinId}`);
+    
+    if (!this.supportedCoins.includes(coinId)) {
+      throw new Error(`Unsupported coin: ${coinInput} (${coinId}). Supported coins: ${this.supportedCoins.join(', ')}`);
     }
 
-    const lastUpdate = new Date(data.last_glass_node_update);
-    const now = new Date();
-    const dataAge = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60); // hours
+    try {
+      // Initialize price history
+      console.log(`📈 Fetching price history for ${coinId}...`);
+      const { data: priceResult, error: priceError } = await supabase.functions.invoke('fetch-real-price-history', {
+        body: { coinId }
+      });
 
-    return {
-      hasData: true,
-      lastUpdate: data.last_glass_node_update,
-      dataAge
-    };
+      if (priceError) {
+        console.error(`❌ Price history initialization failed for ${coinId}:`, priceError);
+        throw new Error(`Price history initialization failed: ${priceError.message}`);
+      }
+
+      // Initialize cointime metrics
+      console.log(`🕐 Fetching cointime metrics for ${coinId}...`);
+      const { data: cointimeResult, error: cointimeError } = await supabase.functions.invoke('store-cointime-metrics', {
+        body: { coinId }
+      });
+
+      if (cointimeError) {
+        console.error(`❌ Cointime metrics initialization failed for ${coinId}:`, cointimeError);
+        // Don't throw here as cointime metrics might not be available for all coins
+        console.warn(`⚠️ Cointime metrics not available for ${coinId}, continuing...`);
+      }
+
+      // Update coin metadata
+      console.log(`🔄 Updating coin metadata for ${coinId}...`);
+      const { error: updateError } = await supabase
+        .from('coins')
+        .update({
+          last_glass_node_update: new Date().toISOString(),
+          api_status: 'active',
+          updated_at: new Date().toISOString()
+        })
+        .eq('coin_id', coinId);
+
+      if (updateError) {
+        console.error(`❌ Failed to update coin metadata for ${coinId}:`, updateError);
+      }
+
+      console.log(`✅ Successfully initialized data for ${coinId}`);
+      
+    } catch (error) {
+      console.error(`❌ Failed to initialize data for ${coinId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Initialize data for all supported coins
+   */
+  async initializeAllData(): Promise<void> {
+    console.log('🚀 Initializing all Glassnode data...');
+    
+    const results = await Promise.allSettled(
+      this.supportedCoins.map(coinId => this.initializeSingleCoin(coinId))
+    );
+
+    const successful = results.filter(result => result.status === 'fulfilled').length;
+    const failed = results.filter(result => result.status === 'rejected').length;
+
+    console.log(`✅ Initialization complete: ${successful} successful, ${failed} failed`);
+    
+    if (failed > 0) {
+      console.warn(`⚠️ Some coins failed to initialize. Check logs for details.`);
+    }
+  }
+
+  /**
+   * Get supported coins list
+   */
+  getSupportedCoins(): string[] {
+    return [...this.supportedCoins];
+  }
+
+  /**
+   * Get symbol mapping
+   */
+  getSymbolMapping(): Record<string, string> {
+    return { ...this.symbolMapping };
   }
 }
 

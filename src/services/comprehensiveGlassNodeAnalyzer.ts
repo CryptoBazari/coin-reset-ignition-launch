@@ -13,6 +13,7 @@ export interface AnalysisInputs {
   includeInflation: boolean;
   includeTransactionCosts: boolean;
   riskTolerance: 'conservative' | 'moderate' | 'aggressive';
+  coinData?: any; // Optional coin data from the selector
 }
 
 export interface ComprehensiveAnalysisResult {
@@ -94,9 +95,35 @@ export interface ComprehensiveAnalysisResult {
 }
 
 class ComprehensiveGlassNodeAnalyzer {
-  private async getCoinData(coinId: string) {
+  
+  /**
+   * Map coin symbols to their corresponding coinIds in our database
+   */
+  private mapSymbolToCoinId(symbol: string): string {
+    const symbolMapping: Record<string, string> = {
+      'BTC': 'bitcoin',
+      'ETH': 'ethereum', 
+      'SOL': 'solana',
+      'ADA': 'cardano',
+      'LINK': 'chainlink',
+      'AVAX': 'avalanche',
+      // Handle lowercase versions
+      'btc': 'bitcoin',
+      'eth': 'ethereum',
+      'sol': 'solana',
+      'ada': 'cardano',
+      'link': 'chainlink',
+      'avax': 'avalanche'
+    };
+    
+    return symbolMapping[symbol] || symbol.toLowerCase();
+  }
+
+  private async getCoinData(coinInput: string) {
     try {
-      console.log(`🔍 Fetching real coin data for ${coinId}`);
+      // First, try to map the symbol to coinId
+      const coinId = this.mapSymbolToCoinId(coinInput);
+      console.log(`🔍 Fetching real coin data for input: ${coinInput} → coinId: ${coinId}`);
       
       // Check if we have fresh data, if not initialize it
       const dataFreshness = await glassnodeDataInitializer.checkDataFreshness(coinId);
@@ -170,11 +197,12 @@ class ComprehensiveGlassNodeAnalyzer {
         avivRatio: realTimeData.avivRatio,
         activeSupply: realTimeData.activeSupply,
         vaultedSupply: realTimeData.vaultedSupply,
-        dataQuality: realTimeData.dataQuality
+        dataQuality: realTimeData.dataQuality,
+        coinId: coinId // Return the actual coinId used
       };
     } catch (error) {
-      console.error('❌ Failed to get real coin data:', error);
-      throw new Error(`Failed to fetch real data for ${coinId}: ${error.message}`);
+      console.error(`❌ Failed to get real coin data for ${coinInput}:`, error);
+      throw new Error(`Failed to fetch real data for ${coinInput}: ${error.message}`);
     }
   }
 
@@ -235,15 +263,14 @@ class ComprehensiveGlassNodeAnalyzer {
     console.log('🚀 Starting comprehensive Glass Node analysis with REAL DATA');
     
     try {
-      const coinId = inputs.coinSymbol.toLowerCase();
+      // Step 1: Get REAL coin data (handles symbol to coinId mapping)
+      console.log('📊 Step 1: Fetching real coin data...');
+      const coinData = await this.getCoinData(inputs.coinSymbol);
+      const coinId = coinData.coinId;
       
-      // Step 1: Get REAL monthly beta analysis
-      console.log('📊 Step 1: Calculating real monthly beta...');
+      // Step 2: Get REAL monthly beta analysis
+      console.log('📊 Step 2: Calculating real monthly beta...');
       const monthlyBetaResult = await realBetaCalculationService.calculateRealBeta(coinId);
-      
-      // Step 2: Get REAL coin data for NPV calculation
-      console.log('📊 Step 2: Fetching real coin data...');
-      const coinData = await this.getCoinData(coinId);
       
       // Step 3: Enhanced NPV calculation with REAL MVRV integration
       console.log('📊 Step 3: Calculating NPV with real data...');
