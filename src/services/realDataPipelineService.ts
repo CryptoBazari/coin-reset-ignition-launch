@@ -25,8 +25,21 @@ class RealDataPipelineService {
     console.log('🚀 Starting Real Data Pipeline Initialization...');
     
     try {
-      // Step 1: Verify Glass Node API connectivity
-      console.log('Step 1: Verifying Glass Node API connectivity...');
+      // Step 1: Test Alpha Vantage API for beta calculation
+      console.log('Step 1: Testing Alpha Vantage API for beta calculation...');
+      const { data: alphaVantageTest, error: alphaError } = await supabase.functions.invoke(
+        'test-alpha-vantage-api',
+        { body: {} }
+      );
+      
+      if (alphaError || !alphaVantageTest?.success) {
+        console.warn('⚠️ Alpha Vantage API test failed:', alphaError);
+      } else {
+        console.log(`✅ Alpha Vantage API verified: ${alphaVantageTest.spyDataPoints} S&P 500 data points, Test beta: ${alphaVantageTest.testBeta} (${alphaVantageTest.betaValidation ? 'valid' : 'needs calibration'})`);
+      }
+      
+      // Step 2: Verify Glass Node API connectivity
+      console.log('Step 2: Verifying Glass Node API connectivity...');
       const { data: apiVerification, error: apiError } = await supabase.functions.invoke(
         'verify-glass-node-api',
         { body: {} }
@@ -62,9 +75,14 @@ class RealDataPipelineService {
         throw new Error(`Failed to fetch coins: ${coinsError.message}`);
       }
       
-      console.log(`Step 3: Processing ${coins?.length || 0} coins with real data pipeline...`);
+      console.log(`Step 4: Processing ${coins?.length || 0} coins with enhanced real data pipeline...`);
+      console.log('🎯 Expected Results:');
+      console.log('   - Bitcoin Beta: 1.2-1.8 (instead of 0.10)');
+      console.log('   - Real Volatility: Calculated from actual price movements');
+      console.log('   - Data Quality: 90-100% with real API data');
+      console.log('   - CAGR/IRR: Based on 36 months of historical data');
       
-      // Step 4: Process each coin with full real data pipeline
+      // Step 5: Process each coin with full real data pipeline
       let successCount = 0;
       for (const coin of coins || []) {
         console.log(`🔄 Processing ${coin.name} (${coin.coin_id})...`);
