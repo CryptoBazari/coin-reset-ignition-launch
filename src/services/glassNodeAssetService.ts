@@ -267,9 +267,9 @@ export const getAssetStatistics = async () => {
       mediumQuality: data.filter(coin => coin.glass_node_data_quality >= 5 && coin.glass_node_data_quality < 8).length,
       lowQuality: data.filter(coin => coin.glass_node_data_quality > 0 && coin.glass_node_data_quality < 5).length,
       byBasket: {
-        Bitcoin: data.filter(coin => coin.basket === 'Bitcoin').length,
-        'Blue Chip': data.filter(coin => coin.basket === 'Blue Chip').length,
-        'Small-Cap': data.filter(coin => coin.basket === 'Small-Cap').length
+        Bitcoin: data.filter(coin => coin.basket === 'bitcoin').length,
+        'Blue Chip': data.filter(coin => coin.basket === 'blue_chip').length,
+        'Small-Cap': data.filter(coin => coin.basket === 'small_cap').length
       }
     };
 
