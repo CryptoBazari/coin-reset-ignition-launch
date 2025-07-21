@@ -130,31 +130,26 @@ class RealDataPipelineService {
   }> {
     try {
       console.log(`📈 Fetching REAL 36-month price history for ${coinId}`);
+      
+      // Get coin symbol for API calls
+      const symbol = coinId === 'bitcoin' ? 'BTC' : coinId.toUpperCase();
 
-      // Use fetch-market-data edge function for real historical data
-      const { data, error } = await supabase.functions.invoke('fetch-market-data', {
-        body: { 
-          coinId,
-          days: 1095, // 36 months
-          vs_currency: 'usd',
-          interval: 'daily'
-        }
+      // Use new edge function to fetch and store real price data
+      const { data, error } = await supabase.functions.invoke('fetch-real-price-history', {
+        body: { coinId, symbol }
       });
 
-      if (error || !data?.prices) {
+      if (error || !data?.success) {
         console.warn(`⚠️ Failed to fetch real price data for ${coinId}:`, error);
         return { success: false, dataPoints: 0, qualityScore: 0 };
       }
 
-      const dataPoints = data.prices?.length || 0;
-      const qualityScore = Math.min(100, Math.max(50, (dataPoints / 1095) * 100)); // Quality based on completeness
-
-      console.log(`✅ Fetched ${dataPoints} real price points for ${coinId}`);
+      console.log(`✅ Fetched and stored ${data.stored} real price points for ${coinId}, Quality: ${data.qualityScore}%`);
       
       return {
-        success: true,
-        dataPoints,
-        qualityScore: Math.round(qualityScore)
+        success: data.success,
+        dataPoints: data.stored || 0,
+        qualityScore: data.qualityScore || 50
       };
     } catch (error) {
       console.error(`❌ Error fetching real price history for ${coinId}:`, error);
@@ -221,14 +216,9 @@ class RealDataPipelineService {
     try {
       console.log(`📊 Calculating REAL financial metrics for ${coinId}`);
 
-      // Use store-calculated-metrics edge function with real data
-      const { data, error } = await supabase.functions.invoke('store-calculated-metrics', {
-        body: { 
-          coinId,
-          useRealData: true,
-          calculateBeta: true,
-          calculateVolatility: true
-        }
+      // Use new edge function to calculate real beta and metrics
+      const { data, error } = await supabase.functions.invoke('calculate-real-beta', {
+        body: { coinId }
       });
 
       if (error || !data?.success) {
@@ -236,18 +226,15 @@ class RealDataPipelineService {
         return { success: false, qualityScore: 0 };
       }
 
-      const metrics = data.metrics || {};
-      const qualityScore = data.qualityScore || 0;
-
-      console.log(`✅ Real calculations for ${coinId}: Beta ${metrics.beta?.toFixed(3)}, Vol ${metrics.volatility?.toFixed(1)}%`);
+      console.log(`✅ Real calculations for ${coinId}: Beta ${data.beta?.toFixed(3)}, Vol ${data.volatility?.toFixed(3)}`);
 
       return {
-        success: true,
-        qualityScore,
-        beta: metrics.beta,
-        volatility: metrics.volatility,
-        cagr: metrics.cagr,
-        sharpeRatio: metrics.sharpeRatio
+        success: data.success,
+        qualityScore: data.qualityScore || 50,
+        beta: data.beta,
+        volatility: data.volatility,
+        cagr: data.cagr,
+        sharpeRatio: data.sharpeRatio
       };
     } catch (error) {
       console.error(`❌ Error calculating real financial metrics for ${coinId}:`, error);
@@ -267,10 +254,14 @@ class RealDataPipelineService {
         .from('coins')
         .update({
           api_status: isRealData ? 'healthy' : 'degraded',
-          beta_data_source: isRealData ? 'calculated' : 'estimated',
+          beta_data_source: isRealData ? 'real' : 'estimated',
           beta_confidence: isHighQuality ? 'high' : qualityScore >= 40 ? 'medium' : 'low',
           last_glass_node_update: isRealData ? new Date().toISOString() : undefined,
-          glass_node_supported: isRealData
+          glass_node_supported: isRealData,
+          data_quality_score: qualityScore,
+          last_calculation_update: new Date().toISOString(),
+          calculation_data_source: isRealData ? 'real' : 'estimated',
+          confidence_level: isHighQuality ? 'high' : qualityScore >= 40 ? 'medium' : 'low'
         })
         .eq('coin_id', coinId);
 

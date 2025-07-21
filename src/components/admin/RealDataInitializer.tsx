@@ -26,9 +26,15 @@ export const RealDataInitializer: React.FC = () => {
     try {
       console.log('🚀 Starting REAL data pipeline initialization...');
       
+      // Simulate progress updates
+      const progressInterval = setInterval(() => {
+        setProgress(prev => Math.min(prev + 10, 85));
+      }, 1000);
+      
       // Initialize the real data pipeline
       await realDataPipelineService.initializeRealDataPipeline();
       
+      clearInterval(progressInterval);
       setProgress(100);
       setStatus('completed');
       
