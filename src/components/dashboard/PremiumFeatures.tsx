@@ -1,6 +1,7 @@
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CreditCard } from "lucide-react";
+import { CreditCard, Shield } from "lucide-react";
 
 interface PremiumFeaturesProps {
   isAdminMode: boolean;
@@ -8,6 +9,7 @@ interface PremiumFeaturesProps {
 }
 
 const PremiumFeatures = ({ isAdminMode, hasActiveSubscription }: PremiumFeaturesProps) => {
+  // Don't show premium features if user has access (subscription or admin) or is in admin mode
   if (isAdminMode || hasActiveSubscription) return null;
 
   return (

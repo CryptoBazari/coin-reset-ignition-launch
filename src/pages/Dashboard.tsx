@@ -1,8 +1,10 @@
+
 import { useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import Navbar from "@/components/Navbar";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useDashboard } from "@/hooks/useDashboard";
+import { useAdminAccess } from "@/hooks/useAdminAccess";
 import AdminControls from "@/components/dashboard/AdminControls";
 import AdminStats from "@/components/dashboard/AdminStats";
 import UserQuickActions from "@/components/dashboard/UserQuickActions";
@@ -16,6 +18,7 @@ import SubscriptionStatusCard from "@/components/dashboard/SubscriptionStatusCar
 
 const Dashboard = () => {
   const { isAdmin, loading: adminLoading, checkAdminStatus } = useAdmin();
+  const { hasAccess, hasActiveSubscription, accessType } = useAdminAccess();
   const {
     user,
     portfolios,
@@ -24,7 +27,6 @@ const Dashboard = () => {
     loading,
     verifyingPayments,
     isAdminMode,
-    hasActiveSubscription,
     subscriptionLoading,
     fetchAdminStats,
     handleVerifyPayments,
@@ -37,7 +39,7 @@ const Dashboard = () => {
     }
   }, [isAdmin, isAdminMode, fetchAdminStats]);
 
-  console.log('Dashboard render - isAdmin:', isAdmin, 'adminLoading:', adminLoading, 'hasActiveSubscription:', hasActiveSubscription, 'user:', user?.email);
+  console.log('Dashboard render - isAdmin:', isAdmin, 'adminLoading:', adminLoading, 'hasAccess:', hasAccess, 'accessType:', accessType, 'user:', user?.email);
 
   if (loading || adminLoading || subscriptionLoading) {
     return (
@@ -97,8 +99,8 @@ const Dashboard = () => {
             {/* User Quick Actions */}
             <UserQuickActions />
 
-            {/* Subscription Status */}
-            <SubscriptionStatusCard />
+            {/* Subscription Status - only show if not admin or has subscription */}
+            {!isAdmin && <SubscriptionStatusCard />}
 
             {/* User Portfolio and Analysis Overview */}
             <div className="grid lg:grid-cols-2 gap-8">
@@ -115,10 +117,10 @@ const Dashboard = () => {
           onVerifyPayments={handleVerifyPayments}
         />
 
-        {/* Premium Features Section */}
+        {/* Premium Features Section - only show if no access */}
         <PremiumFeatures 
           isAdminMode={isAdminMode}
-          hasActiveSubscription={hasActiveSubscription}
+          hasActiveSubscription={hasAccess}
         />
       </main>
     </div>

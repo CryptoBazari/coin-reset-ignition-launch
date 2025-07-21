@@ -9,11 +9,11 @@ import SubscriptionButton from '@/components/subscription/SubscriptionButton';
 import MarketOverview from '@/components/analysis/MarketOverview';
 import AssetLiveData from '@/components/analysis/AssetLiveData';
 import GlassNodeDashboard from '@/components/analysis/GlassNodeDashboard';
-import { useSubscription } from '@/hooks/useSubscription';
+import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { useRealInvestmentAnalysis } from '@/hooks/useRealInvestmentAnalysis';
 import { useRealDataPopulation } from '@/hooks/useRealDataPopulation';
 import { enhancedGlassNodeAnalyzer } from '@/services/enhancedGlassNodeAnalyzer';
-import { Lock, BarChart3, Globe, TrendingUp, Calculator, Activity } from 'lucide-react';
+import { Lock, BarChart3, Globe, TrendingUp, Calculator, Activity, Shield } from 'lucide-react';
 import type { InvestmentInputs } from '@/types/investment';
 import type { CoinData } from '@/services/realTimeMarketService';
 import { ComprehensiveInvestmentForm } from '@/components/ComprehensiveInvestmentForm';
@@ -30,7 +30,7 @@ const CryptoAnalysis = () => {
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [dataInitialized, setDataInitialized] = useState(false);
   
-  const { hasActiveSubscription, user } = useSubscription();
+  const { hasAccess, hasActiveSubscription, isAdmin, accessType, user } = useAdminAccess();
   const { analyzeInvestment, loading, error } = useRealInvestmentAnalysis();
   const { checkDataStatus } = useRealDataPopulation();
   const { 
@@ -51,7 +51,7 @@ const CryptoAnalysis = () => {
   // Auto-initialize data on component mount if needed
   useEffect(() => {
     const autoInitializeData = async () => {
-      if (hasActiveSubscription && !dataInitialized) {
+      if (hasAccess && !dataInitialized) {
         try {
           console.log('🔄 Auto-initializing Glassnode data...');
           await initializeAllData();
@@ -64,7 +64,7 @@ const CryptoAnalysis = () => {
     };
 
     autoInitializeData();
-  }, [hasActiveSubscription, dataInitialized, initializeAllData]);
+  }, [hasAccess, dataInitialized, initializeAllData]);
 
   const handleRealAnalysis = async (inputs: InvestmentInputs) => {
     console.log('🚀 Starting REAL Glass Node analysis with actual API data');
@@ -146,6 +146,12 @@ const CryptoAnalysis = () => {
               REAL GLASSNODE DATA
             </span>
             Advanced investment analysis using real Glassnode API data for accurate NPV, CAGR, Beta, IRR, and ROI calculations.
+            {isAdmin && (
+              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm font-semibold ml-2">
+                <Shield className="inline h-3 w-3 mr-1" />
+                ADMIN ACCESS
+              </span>
+            )}
           </p>
         </div>
 
@@ -165,7 +171,7 @@ const CryptoAnalysis = () => {
                 <SubscriptionButton feature="real Glassnode analysis tools" size="lg" />
               </CardContent>
             </Card>
-          ) : !hasActiveSubscription ? (
+          ) : !hasAccess ? (
             <Card className="text-center p-8">
               <CardHeader>
                 <div className="flex justify-center mb-4">
@@ -223,6 +229,12 @@ const CryptoAnalysis = () => {
                       <CardTitle className="flex items-center gap-2">
                         <Activity className="h-5 w-5" />
                         Glass Node On-Chain Analytics
+                        {accessType === 'admin' && (
+                          <Badge variant="outline" className="bg-blue-100 text-blue-800 text-xs">
+                            <Shield className="h-3 w-3 mr-1" />
+                            ADMIN ACCESS
+                          </Badge>
+                        )}
                       </CardTitle>
                       <CardDescription>
                         Real-time blockchain data and metrics for {selectedCoinSymbol}
@@ -245,6 +257,12 @@ const CryptoAnalysis = () => {
                         <Badge variant="outline" className="bg-green-100 text-green-800 text-xs">
                           REAL GLASSNODE DATA
                         </Badge>
+                        {accessType === 'admin' && (
+                          <Badge variant="outline" className="bg-blue-100 text-blue-800 text-xs">
+                            <Shield className="h-3 w-3 mr-1" />
+                            ADMIN ACCESS
+                          </Badge>
+                        )}
                       </CardTitle>
                       <CardDescription>
                         Advanced NPV, IRR, ROI, and Beta calculations using real Glassnode API data
@@ -281,6 +299,12 @@ const CryptoAnalysis = () => {
                         <div>
                           <div className="font-semibold">
                             {dataStatus?.isPopulated ? 'REAL Data Analysis Active' : 'Data Initialization Required'}
+                            {accessType === 'admin' && (
+                              <Badge variant="outline" className="bg-blue-100 text-blue-800 text-xs ml-2">
+                                <Shield className="h-3 w-3 mr-1" />
+                                ADMIN ACCESS
+                              </Badge>
+                            )}
                           </div>
                           <div className="text-sm">
                             {dataStatus?.isPopulated 
@@ -319,6 +343,12 @@ const CryptoAnalysis = () => {
                             <Badge variant="outline" className="bg-green-100 text-green-800">
                               {realAnalysisResult.dataQualityScore}% Data Quality
                             </Badge>
+                            {accessType === 'admin' && (
+                              <Badge variant="outline" className="bg-blue-100 text-blue-800 text-xs">
+                                <Shield className="h-3 w-3 mr-1" />
+                                ADMIN ACCESS
+                              </Badge>
+                            )}
                           </CardTitle>
                           <CardDescription>
                             Analysis powered by {dataStatus?.isPopulated ? 'live database data' : 'available market data'} and Monte Carlo simulation

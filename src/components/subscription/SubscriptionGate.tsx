@@ -1,6 +1,8 @@
+
 import { ReactNode } from 'react';
-import { useSubscription } from '@/hooks/useSubscription';
+import { useAdminAccess } from '@/hooks/useAdminAccess';
 import SubscriptionModal from './SubscriptionModal';
+import { Shield } from 'lucide-react';
 
 interface SubscriptionGateProps {
   children: ReactNode;
@@ -15,7 +17,7 @@ const SubscriptionGate = ({
   showModal = false, 
   onClose 
 }: SubscriptionGateProps) => {
-  const { hasActiveSubscription, loading, user } = useSubscription();
+  const { hasAccess, hasActiveSubscription, isAdmin, loading, user, accessType } = useAdminAccess();
 
   if (loading) {
     return (
@@ -34,7 +36,7 @@ const SubscriptionGate = ({
     );
   }
 
-  if (!hasActiveSubscription) {
+  if (!hasAccess) {
     if (showModal) {
       return <SubscriptionModal isOpen={true} onClose={onClose || (() => {})} onPlanSelect={() => {}} />;
     }
@@ -43,6 +45,21 @@ const SubscriptionGate = ({
       <div className="text-center p-8">
         <h3 className="text-lg font-semibold mb-2">Premium Feature</h3>
         <p className="text-muted-foreground">This feature requires an active subscription.</p>
+      </div>
+    );
+  }
+
+  // Show admin indicator if accessed via admin privileges
+  if (accessType === 'admin') {
+    return (
+      <div className="relative">
+        <div className="absolute top-2 right-2 z-10">
+          <div className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+            <Shield className="h-3 w-3" />
+            ADMIN ACCESS
+          </div>
+        </div>
+        {children}
       </div>
     );
   }
