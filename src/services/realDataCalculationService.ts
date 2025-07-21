@@ -283,7 +283,7 @@ class RealDataCalculationService {
     return {
       avivRatio: latestMetrics?.aviv_ratio || coinData.aviv_ratio || 1.0,
       activeSupply: latestMetrics?.active_supply_pct || coinData.active_supply || 50,
-      vaulted_supply: latestMetrics?.vaulted_supply_pct || coinData.vaulted_supply || 50,
+      vaultedSupply: latestMetrics?.vaulted_supply_pct || coinData.vaulted_supply || 50,
       dataQuality: latestMetrics?.confidence_score || coinData.glass_node_data_quality || 75,
       lastUpdate: latestMetrics?.metric_date || coinData.last_glass_node_update || new Date().toISOString()
     };

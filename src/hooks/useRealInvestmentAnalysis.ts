@@ -22,16 +22,16 @@ export const useRealInvestmentAnalysis = () => {
       });
 
       const result = await realDataCalculationService.calculateRealInvestmentAnalysis(
-        inputs.coin_id,
-        inputs.investment_amount,
-        inputs.investment_horizon
+        inputs.coinId,
+        inputs.investmentAmount,
+        inputs.investmentHorizon
       );
 
       console.log('✅ REAL analysis completed:', result);
       
       toast({
         title: "Analysis Completed",
-        description: `Real data analysis completed for ${inputs.coin_id.toUpperCase()} with ${result.dataQualityScore}% data quality`,
+        description: `Real data analysis completed for ${inputs.coinId.toUpperCase()} with ${result.dataQualityScore}% data quality`,
       });
 
       return result;
