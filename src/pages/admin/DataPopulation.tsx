@@ -5,8 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import AutomatedDataRefresh from '@/components/admin/AutomatedDataRefresh';
+import DataQualityDashboard from '@/components/analysis/DataQualityDashboard';
 import { 
   Database, 
   RefreshCw, 
@@ -14,7 +17,8 @@ import {
   AlertTriangle, 
   PlayCircle,
   Clock,
-  TrendingUp 
+  TrendingUp,
+  Settings 
 } from 'lucide-react';
 
 interface DataStatus {
@@ -147,7 +151,7 @@ export const DataPopulation: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Real Data Population Control</h1>
+        <h1 className="text-3xl font-bold">Real Data Management</h1>
         <Button
           variant="outline"
           onClick={checkDataStatus}
@@ -158,166 +162,193 @@ export const DataPopulation: React.FC = () => {
         </Button>
       </div>
 
-      {/* Data Status Overview */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Database className="h-5 w-5" />
-            Current Data Status
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {dataStatus && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-              <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <div className="text-2xl font-bold">{dataStatus.coinsCount}</div>
-                <div className="text-sm text-muted-foreground">Coins in Database</div>
-              </div>
-              <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <div className="text-2xl font-bold">{dataStatus.priceHistoryCount}</div>
-                <div className="text-sm text-muted-foreground">Price History Records</div>
-              </div>
-              <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <div className="text-2xl font-bold">{dataStatus.cointimeMetricsCount}</div>
-                <div className="text-sm text-muted-foreground">Glass Node Metrics</div>
-              </div>
-            </div>
-          )}
+      <Tabs defaultValue="population" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="population" className="flex items-center gap-2">
+            <Database className="h-4 w-4" />
+            Data Population
+          </TabsTrigger>
+          <TabsTrigger value="automation" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Automation
+          </TabsTrigger>
+          <TabsTrigger value="quality" className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            Quality Monitor
+          </TabsTrigger>
+        </TabsList>
 
-          {isDataEmpty && (
-            <Alert className="mb-4">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>
-                <strong>Database is mostly empty!</strong> You need to populate it with real market data.
-                This will fetch current prices, 36-month price history, and Glass Node metrics for 100+ coins.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {isDataPartial && (
-            <Alert className="mb-4">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>
-                <strong>Data is incomplete!</strong> You have some coins but missing price history or Glass Node metrics.
-                Running the population will complete your dataset.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Badge variant={isDataEmpty ? "destructive" : isDataPartial ? "secondary" : "default"}>
-                {isDataEmpty ? "EMPTY DATABASE" : isDataPartial ? "PARTIAL DATA" : "REAL DATA ACTIVE"}
-              </Badge>
-              {dataStatus?.lastUpdate && (
-                <div className="text-sm text-muted-foreground">
-                  Last updated: {new Date(dataStatus.lastUpdate).toLocaleString()}
-                </div>
-              )}
-            </div>
-
-            <Button
-              onClick={startDataPopulation}
-              disabled={isPopulating}
-              size="lg"
-              className="flex items-center gap-2"
-            >
-              {isPopulating ? (
-                <>
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  Populating...
-                </>
-              ) : (
-                <>
-                  <PlayCircle className="h-4 w-4" />
-                  {isDataEmpty ? "Populate Real Data" : "Refresh All Data"}
-                </>
-              )}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Progress Tracking */}
-      {(isPopulating || progress.length > 0) && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Population Progress
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Overall Progress</span>
-                  <span>{overallProgress}%</span>
-                </div>
-                <Progress value={overallProgress} className="w-full" />
-              </div>
-
-              {progress.map((step, index) => (
-                <div key={step.step} className="flex items-center gap-3 p-3 border rounded-lg">
-                  <div className="flex-shrink-0">
-                    {step.status === 'pending' && <Clock className="h-4 w-4 text-muted-foreground" />}
-                    {step.status === 'running' && <RefreshCw className="h-4 w-4 text-blue-600 animate-spin" />}
-                    {step.status === 'completed' && <CheckCircle className="h-4 w-4 text-green-600" />}
-                    {step.status === 'failed' && <AlertTriangle className="h-4 w-4 text-red-600" />}
+        <TabsContent value="population" className="space-y-6">
+          {/* Data Status Overview */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5" />
+                Current Data Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {dataStatus && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div className="text-center p-4 bg-muted/50 rounded-lg">
+                    <div className="text-2xl font-bold">{dataStatus.coinsCount}</div>
+                    <div className="text-sm text-muted-foreground">Coins in Database</div>
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">{step.message}</span>
-                      <Badge variant={
-                        step.status === 'completed' ? 'default' :
-                        step.status === 'failed' ? 'destructive' :
-                        step.status === 'running' ? 'secondary' : 'outline'
-                      }>
-                        {step.status.toUpperCase()}
-                      </Badge>
+                  <div className="text-center p-4 bg-muted/50 rounded-lg">
+                    <div className="text-2xl font-bold">{dataStatus.priceHistoryCount}</div>
+                    <div className="text-sm text-muted-foreground">Price History Records</div>
+                  </div>
+                  <div className="text-center p-4 bg-muted/50 rounded-lg">
+                    <div className="text-2xl font-bold">{dataStatus.cointimeMetricsCount}</div>
+                    <div className="text-sm text-muted-foreground">Glass Node Metrics</div>
+                  </div>
+                </div>
+              )}
+
+              {isDataEmpty && (
+                <Alert className="mb-4">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Database is mostly empty!</strong> You need to populate it with real market data.
+                    This will fetch current prices, 36-month price history, and Glass Node metrics for 100+ coins.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {isDataPartial && (
+                <Alert className="mb-4">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Data is incomplete!</strong> You have some coins but missing price history or Glass Node metrics.
+                    Running the population will complete your dataset.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Badge variant={isDataEmpty ? "destructive" : isDataPartial ? "secondary" : "default"}>
+                    {isDataEmpty ? "EMPTY DATABASE" : isDataPartial ? "PARTIAL DATA" : "REAL DATA ACTIVE"}
+                  </Badge>
+                  {dataStatus?.lastUpdate && (
+                    <div className="text-sm text-muted-foreground">
+                      Last updated: {new Date(dataStatus.lastUpdate).toLocaleString()}
                     </div>
+                  )}
+                </div>
+
+                <Button
+                  onClick={startDataPopulation}
+                  disabled={isPopulating}
+                  size="lg"
+                  className="flex items-center gap-2"
+                >
+                  {isPopulating ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      Populating...
+                    </>
+                  ) : (
+                    <>
+                      <PlayCircle className="h-4 w-4" />
+                      {isDataEmpty ? "Populate Real Data" : "Refresh All Data"}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Progress Tracking */}
+          {(isPopulating || progress.length > 0) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Population Progress
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Overall Progress</span>
+                      <span>{overallProgress}%</span>
+                    </div>
+                    <Progress value={overallProgress} className="w-full" />
+                  </div>
+
+                  {progress.map((step, index) => (
+                    <div key={step.step} className="flex items-center gap-3 p-3 border rounded-lg">
+                      <div className="flex-shrink-0">
+                        {step.status === 'pending' && <Clock className="h-4 w-4 text-muted-foreground" />}
+                        {step.status === 'running' && <RefreshCw className="h-4 w-4 text-blue-600 animate-spin" />}
+                        {step.status === 'completed' && <CheckCircle className="h-4 w-4 text-green-600" />}
+                        {step.status === 'failed' && <AlertTriangle className="h-4 w-4 text-red-600" />}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{step.message}</span>
+                          <Badge variant={
+                            step.status === 'completed' ? 'default' :
+                            step.status === 'failed' ? 'destructive' :
+                            step.status === 'running' ? 'secondary' : 'outline'
+                          }>
+                            {step.status.toUpperCase()}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Information Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>What This Does</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3 text-sm">
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                  <div>
+                    <strong>Updates 100+ coins</strong> with real current market data from CoinMarketCap
                   </div>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                  <div>
+                    <strong>Populates 36-month price history</strong> for accurate CAGR, volatility, and beta calculations
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                  <div>
+                    <strong>Fetches Glass Node metrics</strong> for advanced on-chain analysis
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                  <div>
+                    <strong>Replaces ALL estimated values</strong> with real calculations (Beta: 0.10 → 1.2-1.8 range)
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {/* Information Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle>What This Does</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3 text-sm">
-            <div className="flex items-start gap-2">
-              <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
-              <div>
-                <strong>Updates 100+ coins</strong> with real current market data from CoinMarketCap
-              </div>
-            </div>
-            <div className="flex items-start gap-2">
-              <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
-              <div>
-                <strong>Populates 36-month price history</strong> for accurate CAGR, volatility, and beta calculations
-              </div>
-            </div>
-            <div className="flex items-start gap-2">
-              <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
-              <div>
-                <strong>Fetches Glass Node metrics</strong> for advanced on-chain analysis
-              </div>
-            </div>
-            <div className="flex items-start gap-2">
-              <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
-              <div>
-                <strong>Replaces ALL estimated values</strong> with real calculations (Beta: 0.10 → 1.2-1.8 range)
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        <TabsContent value="automation">
+          <AutomatedDataRefresh />
+        </TabsContent>
+
+        <TabsContent value="quality">
+          <DataQualityDashboard />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
