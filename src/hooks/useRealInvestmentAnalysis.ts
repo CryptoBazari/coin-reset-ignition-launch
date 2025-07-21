@@ -206,7 +206,7 @@ export const useRealInvestmentAnalysis = () => {
 
       // Step 3: Calculate real beta correlation
       console.log('📈 Calculating real beta correlation...');
-      const betaResult = await realBetaCalculationService.calculateRealBeta(inputs.coinId, 'bitcoin');
+      const betaResult = await realBetaCalculationService.calculateRealBeta(inputs.coinId);
 
       // Step 4: Generate real cash flows from Monte Carlo
       console.log('💰 Generating real cash flows...');

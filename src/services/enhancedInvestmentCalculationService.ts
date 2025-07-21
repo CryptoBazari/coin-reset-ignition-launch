@@ -17,12 +17,12 @@ import {
   calculateExpectedReturn,
   validateCashFlows
 } from '@/utils/financialCalculations';
-import { realBetaCalculationService, BetaCalculationResult } from '@/services/realBetaCalculationService';
+import { realBetaCalculationService, RealBetaResult } from '@/services/realBetaCalculationService';
 import type { CoinData, InvestmentInputs, FinancialMetrics, MarketConditions } from '@/types/investment';
 
 // Enhanced financial metrics with REAL beta analysis
 export interface EnhancedFinancialMetrics extends FinancialMetrics {
-  betaAnalysis: BetaCalculationResult;
+  betaAnalysis: RealBetaResult;
   volatilityBreakdown: {
     systematic: number;    // Beta * market volatility
     idiosyncratic: number; // Asset-specific volatility

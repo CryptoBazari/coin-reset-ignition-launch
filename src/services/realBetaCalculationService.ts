@@ -9,6 +9,7 @@ export interface RealBetaResult {
   lastCalculated: string;
   correlation: number;
   benchmarkUsed: string;
+  dataPoints?: number;
 }
 
 class RealBetaCalculationService {

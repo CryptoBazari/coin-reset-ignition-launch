@@ -87,6 +87,7 @@ export interface FinancialMetrics {
   cointimePrice?: number;
   cointimeRatio?: number;
   onChainScore?: number;
+  bitcoinAvivRatio?: number;
 }
 
 export interface MarketConditions {
@@ -133,6 +134,7 @@ export interface AnalysisResult {
     onChainAnalysis: any;
     cointimeMetrics: any;
     onChainMetrics: any;
+    bitcoinCointimeData?: any;
   };
 }
 
