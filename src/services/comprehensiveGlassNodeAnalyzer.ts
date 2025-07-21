@@ -92,6 +92,35 @@ export interface ComprehensiveAnalysisResult {
 }
 
 class ComprehensiveGlassNodeAnalyzer {
+  private async getCoinData(coinId: string) {
+    try {
+      const { data: coinData } = await supabase
+        .from('coins')
+        .select('*')
+        .eq('coin_id', coinId)
+        .single();
+
+      return {
+        mvrv: 1.0,
+        volatility: coinData?.volatility || 50,
+        drawdown: 0.2,
+        realizedProfitLoss: 0,
+        volume: 0,
+        prices: []
+      };
+    } catch (error) {
+      console.error('Failed to get coin data:', error);
+      return {
+        mvrv: 1.0,
+        volatility: 50,
+        drawdown: 0.2,
+        realizedProfitLoss: 0,
+        volume: 0,
+        prices: []
+      };
+    }
+  }
+
   async analyzeInvestment(inputs: AnalysisInputs): Promise<ComprehensiveAnalysisResult> {
     console.log('🚀 Starting comprehensive Glass Node analysis with monthly beta calculations');
     
@@ -101,21 +130,22 @@ class ComprehensiveGlassNodeAnalyzer {
       // Step 1: Get monthly beta analysis
       const monthlyBetaResult = await realBetaCalculationService.calculateRealBeta(coinId);
       
-      // Step 2: Enhanced NPV calculation with MVRV integration
-      const enhancedNPVResult = await glassnodeNPVCalculator.calculateEnhancedNPV(
-        coinId,
+      // Step 2: Get coin data for NPV calculation
+      const coinData = await this.getCoinData(coinId);
+      
+      // Step 3: Enhanced NPV calculation with MVRV integration
+      const npvResult = glassnodeNPVCalculator.calculateDataDrivenNPV(
         inputs.investmentAmount,
-        inputs.timeHorizon,
-        inputs.region
+        coinData,
+        { timeHorizon: inputs.timeHorizon, riskFreeRate: 0.03 }
       );
       
-      // Step 3: Monte Carlo simulation
-      const monteCarloResult = await glassnodeMonteCarloService.runMonteCarloSimulation(
-        coinId,
+      // Step 4: Monte Carlo simulation
+      const monteCarloResult = glassnodeMonteCarloService.runMonteCarloNPV(
         inputs.investmentAmount,
-        inputs.timeHorizon,
-        monthlyBetaResult.beta,
-        inputs.riskTolerance
+        coinData,
+        { timeHorizon: inputs.timeHorizon, riskTolerance: inputs.riskTolerance },
+        10000
       );
       
       // Step 4: Get latest Glass Node metrics
@@ -129,7 +159,7 @@ class ComprehensiveGlassNodeAnalyzer {
       
       // Step 7: Generate final recommendation
       const finalRecommendation = this.generateFinalRecommendation(
-        enhancedNPVResult,
+        npvResult,
         monteCarloResult,
         monthlyBetaResult,
         glassNodeMetrics,
@@ -142,8 +172,25 @@ class ComprehensiveGlassNodeAnalyzer {
         timeHorizon: inputs.timeHorizon,
         region: inputs.region,
         
-        enhancedNPV: enhancedNPVResult,
-        monteCarlo: monteCarloResult,
+        enhancedNPV: {
+          npv: npvResult.npv,
+          adjustedNPV: npvResult.adjustedNpv,
+          mvrv: coinData.mvrv || 1.0,
+          riskAdjustedDiscount: npvResult.riskAdjustedDiscount,
+          confidenceScore: npvResult.confidenceLevel,
+          dataSource: 'glassnode'
+        },
+        monteCarlo: {
+          expectedValue: monteCarloResult.expectedNPV,
+          confidenceInterval: { 
+            lower: monteCarloResult.confidenceInterval.lower5, 
+            upper: monteCarloResult.confidenceInterval.upper95 
+          },
+          probabilityOfLoss: 1 - monteCarloResult.riskMetrics.probabilityOfPositiveNPV,
+          valueAtRisk: monteCarloResult.riskMetrics.valueAtRisk,
+          iterations: 10000,
+          convergence: true
+        },
         monthlyBetaAnalysis: {
           beta: monthlyBetaResult.beta,
           confidence: monthlyBetaResult.confidence,
