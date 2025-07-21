@@ -91,23 +91,42 @@ class GlassnodeDataInitializer {
   }
 
   /**
-   * Load supported coins from database
+   * Load supported coins from database - enhanced to get more coins
    */
   private async loadSupportedCoins() {
     try {
       const { data: coins } = await supabase
         .from('coins')
-        .select('coin_id')
-        .eq('glass_node_supported', true);
+        .select('coin_id, glass_node_supported')
+        .or('glass_node_supported.eq.true,glass_node_data_quality.gt.0');
       
       this.supportedCoins = coins?.map(coin => coin.coin_id) || [];
       console.log(`📊 Loaded ${this.supportedCoins.length} supported coins from database`);
+      
+      // If we have very few coins, ensure we have at least the basic ones
+      if (this.supportedCoins.length < 20) {
+        const basicCoins = [
+          'bitcoin', 'ethereum', 'solana', 'cardano', 'chainlink', 'avalanche',
+          'polkadot', 'polygon', 'uniswap', 'litecoin', 'bitcoin-cash', 'stellar',
+          'aave', 'cosmos', 'algorand', 'vechain', 'theta', 'filecoin', 'tron',
+          'eos', 'tezos', 'neo', 'iota', 'dash', 'zcash', 'monero', 'ethereum-classic',
+          'dogecoin', 'shiba-inu', 'the-sandbox', 'decentraland', 'axie-infinity'
+        ];
+        
+        this.supportedCoins = [...new Set([...this.supportedCoins, ...basicCoins])];
+        console.log(`📈 Extended to ${this.supportedCoins.length} coins with basic fallback list`);
+      }
     } catch (error) {
       console.error('Failed to load supported coins:', error);
-      // Fallback to default list
+      // Fallback to expanded default list
       this.supportedCoins = [
         'bitcoin', 'ethereum', 'solana', 'cardano', 'chainlink', 'avalanche',
-        'polkadot', 'polygon', 'uniswap', 'litecoin', 'bitcoin-cash', 'stellar'
+        'polkadot', 'polygon', 'uniswap', 'litecoin', 'bitcoin-cash', 'stellar',
+        'aave', 'cosmos', 'algorand', 'vechain', 'theta', 'filecoin', 'tron',
+        'eos', 'tezos', 'neo', 'iota', 'dash', 'zcash', 'monero', 'ethereum-classic',
+        'dogecoin', 'shiba-inu', 'the-sandbox', 'decentraland', 'axie-infinity',
+        'gala', 'enjin-coin', 'chiliz', 'basic-attention-token', '0x', 'compound',
+        'maker', 'synthetix', 'yearn-finance', 'sushi', 'the-graph', 'curve-dao-token'
       ];
     }
   }

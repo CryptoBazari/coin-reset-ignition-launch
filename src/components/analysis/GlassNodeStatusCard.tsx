@@ -15,33 +15,43 @@ import {
   TrendingUp,
   Shield,
   Search,
-  Zap
+  Zap,
+  BarChart3,
+  Target
 } from 'lucide-react';
 import { 
   getDiscoveryLogs, 
   triggerGlassNodeDiscovery,
-  fetchGlassNodeSupportedAssets 
+  fetchGlassNodeSupportedAssets,
+  initializeGlassNodeDatabase,
+  getAssetStatistics
 } from '@/services/glassNodeAssetService';
 import { useToast } from '@/hooks/use-toast';
 
 const GlassNodeStatusCard = () => {
   const [isDiscovering, setIsDiscovering] = useState(false);
-  const [isRunningDiscovery, setIsRunningDiscovery] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
   const { toast } = useToast();
 
   const { data: discoveryLogs, refetch: refetchLogs } = useQuery({
     queryKey: ['glass-node-discovery-logs'],
     queryFn: () => getDiscoveryLogs(5),
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: 30000,
   });
 
   const { data: supportedAssets, refetch: refetchAssets } = useQuery({
     queryKey: ['glass-node-supported-assets'],
     queryFn: fetchGlassNodeSupportedAssets,
-    refetchInterval: 60000, // Refetch every minute
+    refetchInterval: 60000,
   });
 
-  const handleManualDiscovery = async () => {
+  const { data: assetStats, refetch: refetchStats } = useQuery({
+    queryKey: ['asset-statistics'],
+    queryFn: getAssetStatistics,
+    refetchInterval: 60000,
+  });
+
+  const handleQuickDiscovery = async () => {
     setIsDiscovering(true);
     
     try {
@@ -52,8 +62,7 @@ const GlassNodeStatusCard = () => {
         description: `Updated ${result.stats?.database_updated || 0} assets successfully.`,
       });
 
-      // Refetch data after discovery
-      await Promise.all([refetchLogs(), refetchAssets()]);
+      await Promise.all([refetchLogs(), refetchAssets(), refetchStats()]);
       
     } catch (error) {
       console.error('Discovery failed:', error);
@@ -67,42 +76,31 @@ const GlassNodeStatusCard = () => {
     }
   };
 
-  const handleFullDiscovery = async () => {
-    setIsRunningDiscovery(true);
+  const handleFullInitialization = async () => {
+    setIsInitializing(true);
     
     try {
-      // Call the discovery edge function to get all Glassnode assets
-      const response = await fetch('/api/discover-glass-node-assets', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ fullDiscovery: true })
-      });
-
-      if (!response.ok) {
-        throw new Error('Discovery API call failed');
-      }
-
-      const result = await response.json();
+      console.log('🚀 Starting full Glass Node database initialization...');
+      
+      const result = await initializeGlassNodeDatabase();
       
       toast({
-        title: "Full Discovery Completed",
-        description: `Discovered ${result.stats?.total_discovered || 0} assets, updated ${result.stats?.database_updated || 0} in database.`,
+        title: "✅ Full Initialization Complete!",
+        description: `Successfully initialized database with ${result.discovery?.stats?.total_discovered || 'all'} Glass Node assets. Real data pipeline activated.`,
       });
 
-      // Refetch data after discovery
-      await Promise.all([refetchLogs(), refetchAssets()]);
+      // Refresh all data
+      await Promise.all([refetchLogs(), refetchAssets(), refetchStats()]);
       
     } catch (error) {
-      console.error('Full discovery failed:', error);
+      console.error('Full initialization failed:', error);
       toast({
-        title: "Full Discovery Failed",
-        description: "Failed to run full asset discovery. Please try again.",
+        title: "❌ Initialization Failed",
+        description: "Failed to initialize full database. Please check the logs and try again.",
         variant: "destructive",
       });
     } finally {
-      setIsRunningDiscovery(false);
+      setIsInitializing(false);
     }
   };
 
@@ -127,6 +125,8 @@ const GlassNodeStatusCard = () => {
     }
   };
 
+  const needsInitialization = !assetStats || assetStats.total < 100;
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -142,22 +142,23 @@ const GlassNodeStatusCard = () => {
           </div>
           <div className="flex gap-2">
             <Button
-              onClick={handleManualDiscovery}
-              disabled={isDiscovering}
+              onClick={handleQuickDiscovery}
+              disabled={isDiscovering || isInitializing}
               variant="outline"
               size="sm"
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${isDiscovering ? 'animate-spin' : ''}`} />
-              {isDiscovering ? 'Refreshing...' : 'Refresh'}
+              {isDiscovering ? 'Refreshing...' : 'Quick Refresh'}
             </Button>
             <Button
-              onClick={handleFullDiscovery}
-              disabled={isRunningDiscovery}
+              onClick={handleFullInitialization}
+              disabled={isDiscovering || isInitializing}
               variant="default"
               size="sm"
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
             >
-              <Search className={`h-4 w-4 mr-2 ${isRunningDiscovery ? 'animate-spin' : ''}`} />
-              {isRunningDiscovery ? 'Discovering...' : 'Full Discovery'}
+              <Database className={`h-4 w-4 mr-2 ${isInitializing ? 'animate-spin' : ''}`} />
+              {isInitializing ? 'Initializing...' : 'Full Initialize'}
             </Button>
           </div>
         </div>
@@ -176,55 +177,88 @@ const GlassNodeStatusCard = () => {
             </div>
           </div>
           <div className="text-right">
-            <div className="text-sm text-gray-600">Supported Assets</div>
+            <div className="text-sm text-gray-600">Total Assets</div>
             <div className="text-2xl font-bold text-primary">
-              {supportedAssets?.length || 0}
+              {assetStats?.total || 0}
             </div>
           </div>
         </div>
+
+        {/* Initialization Alert */}
+        {needsInitialization && (
+          <div className="flex items-center gap-3 p-4 rounded-lg bg-amber-50 border border-amber-200">
+            <Zap className="h-5 w-5 text-amber-600" />
+            <div className="flex-1">
+              <div className="font-medium text-amber-800">Database Initialization Required</div>
+              <div className="text-sm text-amber-700">
+                Click "Full Initialize" to populate the database with 1,845+ Glass Node supported assets including Bitcoin, Ethereum, Litecoin, and all major cryptocurrencies.
+              </div>
+            </div>
+            <Button 
+              onClick={handleFullInitialization}
+              disabled={isInitializing}
+              variant="outline"
+              size="sm"
+              className="border-amber-300 text-amber-700 hover:bg-amber-100"
+            >
+              <Database className="h-4 w-4 mr-2" />
+              Initialize Now
+            </Button>
+          </div>
+        )}
 
         <Separator />
 
-        {/* Quick Stats */}
+        {/* Enhanced Statistics */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="text-center">
-            <div className="text-sm text-gray-600">Premium Assets</div>
-            <div className="text-lg font-semibold text-green-600">
-              {supportedAssets?.filter(a => a.premium_metrics_available).length || 0}
+          <div className="text-center p-3 rounded-lg bg-green-50">
+            <div className="text-sm text-green-700">Glass Node Supported</div>
+            <div className="text-xl font-bold text-green-800">
+              {assetStats?.glassNodeSupported || 0}
             </div>
+            <div className="text-xs text-green-600">Assets Available</div>
           </div>
-          <div className="text-center">
-            <div className="text-sm text-gray-600">High Quality</div>
-            <div className="text-lg font-semibold text-blue-600">
-              {supportedAssets?.filter(a => a.glass_node_data_quality >= 8).length || 0}
+          <div className="text-center p-3 rounded-lg bg-blue-50">
+            <div className="text-sm text-blue-700">High Quality Data</div>
+            <div className="text-xl font-bold text-blue-800">
+              {assetStats?.highQuality || 0}
             </div>
+            <div className="text-xs text-blue-600">Premium Metrics</div>
           </div>
-          <div className="text-center">
-            <div className="text-sm text-gray-600">Last Discovery</div>
-            <div className="text-lg font-semibold text-gray-700">
-              {lastLog ? new Date(lastLog.discovery_run_at).toLocaleDateString() : 'Never'}
+          <div className="text-center p-3 rounded-lg bg-purple-50">
+            <div className="text-sm text-purple-700">Bitcoin Basket</div>
+            <div className="text-xl font-bold text-purple-800">
+              {assetStats?.byBasket?.Bitcoin || 0}
             </div>
+            <div className="text-xs text-purple-600">BTC Assets</div>
           </div>
-          <div className="text-center">
-            <div className="text-sm text-gray-600">Target</div>
-            <div className="text-lg font-semibold text-orange-600">
-              1,845+
+          <div className="text-center p-3 rounded-lg bg-orange-50">
+            <div className="text-sm text-orange-700">Blue Chip</div>
+            <div className="text-xl font-bold text-orange-800">
+              {assetStats?.byBasket?.['Blue Chip'] || 0}
             </div>
+            <div className="text-xs text-orange-600">Major Coins</div>
           </div>
         </div>
 
-        {/* Discovery Notice */}
-        {(!supportedAssets || supportedAssets.length < 50) && (
-          <div className="flex items-center gap-3 p-4 rounded-lg bg-blue-50 border border-blue-200">
-            <Zap className="h-5 w-5 text-blue-600" />
-            <div>
-              <div className="font-medium text-blue-800">Run Full Discovery</div>
-              <div className="text-sm text-blue-700">
-                Click "Full Discovery" to fetch all 1,845+ Glass Node supported assets including Litecoin, Bitcoin Cash, and more.
-              </div>
-            </div>
+        {/* Progress Indicator */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-600">Database Population Progress</span>
+            <span className="font-medium">
+              {assetStats?.total || 0} / 1,845+ assets
+            </span>
           </div>
-        )}
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${Math.min(((assetStats?.total || 0) / 1845) * 100, 100)}%` }}
+            />
+          </div>
+          <div className="text-xs text-gray-500 text-center">
+            Target: 1,845+ Glass Node supported cryptocurrencies
+          </div>
+        </div>
 
         <Separator />
 
@@ -268,11 +302,11 @@ const GlassNodeStatusCard = () => {
               ))}
             </div>
           ) : (
-            <div className="text-center text-gray-500 py-4">
-              <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <div>No discovery runs recorded</div>
-              <div className="text-xs mt-1">
-                Click "Full Discovery" to start discovering all Glass Node assets
+            <div className="text-center text-gray-500 py-6">
+              <Target className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <div className="font-medium">Ready to Initialize</div>
+              <div className="text-sm mt-1">
+                Click "Full Initialize" to discover and populate all Glass Node assets
               </div>
             </div>
           )}

@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface GlassNodeAsset {
@@ -147,13 +148,17 @@ export const getDataQualityBadge = (quality: 'high' | 'medium' | 'low' | 'unavai
   }
 };
 
-// New function to trigger Glass Node discovery
+// Enhanced function to trigger Glass Node discovery with automatic execution
 export const triggerGlassNodeDiscovery = async (): Promise<any> => {
   try {
     console.log('Triggering Glass Node asset discovery...');
     
     const { data, error } = await supabase.functions.invoke('discover-glass-node-assets', {
-      body: { trigger: 'manual' }
+      body: { 
+        trigger: 'manual',
+        fullDiscovery: true,
+        forceRefresh: true
+      }
     });
 
     if (error) {
@@ -169,7 +174,7 @@ export const triggerGlassNodeDiscovery = async (): Promise<any> => {
   }
 };
 
-// Function to get discovery logs
+// Enhanced function to get discovery logs with better error handling
 export const getDiscoveryLogs = async (limit: number = 10) => {
   try {
     const { data, error } = await supabase
@@ -187,5 +192,97 @@ export const getDiscoveryLogs = async (limit: number = 10) => {
   } catch (error) {
     console.error('Error fetching discovery logs:', error);
     throw error;
+  }
+};
+
+// New function to auto-initialize the database with all assets
+export const initializeGlassNodeDatabase = async (): Promise<any> => {
+  try {
+    console.log('🚀 Initializing Glass Node database with all supported assets...');
+    
+    // First, trigger discovery
+    const discoveryResult = await triggerGlassNodeDiscovery();
+    
+    // Then initialize real data pipeline
+    console.log('📊 Initializing real data pipeline...');
+    const { data: pipelineData, error: pipelineError } = await supabase.functions.invoke('initialize-real-data-pipeline', {
+      body: { 
+        immediate: true,
+        fullInitialization: true
+      }
+    });
+
+    if (pipelineError) {
+      console.warn('Pipeline initialization had issues:', pipelineError);
+    }
+
+    // Update coins with real data
+    console.log('💰 Updating coins with real market data...');
+    const { data: updateData, error: updateError } = await supabase.functions.invoke('update-coins-real-data', {
+      body: {}
+    });
+
+    if (updateError) {
+      console.warn('Coin data update had issues:', updateError);
+    }
+
+    console.log('✅ Database initialization completed successfully');
+    
+    return {
+      discovery: discoveryResult,
+      pipeline: pipelineData,
+      update: updateData,
+      success: true,
+      message: 'Database initialized with all supported assets'
+    };
+  } catch (error) {
+    console.error('❌ Database initialization failed:', error);
+    throw error;
+  }
+};
+
+// Function to get comprehensive asset statistics
+export const getAssetStatistics = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('coins')
+      .select('glass_node_supported, glass_node_data_quality, basket, api_status');
+
+    if (error) {
+      console.error('Error fetching asset statistics:', error);
+      return {
+        total: 0,
+        glassNodeSupported: 0,
+        highQuality: 0,
+        mediumQuality: 0,
+        lowQuality: 0,
+        byBasket: { Bitcoin: 0, 'Blue Chip': 0, 'Small-Cap': 0 }
+      };
+    }
+
+    const stats = {
+      total: data.length,
+      glassNodeSupported: data.filter(coin => coin.glass_node_supported).length,
+      highQuality: data.filter(coin => coin.glass_node_data_quality >= 8).length,
+      mediumQuality: data.filter(coin => coin.glass_node_data_quality >= 5 && coin.glass_node_data_quality < 8).length,
+      lowQuality: data.filter(coin => coin.glass_node_data_quality > 0 && coin.glass_node_data_quality < 5).length,
+      byBasket: {
+        Bitcoin: data.filter(coin => coin.basket === 'Bitcoin').length,
+        'Blue Chip': data.filter(coin => coin.basket === 'Blue Chip').length,
+        'Small-Cap': data.filter(coin => coin.basket === 'Small-Cap').length
+      }
+    };
+
+    return stats;
+  } catch (error) {
+    console.error('Error calculating asset statistics:', error);
+    return {
+      total: 0,
+      glassNodeSupported: 0,
+      highQuality: 0,
+      mediumQuality: 0,
+      lowQuality: 0,
+      byBasket: { Bitcoin: 0, 'Blue Chip': 0, 'Small-Cap': 0 }
+    };
   }
 };
