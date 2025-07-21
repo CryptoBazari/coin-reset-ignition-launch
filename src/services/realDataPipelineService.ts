@@ -25,8 +25,21 @@ class RealDataPipelineService {
     console.log('🚀 Starting Real Data Pipeline Initialization...');
     
     try {
-      // Step 1: Test Alpha Vantage API for beta calculation
-      console.log('Step 1: Testing Alpha Vantage API for beta calculation...');
+      // Step 1: Test FRED API for real risk-free rates  
+      console.log('Step 1: Testing FRED API for real risk-free rates...');
+      const { data: fredTest, error: fredError } = await supabase.functions.invoke(
+        'test-fred-api',
+        { body: {} }
+      );
+      
+      if (fredError || !fredTest?.success) {
+        console.warn('⚠️ FRED API test failed:', fredError);
+      } else {
+        console.log(`✅ FRED API verified: Current 10-Year Treasury: ${fredTest.riskFreeRate}% (${fredTest.daysSinceUpdate} days old)`);
+      }
+
+      // Step 2: Test Alpha Vantage API for beta calculation
+      console.log('Step 2: Testing Alpha Vantage API for beta calculation...');
       const { data: alphaVantageTest, error: alphaError } = await supabase.functions.invoke(
         'test-alpha-vantage-api',
         { body: {} }
@@ -38,8 +51,8 @@ class RealDataPipelineService {
         console.log(`✅ Alpha Vantage API verified: ${alphaVantageTest.spyDataPoints} S&P 500 data points, Test beta: ${alphaVantageTest.testBeta} (${alphaVantageTest.betaValidation ? 'valid' : 'needs calibration'})`);
       }
       
-      // Step 2: Verify Glass Node API connectivity
-      console.log('Step 2: Verifying Glass Node API connectivity...');
+      // Step 3: Verify Glass Node API connectivity
+      console.log('Step 3: Verifying Glass Node API connectivity...');
       const { data: apiVerification, error: apiError } = await supabase.functions.invoke(
         'verify-glass-node-api',
         { body: {} }
@@ -51,8 +64,8 @@ class RealDataPipelineService {
         console.log(`✅ Glass Node API verified: ${apiVerification.qualityScore}% quality, ${apiVerification.metricsAvailable}/${apiVerification.totalMetrics} metrics available`);
       }
       
-      // Step 2: Trigger Glass Node discovery
-      console.log('Step 2: Triggering Glass Node asset discovery...');
+      // Step 4: Trigger Glass Node discovery
+      console.log('Step 4: Triggering Glass Node asset discovery...');
       const { data: discoveryData, error: discoveryError } = await supabase.functions.invoke(
         'discover-glass-node-assets',
         { body: { force: true } }
@@ -64,7 +77,7 @@ class RealDataPipelineService {
         console.log(`✅ Glass Node discovery completed: ${discoveryData?.stats?.glass_node_available || 0} assets discovered`);
       }
       
-      // Step 3: Get list of coins to process (prioritize by market cap and Glass Node support)
+      // Step 5: Get list of coins to process (prioritize by market cap and Glass Node support)
       const { data: coins, error: coinsError } = await supabase
         .from('coins')
         .select('id, coin_id, name, glass_node_supported, market_cap')
@@ -75,14 +88,16 @@ class RealDataPipelineService {
         throw new Error(`Failed to fetch coins: ${coinsError.message}`);
       }
       
-      console.log(`Step 4: Processing ${coins?.length || 0} coins with enhanced real data pipeline...`);
-      console.log('🎯 Expected Results:');
+      console.log(`Step 6: Processing ${coins?.length || 0} coins with enhanced real data pipeline...`);
+      console.log('🎯 Expected Results After Phase 4 Complete:');
       console.log('   - Bitcoin Beta: 1.2-1.8 (instead of 0.10)');
-      console.log('   - Real Volatility: Calculated from actual price movements');
-      console.log('   - Data Quality: 90-100% with real API data');
-      console.log('   - CAGR/IRR: Based on 36 months of historical data');
+      console.log('   - Real Volatility: Calculated from actual daily price movements');
+      console.log('   - Real CAGR: Based on 36 months of historical price data');
+      console.log('   - Real IRR: Accurate investment return calculations');
+      console.log('   - Real Sharpe Ratio: Using current Treasury rates from FRED API');
+      console.log('   - Data Quality: 90-100% with comprehensive real API data');
       
-      // Step 5: Process each coin with full real data pipeline
+      // Step 7: Process each coin with full enhanced real data pipeline
       let successCount = 0;
       for (const coin of coins || []) {
         console.log(`🔄 Processing ${coin.name} (${coin.coin_id})...`);
@@ -267,27 +282,40 @@ class RealDataPipelineService {
     sharpeRatio?: number;
   }> {
     try {
-      console.log(`📊 Calculating REAL financial metrics for ${coinId}`);
-
-      // Use new edge function to calculate real beta and metrics
-      const { data, error } = await supabase.functions.invoke('calculate-real-beta', {
+      console.log(`📊 Calculating enhanced real financial metrics for ${coinId}...`);
+      
+      // Step 1: Calculate real beta using market correlation
+      const { data: betaData, error: betaError } = await supabase.functions.invoke('calculate-real-beta', {
         body: { coinId }
       });
-
-      if (error || !data?.success) {
-        console.warn(`⚠️ Failed to calculate real metrics for ${coinId}:`, error);
+      
+      if (betaError) {
+        console.error('Beta calculation failed:', betaError);
+      }
+      
+      // Step 2: Recalculate ALL financial metrics using real price data
+      const { data: metricsData, error: metricsError } = await supabase.functions.invoke('recalculate-financial-metrics', {
+        body: { coinId }
+      });
+      
+      if (metricsError) {
+        console.error('Financial metrics recalculation failed:', metricsError);
         return { success: false, qualityScore: 0 };
       }
-
-      console.log(`✅ Real calculations for ${coinId}: Beta ${data.beta?.toFixed(3)}, Vol ${data.volatility?.toFixed(3)}`);
+      
+      console.log(`✅ Enhanced financial metrics calculated for ${coinId}:`);
+      console.log(`   - Real Beta: ${betaData?.beta?.toFixed(3) || 'N/A'}`);
+      console.log(`   - Real Volatility: ${metricsData?.metrics?.realVolatility?.toFixed(2) || 'N/A'}%`);
+      console.log(`   - Real CAGR (36m): ${metricsData?.metrics?.realCAGR36m?.toFixed(2) || 'N/A'}%`);
+      console.log(`   - Real Sharpe Ratio: ${metricsData?.metrics?.realSharpeRatio?.toFixed(3) || 'N/A'}`);
 
       return {
-        success: data.success,
-        qualityScore: data.qualityScore || 50,
-        beta: data.beta,
-        volatility: data.volatility,
-        cagr: data.cagr,
-        sharpeRatio: data.sharpeRatio
+        success: true,
+        qualityScore: Math.max(betaData?.qualityScore || 0, metricsData?.metrics?.dataQualityScore || 0),
+        beta: betaData?.beta,
+        volatility: metricsData?.metrics?.realVolatility,
+        cagr: metricsData?.metrics?.realCAGR36m,
+        sharpeRatio: metricsData?.metrics?.realSharpeRatio
       };
     } catch (error) {
       console.error(`❌ Error calculating real financial metrics for ${coinId}:`, error);

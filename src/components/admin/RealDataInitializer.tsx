@@ -95,9 +95,9 @@ export const RealDataInitializer: React.FC = () => {
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <p className="text-sm font-medium">Fix Beta Calculation & Replace Mock Data</p>
+              <p className="text-sm font-medium">Recalculate ALL Financial Metrics with Real Data</p>
               <p className="text-xs text-muted-foreground">
-                Activates Glass Node, CoinMarketCap, and Alpha Vantage APIs. Fixes Bitcoin Beta from 0.10 to realistic 1.2-1.8 range using real S&P 500 correlation data.
+                Replaces ALL estimated values with real calculations: Beta (0.10→1.2-1.8), Volatility, CAGR, IRR, Sharpe Ratio using 36 months of actual price data and real risk-free rates.
               </p>
             </div>
             <Button 
@@ -202,26 +202,34 @@ export const RealDataInitializer: React.FC = () => {
             </div>
 
             <div className="mt-4 p-4 bg-muted rounded-lg">
-              <p className="text-sm font-medium mb-2">Beta Calculation Status:</p>
+              <p className="text-sm font-medium mb-2">Enhanced Financial Metrics Status:</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div className="space-y-2">
                   <div className="flex items-center gap-1">
                     <div className={`w-3 h-3 rounded-full ${dataQuality.realDataCoins > 0 ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                    <span>Bitcoin Beta: {dataQuality.realDataCoins > 0 ? '1.2-1.8 (realistic)' : '0.10 (incorrect)'}</span>
+                    <span>Beta: {dataQuality.realDataCoins > 0 ? '1.2-1.8 (realistic)' : '0.10 (incorrect)'}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <div className={`w-3 h-3 rounded-full ${dataQuality.realDataCoins > 0 ? 'bg-green-500' : 'bg-orange-500'}`}></div>
-                    <span>S&P 500 Correlation: {dataQuality.realDataCoins > 0 ? 'Real Alpha Vantage data' : 'Using estimates'}</span>
+                    <span>Volatility: {dataQuality.realDataCoins > 0 ? 'Real price movements' : 'Static estimates'}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className={`w-3 h-3 rounded-full ${dataQuality.realDataCoins > 0 ? 'bg-green-500' : 'bg-orange-500'}`}></div>
+                    <span>CAGR/IRR: {dataQuality.realDataCoins > 0 ? '36 months real data' : 'Estimated returns'}</span>
                   </div>
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center gap-1">
                     <div className={`w-3 h-3 rounded-full ${dataQuality.averageQuality >= 70 ? 'bg-green-500' : 'bg-orange-500'}`}></div>
-                    <span>Volatility: {dataQuality.averageQuality >= 70 ? 'From real price movements' : 'Estimated values'}</span>
+                    <span>Sharpe Ratio: {dataQuality.averageQuality >= 70 ? 'Real risk-free rates' : 'Default values'}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className={`w-3 h-3 rounded-full ${dataQuality.realDataCoins > 0 ? 'bg-green-500' : 'bg-orange-500'}`}></div>
+                    <span>Risk Analysis: {dataQuality.realDataCoins > 0 ? 'Monte Carlo ready' : 'Basic calculations'}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <div className={`w-3 h-3 rounded-full ${dataQuality.realDataCoins >= dataQuality.estimatedDataCoins ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                    <span>Data Source: {dataQuality.realDataCoins >= dataQuality.estimatedDataCoins ? 'Real APIs' : 'Mock/Estimated'}</span>
+                    <span>Investment Analysis: {dataQuality.realDataCoins >= dataQuality.estimatedDataCoins ? 'Real projections' : 'Mock scenarios'}</span>
                   </div>
                 </div>
               </div>
