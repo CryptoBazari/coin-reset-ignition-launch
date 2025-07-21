@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,12 +16,17 @@ import { enhancedGlassNodeAnalyzer } from '@/services/enhancedGlassNodeAnalyzer'
 import { Lock, BarChart3, Globe, TrendingUp, Calculator, Activity } from 'lucide-react';
 import type { InvestmentInputs } from '@/types/investment';
 import type { CoinData } from '@/services/realTimeMarketService';
+import { ComprehensiveInvestmentForm } from '@/components/ComprehensiveInvestmentForm';
+import { ComprehensiveAnalysisResults } from '@/components/ComprehensiveAnalysisResults';
+import { comprehensiveGlassNodeAnalyzer, AnalysisInputs, ComprehensiveAnalysisResult } from '@/services/comprehensiveGlassNodeAnalyzer';
 
 const CryptoAnalysis = () => {
   const [realAnalysisResult, setRealAnalysisResult] = useState(null);
+  const [comprehensiveResult, setComprehensiveResult] = useState<ComprehensiveAnalysisResult | null>(null);
   const [selectedCoin, setSelectedCoin] = useState<CoinData | null>(null);
   const [selectedCoinSymbol, setSelectedCoinSymbol] = useState<string>('BTC');
   const [dataStatus, setDataStatus] = useState<any>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
   
   const { hasActiveSubscription, user } = useSubscription();
   const { analyzeInvestment, loading, error } = useRealInvestmentAnalysis();
@@ -65,6 +69,22 @@ const CryptoAnalysis = () => {
     }
   };
 
+  const handleComprehensiveAnalysis = async (inputs: AnalysisInputs) => {
+    setAnalysisLoading(true);
+    console.log('🚀 Starting comprehensive Glass Node analysis');
+    console.log('📊 Analysis inputs:', inputs);
+    
+    try {
+      const result = await comprehensiveGlassNodeAnalyzer.analyzeInvestment(inputs);
+      console.log('✅ Comprehensive analysis completed:', result);
+      setComprehensiveResult(result);
+    } catch (error) {
+      console.error('❌ Comprehensive analysis failed:', error);
+    } finally {
+      setAnalysisLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       <Navbar />
@@ -76,18 +96,18 @@ const CryptoAnalysis = () => {
 
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Real-Time Crypto Investment Analyzer
+            Comprehensive Crypto Investment Analyzer
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm font-semibold mr-2">
-              {dataStatus?.isPopulated ? 'REAL DATA ACTIVE' : 'INITIALIZING'}
+              COMPREHENSIVE ANALYSIS
             </span>
-            Make informed investment decisions with REAL Glass Node data, Monte Carlo projections, 
-            and calculated volatility. {dataStatus?.isPopulated ? 'All calculations use live database data.' : 'Initialize data to start using real calculations.'}
+            Advanced investment analysis with 9 Glassnode endpoints, regional data, inflation adjustments, 
+            transaction costs, and real S&P 500 benchmarking.
           </p>
         </div>
 
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           {!user ? (
             <Card className="text-center p-8">
               <CardHeader>
@@ -119,7 +139,7 @@ const CryptoAnalysis = () => {
               </CardContent>
             </Card>
           ) : (
-            <Tabs defaultValue="analysis" className="space-y-6">
+            <Tabs defaultValue="comprehensive" className="space-y-6">
               <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="overview" className="gap-2">
                   <Globe className="h-4 w-4" />
@@ -133,16 +153,16 @@ const CryptoAnalysis = () => {
                   <Activity className="h-4 w-4" />
                   On-Chain Analytics
                 </TabsTrigger>
-                <TabsTrigger value="analysis" className="gap-2">
+                <TabsTrigger value="comprehensive" className="gap-2">
                   <Calculator className="h-4 w-4" />
-                  <Badge variant="outline" className="bg-green-100 text-green-800 text-xs ml-1">
-                    {dataStatus?.isPopulated ? 'REAL' : 'INIT'}
+                  <Badge variant="outline" className="bg-blue-100 text-blue-800 text-xs ml-1">
+                    COMPREHENSIVE
                   </Badge>
-                  Analysis
+                  Advanced Analysis
                 </TabsTrigger>
-                <TabsTrigger value="insights" className="gap-2">
+                <TabsTrigger value="legacy" className="gap-2">
                   <TrendingUp className="h-4 w-4" />
-                  AI Insights
+                  Legacy Analysis
                 </TabsTrigger>
               </TabsList>
 
@@ -173,7 +193,40 @@ const CryptoAnalysis = () => {
                 </div>
               </TabsContent>
 
-              <TabsContent value="analysis" className="space-y-6">
+              <TabsContent value="comprehensive" className="space-y-6">
+                <div className="space-y-6">
+                  {/* Comprehensive Features Banner */}
+                  <Card className="border-blue-200 bg-blue-50">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-2 text-blue-800 mb-3">
+                        <Calculator className="h-5 w-5" />
+                        <div className="font-semibold">Comprehensive Analysis Features</div>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                        <Badge variant="outline">9 Glassnode Endpoints</Badge>
+                        <Badge variant="outline">Regional Price Data</Badge>
+                        <Badge variant="outline">Real S&P 500 Data</Badge>
+                        <Badge variant="outline">Inflation Adjustment</Badge>
+                        <Badge variant="outline">Transaction Costs</Badge>
+                        <Badge variant="outline">MVRV Z-Score</Badge>
+                        <Badge variant="outline">Liquidity Analysis</Badge>
+                        <Badge variant="outline">Detailed Calculations</Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  <ComprehensiveInvestmentForm 
+                    onSubmit={handleComprehensiveAnalysis} 
+                    loading={analysisLoading}
+                  />
+                  
+                  {comprehensiveResult && (
+                    <ComprehensiveAnalysisResults result={comprehensiveResult} />
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="legacy" className="space-y-6">
                 <div className="space-y-6">
                   {/* Data Quality Banner */}
                   <Card className={`${dataStatus?.isPopulated ? 'border-green-200 bg-green-50' : 'border-yellow-200 bg-yellow-50'}`}>
@@ -362,22 +415,6 @@ const CryptoAnalysis = () => {
                     </div>
                   )}
                 </div>
-              </TabsContent>
-
-              <TabsContent value="insights">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>AI-Powered Investment Insights</CardTitle>
-                    <CardDescription>
-                      Advanced market analysis and recommendations coming soon
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-center p-8 text-muted-foreground">
-                      AI insights will be available in the next update
-                    </div>
-                  </CardContent>
-                </Card>
               </TabsContent>
             </Tabs>
           )}

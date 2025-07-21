@@ -11,12 +11,19 @@ interface GlassNodeResponse {
   v: number; // value
 }
 
-// Map of supported metrics for different assets
+// Comprehensive list of supported metrics for different assets
 const SUPPORTED_METRICS = {
   'BTC': [
     'market/price_usd_close',
-    'market/price_realized_usd',
+    'market/price_usd_ohlc',
+    'market/amer_30d_price_change',
+    'market/apac_30d_price_change',
+    'market/emea_30d_price_change',
     'market/realized_volatility_all',
+    'indicators/net_realized_profit_loss',
+    'market/mvrv_z_score',
+    'market/price_drawdown_relative',
+    'transactions/transfers_volume_mean',
     'addresses/active_count',
     'transactions/transfers_to_exchanges_sum',
     'transactions/transfers_from_exchanges_sum',
@@ -24,26 +31,36 @@ const SUPPORTED_METRICS = {
     'supply/illiquid_sum',
     'indicators/cdd',
     'indicators/aviv',
-    'indicators/coin_blocks_destroyed' // New endpoint
+    'indicators/coin_blocks_destroyed'
   ],
   'ETH': [
     'market/price_usd_close',
-    'market/price_realized_usd',
+    'market/price_usd_ohlc',
+    'market/amer_30d_price_change',
+    'market/apac_30d_price_change',
+    'market/emea_30d_price_change',
     'market/realized_volatility_all',
+    'indicators/net_realized_profit_loss',
+    'market/mvrv_z_score',
+    'market/price_drawdown_relative',
+    'transactions/transfers_volume_mean',
     'addresses/active_count',
     'transactions/transfers_to_exchanges_sum',
     'transactions/transfers_from_exchanges_sum'
   ],
   'SOL': [
     'market/price_usd_close',
+    'market/price_usd_ohlc',
     'addresses/active_count'
   ],
   'ADA': [
     'market/price_usd_close',
+    'market/price_usd_ohlc',
     'addresses/active_count'
   ],
   'LTC': [
     'market/price_usd_close',
+    'market/price_usd_ohlc',
     'addresses/active_count'
   ]
 };
