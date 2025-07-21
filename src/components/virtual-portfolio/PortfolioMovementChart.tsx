@@ -80,8 +80,7 @@ const PortfolioMovementChart = ({ portfolioId }: PortfolioMovementChartProps) =>
           *,
           virtual_coins (
             name,
-            symbol,
-            current_price
+            symbol
           )
         `)
         .eq('portfolio_id', portfolioId);
@@ -91,7 +90,7 @@ const PortfolioMovementChart = ({ portfolioId }: PortfolioMovementChartProps) =>
         name: asset.virtual_coins?.name || 'Unknown',
         symbol: asset.virtual_coins?.symbol || 'UNK',
         amount: asset.total_amount,
-        value: asset.total_amount * (asset.virtual_coins?.current_price || 0)
+        value: asset.cost_basis || 0
       })) || [];
 
       // Create initial snapshot
