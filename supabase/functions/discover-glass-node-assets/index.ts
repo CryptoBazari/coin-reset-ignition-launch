@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
 
 // CORS headers for web app compatibility
@@ -21,6 +22,10 @@ interface CoinGeckoSearchResult {
   symbol: string;
   name: string;
   large: string;
+}
+
+interface GlassNodeAssetsResponse {
+  assets: string[];
 }
 
 Deno.serve(async (req) => {
@@ -62,15 +67,45 @@ Deno.serve(async (req) => {
       existingCoins?.map(coin => [coin.coin_id.toLowerCase(), coin]) || []
     );
 
-    // Glass Node supported assets (expanded list)
-    const knownGlassNodeAssets = [
-      'BTC', 'ETH', 'LTC', 'BCH', 'BSV', 'ADA', 'DOT', 'LINK', 'XLM', 'UNI', 
-      'AAVE', 'SOL', 'MATIC', 'AVAX', 'ATOM', 'LUNA', 'UST', 'CRV', 'COMP',
-      'MKR', 'SNX', 'YFI', 'SUSHI', 'GRT', 'FIL', 'THETA', 'VET', 'TRX',
-      'XTZ', 'EOS', 'IOTA', 'NEO', 'DASH', 'ZEC', 'XMR', 'ETC', 'OMG',
-      'BAT', 'ZRX', 'REP', 'KNC', 'LRC', 'BNT', 'REN', 'STORJ', 'MANA',
-      'ENJ', 'CHZ', 'HOT', 'DOGE', 'SHIB', 'FTT', 'NEAR', 'ALGO', 'FLOW'
-    ];
+    // Fetch all supported assets from Glassnode
+    console.log('Fetching supported assets from Glassnode API...');
+    let supportedAssets: string[] = [];
+    
+    try {
+      const assetsResponse = await fetch(`https://api.glassnode.com/v1/metrics/assets?api_key=${GLASSNODE_API_KEY}`);
+      if (assetsResponse.ok) {
+        const assetsData: GlassNodeAssetsResponse = await assetsResponse.json();
+        supportedAssets = assetsData.assets || [];
+        console.log(`✅ Found ${supportedAssets.length} supported assets from Glassnode API`);
+        apiStatus = 'operational';
+      } else {
+        console.error('Failed to fetch assets from Glassnode API, using fallback list');
+        // Fallback to expanded known list if API fails
+        supportedAssets = [
+          'BTC', 'ETH', 'LTC', 'BCH', 'BSV', 'ADA', 'DOT', 'LINK', 'XLM', 'UNI', 
+          'AAVE', 'SOL', 'MATIC', 'AVAX', 'ATOM', 'LUNA', 'CRV', 'COMP',
+          'MKR', 'SNX', 'YFI', 'SUSHI', 'GRT', 'FIL', 'THETA', 'VET', 'TRX',
+          'XTZ', 'EOS', 'IOTA', 'NEO', 'DASH', 'ZEC', 'XMR', 'ETC', 'OMG',
+          'BAT', 'ZRX', 'REP', 'KNC', 'LRC', 'BNT', 'REN', 'STORJ', 'MANA',
+          'ENJ', 'CHZ', 'HOT', 'DOGE', 'SHIB', 'FTT', 'NEAR', 'ALGO', 'FLOW',
+          'SAND', 'AXS', 'GALA', 'APE', 'GMT', 'STEPN', 'LUNC', 'USDT', 'USDC',
+          'BUSD', 'DAI', 'FRAX', 'TUSD', 'USDP', 'GUSD', 'USDD', 'LUSD'
+        ];
+        apiStatus = 'fallback';
+      }
+    } catch (error) {
+      console.error('Error fetching assets from Glassnode:', error);
+      // Use fallback list
+      supportedAssets = [
+        'BTC', 'ETH', 'LTC', 'BCH', 'BSV', 'ADA', 'DOT', 'LINK', 'XLM', 'UNI', 
+        'AAVE', 'SOL', 'MATIC', 'AVAX', 'ATOM', 'LUNA', 'CRV', 'COMP',
+        'MKR', 'SNX', 'YFI', 'SUSHI', 'GRT', 'FIL', 'THETA', 'VET', 'TRX',
+        'XTZ', 'EOS', 'IOTA', 'NEO', 'DASH', 'ZEC', 'XMR', 'ETC', 'OMG',
+        'BAT', 'ZRX', 'REP', 'KNC', 'LRC', 'BNT', 'REN', 'STORJ', 'MANA',
+        'ENJ', 'CHZ', 'HOT', 'DOGE', 'SHIB', 'FTT', 'NEAR', 'ALGO', 'FLOW'
+      ];
+      apiStatus = 'error';
+    }
 
     // Function to get CoinGecko data for asset
     const getCoinGeckoData = async (symbol: string): Promise<Partial<CoinGeckoSearchResult> | null> => {
@@ -99,57 +134,71 @@ Deno.serve(async (req) => {
       }
     };
 
+    // Clean up existing duplicate/invalid entries
+    console.log('Cleaning up duplicate and invalid entries...');
+    await supabase
+      .from('coins')
+      .delete()
+      .eq('glass_node_data_quality', 0)
+      .neq('coin_id', 'bitcoin'); // Keep bitcoin even if it has 0 quality temporarily
+
     // Test asset availability and gather data
     const assetResults: GlassNodeAsset[] = [];
+    const batchSize = 10; // Process in batches to avoid rate limiting
     
-    for (const symbol of knownGlassNodeAssets) {
-      try {
-        // Test Glass Node API availability
-        const testUrl = `https://api.glassnode.com/v1/metrics/market/price?a=${symbol}&api_key=${GLASSNODE_API_KEY}&s=1d&f=json&limit=1`;
-        const testResponse = await fetch(testUrl);
-        
-        const available = testResponse.ok;
-        let dataQuality = 0;
-        let premium = false;
-        
-        if (available) {
-          const testData = await testResponse.json();
-          dataQuality = Array.isArray(testData) && testData.length > 0 ? 8 : 5;
-          premium = testResponse.status === 200;
-          apiStatus = 'operational';
+    for (let i = 0; i < supportedAssets.length; i += batchSize) {
+      const batch = supportedAssets.slice(i, i + batchSize);
+      
+      for (const symbol of batch) {
+        try {
+          // Test Glass Node API availability
+          const testUrl = `https://api.glassnode.com/v1/metrics/market/price?a=${symbol}&api_key=${GLASSNODE_API_KEY}&s=1d&f=json&limit=1`;
+          const testResponse = await fetch(testUrl);
+          
+          const available = testResponse.ok;
+          let dataQuality = 0;
+          let premium = false;
+          
+          if (available) {
+            const testData = await testResponse.json();
+            dataQuality = Array.isArray(testData) && testData.length > 0 ? 8 : 5;
+            premium = testResponse.status === 200;
+          }
+
+          // Get CoinGecko data for logo and additional info
+          const coinGeckoData = await getCoinGeckoData(symbol);
+          
+          assetResults.push({
+            symbol,
+            available,
+            premium,
+            dataQuality,
+            name: coinGeckoData?.name || symbol,
+            logo_url: coinGeckoData?.large || null,
+            coingecko_id: coinGeckoData?.id || null
+          });
+
+          discoveredAssets++;
+          
+        } catch (error) {
+          console.log(`Error testing asset ${symbol}:`, error);
+          assetResults.push({
+            symbol,
+            available: false,
+            premium: false,
+            dataQuality: 0
+          });
         }
-
-        // Get CoinGecko data for logo and additional info
-        const coinGeckoData = await getCoinGeckoData(symbol);
-        
-        assetResults.push({
-          symbol,
-          available,
-          premium,
-          dataQuality,
-          name: coinGeckoData?.name || symbol,
-          logo_url: coinGeckoData?.large || null,
-          coingecko_id: coinGeckoData?.id || null
-        });
-
-        discoveredAssets++;
-        
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-      } catch (error) {
-        console.log(`Error testing asset ${symbol}:`, error);
-        assetResults.push({
-          symbol,
-          available: false,
-          premium: false,
-          dataQuality: 0
-        });
       }
+      
+      // Small delay between batches to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
 
     // Update database with discovered assets
     for (const asset of assetResults) {
+      if (!asset.available) continue; // Skip unavailable assets
+      
       const coinId = asset.symbol.toLowerCase();
       const existingCoin = existingCoinMap.get(coinId);
       
@@ -183,7 +232,7 @@ Deno.serve(async (req) => {
           } else {
             updatedAssets++;
           }
-        } else if (asset.available) {
+        } else {
           // Insert new Glass Node supported asset
           const { error: insertError } = await supabase
             .from('coins')

@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +13,9 @@ import {
   AlertCircle, 
   CheckCircle,
   TrendingUp,
-  Shield
+  Shield,
+  Search,
+  Zap
 } from 'lucide-react';
 import { 
   getDiscoveryLogs, 
@@ -23,6 +26,7 @@ import { useToast } from '@/hooks/use-toast';
 
 const GlassNodeStatusCard = () => {
   const [isDiscovering, setIsDiscovering] = useState(false);
+  const [isRunningDiscovery, setIsRunningDiscovery] = useState(false);
   const { toast } = useToast();
 
   const { data: discoveryLogs, refetch: refetchLogs } = useQuery({
@@ -63,6 +67,45 @@ const GlassNodeStatusCard = () => {
     }
   };
 
+  const handleFullDiscovery = async () => {
+    setIsRunningDiscovery(true);
+    
+    try {
+      // Call the discovery edge function to get all Glassnode assets
+      const response = await fetch('/api/discover-glass-node-assets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fullDiscovery: true })
+      });
+
+      if (!response.ok) {
+        throw new Error('Discovery API call failed');
+      }
+
+      const result = await response.json();
+      
+      toast({
+        title: "Full Discovery Completed",
+        description: `Discovered ${result.stats?.total_discovered || 0} assets, updated ${result.stats?.database_updated || 0} in database.`,
+      });
+
+      // Refetch data after discovery
+      await Promise.all([refetchLogs(), refetchAssets()]);
+      
+    } catch (error) {
+      console.error('Full discovery failed:', error);
+      toast({
+        title: "Full Discovery Failed",
+        description: "Failed to run full asset discovery. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRunningDiscovery(false);
+    }
+  };
+
   const lastLog = discoveryLogs?.[0];
   const apiStatus = lastLog?.api_status || 'unknown';
   const isOperational = apiStatus === 'operational';
@@ -97,15 +140,26 @@ const GlassNodeStatusCard = () => {
               Real-time cryptocurrency data from Glass Node API
             </CardDescription>
           </div>
-          <Button
-            onClick={handleManualDiscovery}
-            disabled={isDiscovering}
-            variant="outline"
-            size="sm"
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isDiscovering ? 'animate-spin' : ''}`} />
-            {isDiscovering ? 'Discovering...' : 'Refresh Assets'}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={handleManualDiscovery}
+              disabled={isDiscovering}
+              variant="outline"
+              size="sm"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isDiscovering ? 'animate-spin' : ''}`} />
+              {isDiscovering ? 'Refreshing...' : 'Refresh'}
+            </Button>
+            <Button
+              onClick={handleFullDiscovery}
+              disabled={isRunningDiscovery}
+              variant="default"
+              size="sm"
+            >
+              <Search className={`h-4 w-4 mr-2 ${isRunningDiscovery ? 'animate-spin' : ''}`} />
+              {isRunningDiscovery ? 'Discovering...' : 'Full Discovery'}
+            </Button>
+          </div>
         </div>
       </CardHeader>
       
@@ -132,7 +186,7 @@ const GlassNodeStatusCard = () => {
         <Separator />
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="text-center">
             <div className="text-sm text-gray-600">Premium Assets</div>
             <div className="text-lg font-semibold text-green-600">
@@ -146,12 +200,31 @@ const GlassNodeStatusCard = () => {
             </div>
           </div>
           <div className="text-center">
-            <div className="text-sm text-gray-600">Last Update</div>
+            <div className="text-sm text-gray-600">Last Discovery</div>
             <div className="text-lg font-semibold text-gray-700">
               {lastLog ? new Date(lastLog.discovery_run_at).toLocaleDateString() : 'Never'}
             </div>
           </div>
+          <div className="text-center">
+            <div className="text-sm text-gray-600">Target</div>
+            <div className="text-lg font-semibold text-orange-600">
+              1,845+
+            </div>
+          </div>
         </div>
+
+        {/* Discovery Notice */}
+        {(!supportedAssets || supportedAssets.length < 50) && (
+          <div className="flex items-center gap-3 p-4 rounded-lg bg-blue-50 border border-blue-200">
+            <Zap className="h-5 w-5 text-blue-600" />
+            <div>
+              <div className="font-medium text-blue-800">Run Full Discovery</div>
+              <div className="text-sm text-blue-700">
+                Click "Full Discovery" to fetch all 1,845+ Glass Node supported assets including Litecoin, Bitcoin Cash, and more.
+              </div>
+            </div>
+          </div>
+        )}
 
         <Separator />
 
@@ -199,7 +272,7 @@ const GlassNodeStatusCard = () => {
               <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
               <div>No discovery runs recorded</div>
               <div className="text-xs mt-1">
-                Click "Refresh Assets" to start discovery
+                Click "Full Discovery" to start discovering all Glass Node assets
               </div>
             </div>
           )}

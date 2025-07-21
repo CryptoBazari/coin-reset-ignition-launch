@@ -1,10 +1,11 @@
+
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Clock, TrendingUp, Shield, AlertCircle } from 'lucide-react';
+import { Clock, TrendingUp, Shield, AlertCircle, Search } from 'lucide-react';
 import { 
   fetchGlassNodeSupportedAssets, 
   fetchAllAvailableAssets, 
@@ -29,6 +30,7 @@ const EnhancedCoinSelector = ({
   showOnlyGlassNodeSupported = false
 }: EnhancedCoinSelectorProps) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
   const { toast } = useToast();
 
   const { data: assets, isLoading, error } = useQuery({
@@ -45,25 +47,67 @@ const EnhancedCoinSelector = ({
       console.error('Glass Node Asset API Error:', error);
       toast({
         title: "Asset Loading Error",
-        description: "Failed to load cryptocurrency assets. Using fallback data.",
+        description: "Failed to load cryptocurrency assets. Please try running asset discovery.",
         variant: "destructive",
       });
     }
   }, [error, toast]);
 
-  // Filter assets based on search term
+  // Enhanced search filtering with fuzzy matching
   const filteredAssets = useMemo(() => {
     if (!assets) return [];
     
     if (!searchTerm) {
-      return assets;
+      // Show top 50 by data quality when no search term
+      return assets
+        .sort((a, b) => b.glass_node_data_quality - a.glass_node_data_quality)
+        .slice(0, 50);
     }
     
-    return assets.filter(asset => 
-      asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      asset.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      asset.id.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const term = searchTerm.toLowerCase();
+    
+    return assets.filter(asset => {
+      const matchesName = asset.name.toLowerCase().includes(term);
+      const matchesSymbol = asset.symbol.toLowerCase().includes(term);
+      const matchesId = asset.id.toLowerCase().includes(term);
+      
+      // Enhanced matching for common coin names
+      const commonNames: Record<string, string[]> = {
+        'bitcoin': ['btc', 'bitcoin'],
+        'ethereum': ['eth', 'ethereum'],
+        'litecoin': ['ltc', 'litecoin'],
+        'cardano': ['ada', 'cardano'],
+        'solana': ['sol', 'solana'],
+        'polkadot': ['dot', 'polkadot'],
+        'chainlink': ['link', 'chainlink'],
+        'avalanche': ['avax', 'avalanche'],
+        'polygon': ['matic', 'polygon'],
+        'uniswap': ['uni', 'uniswap']
+      };
+      
+      const matchesCommon = Object.entries(commonNames).some(([coinId, aliases]) => {
+        return aliases.some(alias => alias.includes(term)) && 
+               (asset.id.toLowerCase() === coinId || asset.symbol.toLowerCase() === aliases[0]);
+      });
+      
+      return matchesName || matchesSymbol || matchesId || matchesCommon;
+    })
+    .sort((a, b) => {
+      // Prioritize exact matches and Glass Node supported assets
+      const aExact = a.symbol.toLowerCase() === term || a.name.toLowerCase() === term;
+      const bExact = b.symbol.toLowerCase() === term || b.name.toLowerCase() === term;
+      
+      if (aExact && !bExact) return -1;
+      if (!aExact && bExact) return 1;
+      
+      // Then by Glass Node support
+      if (a.glass_node_supported && !b.glass_node_supported) return -1;
+      if (!a.glass_node_supported && b.glass_node_supported) return 1;
+      
+      // Then by data quality
+      return b.glass_node_data_quality - a.glass_node_data_quality;
+    })
+    .slice(0, 100); // Limit to top 100 results for performance
   }, [assets, searchTerm]);
 
   // Group assets by Glass Node support
@@ -72,8 +116,8 @@ const EnhancedCoinSelector = ({
     const others = filteredAssets.filter(asset => !asset.glass_node_supported);
     
     return {
-      glassNodeSupported,
-      others
+      glassNodeSupported: glassNodeSupported.slice(0, 50),
+      others: others.slice(0, 25)
     };
   }, [filteredAssets]);
 
@@ -83,6 +127,8 @@ const EnhancedCoinSelector = ({
     if (selectedAsset) {
       console.log('Selected asset data:', selectedAsset);
       onValueChange(coinId, selectedAsset);
+      setIsOpen(false);
+      setSearchTerm('');
     }
   };
 
@@ -146,33 +192,40 @@ const EnhancedCoinSelector = ({
 
   if (isLoading) {
     return (
-      <Select disabled>
-        <SelectTrigger>
-          <SelectValue placeholder={`Loading ${showOnlyGlassNodeSupported ? 'Glass Node' : 'all'} assets...`} />
-        </SelectTrigger>
-      </Select>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 p-2 border rounded-md">
+          <Search className="h-4 w-4 text-gray-400" />
+          <span className="text-sm text-gray-500">Loading assets...</span>
+        </div>
+      </div>
     );
   }
 
   if (error || !assets || assets.length === 0) {
     console.error('EnhancedCoinSelector error or no data:', error);
     return (
-      <Select disabled>
-        <SelectTrigger>
-          <SelectValue placeholder="Unable to load cryptocurrency assets" />
-        </SelectTrigger>
-      </Select>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 p-2 border rounded-md bg-red-50">
+          <AlertCircle className="h-4 w-4 text-red-500" />
+          <span className="text-sm text-red-600">Unable to load assets. Please run asset discovery.</span>
+        </div>
+      </div>
     );
   }
 
   return (
     <div className="space-y-2">
-      <Input
-        placeholder="Search cryptocurrency..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-      />
-      <Select value={value} onValueChange={handleValueChange}>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Input
+          placeholder="Search cryptocurrencies... (e.g., bitcoin, btc, litecoin)"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+      
+      <Select value={value} onValueChange={handleValueChange} open={isOpen} onOpenChange={setIsOpen}>
         <SelectTrigger>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
@@ -181,14 +234,14 @@ const EnhancedCoinSelector = ({
             <div className="p-4 text-center text-gray-500">
               <AlertCircle className="h-8 w-8 mx-auto mb-2" />
               <div>No cryptocurrencies found</div>
-              <div className="text-xs mt-1">Try adjusting your search terms</div>
+              <div className="text-xs mt-1">Try different search terms or run asset discovery</div>
             </div>
           ) : (
             <>
               {groupedAssets.glassNodeSupported.length > 0 && (
                 <>
-                  <div className="px-2 py-1 text-xs font-semibold text-green-700 bg-green-50 border-b">
-                    Glass Node Premium Assets ({groupedAssets.glassNodeSupported.length})
+                  <div className="px-2 py-1 text-xs font-semibold text-green-700 bg-green-50 border-b sticky top-0 z-10">
+                    🟢 Glass Node Supported ({groupedAssets.glassNodeSupported.length})
                   </div>
                   {groupedAssets.glassNodeSupported.map(renderAssetItem)}
                 </>
@@ -196,11 +249,17 @@ const EnhancedCoinSelector = ({
               
               {!showOnlyGlassNodeSupported && groupedAssets.others.length > 0 && (
                 <>
-                  <div className="px-2 py-1 text-xs font-semibold text-gray-600 bg-gray-50 border-b">
-                    Other Assets ({groupedAssets.others.length})
+                  <div className="px-2 py-1 text-xs font-semibold text-gray-600 bg-gray-50 border-b sticky top-0 z-10">
+                    ⚪ Other Assets ({groupedAssets.others.length})
                   </div>
                   {groupedAssets.others.map(renderAssetItem)}
                 </>
+              )}
+              
+              {searchTerm && filteredAssets.length > 75 && (
+                <div className="px-2 py-2 text-xs text-gray-500 bg-gray-50 border-t">
+                  Showing top {filteredAssets.length} results. Refine your search for more specific results.
+                </div>
               )}
             </>
           )}
@@ -208,12 +267,13 @@ const EnhancedCoinSelector = ({
       </Select>
       
       {/* Asset statistics */}
-      <div className="flex gap-2 text-xs text-gray-500">
+      <div className="flex gap-4 text-xs text-gray-500">
         <span>Glass Node: {groupedAssets.glassNodeSupported.length}</span>
         {!showOnlyGlassNodeSupported && (
           <span>Other: {groupedAssets.others.length}</span>
         )}
-        <span>Total: {filteredAssets.length}</span>
+        <span>Total Available: {assets.length}</span>
+        {searchTerm && <span>Filtered: {filteredAssets.length}</span>}
       </div>
     </div>
   );

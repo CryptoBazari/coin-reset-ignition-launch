@@ -16,9 +16,7 @@ export interface InitializationResult {
 }
 
 class GlassnodeDataInitializer {
-  private readonly supportedCoins = [
-    'bitcoin', 'ethereum', 'solana', 'cardano', 'chainlink', 'avalanche'
-  ];
+  private supportedCoins: string[] = [];
 
   private readonly symbolMapping: Record<string, string> = {
     'BTC': 'bitcoin',
@@ -27,14 +25,92 @@ class GlassnodeDataInitializer {
     'ADA': 'cardano',
     'LINK': 'chainlink',
     'AVAX': 'avalanche',
+    'DOT': 'polkadot',
+    'MATIC': 'polygon',
+    'UNI': 'uniswap',
+    'LTC': 'litecoin',
+    'BCH': 'bitcoin-cash',
+    'XLM': 'stellar',
+    'AAVE': 'aave',
+    'ATOM': 'cosmos',
+    'ALGO': 'algorand',
+    'VET': 'vechain',
+    'THETA': 'theta',
+    'FIL': 'filecoin',
+    'TRX': 'tron',
+    'EOS': 'eos',
+    'XTZ': 'tezos',
+    'NEO': 'neo',
+    'IOTA': 'iota',
+    'DASH': 'dash',
+    'ZEC': 'zcash',
+    'XMR': 'monero',
+    'ETC': 'ethereum-classic',
+    'DOGE': 'dogecoin',
+    'SHIB': 'shiba-inu',
+    'SAND': 'the-sandbox',
+    'MANA': 'decentraland',
+    'AXS': 'axie-infinity',
+    'GALA': 'gala',
+    'ENJ': 'enjin-coin',
+    'CHZ': 'chiliz',
+    'BAT': 'basic-attention-token',
+    'ZRX': '0x',
+    'COMP': 'compound',
+    'MKR': 'maker',
+    'SNX': 'synthetix',
+    'YFI': 'yearn-finance',
+    'SUSHI': 'sushi',
+    'GRT': 'the-graph',
+    'CRV': 'curve-dao-token',
+    'USDT': 'tether',
+    'USDC': 'usd-coin',
+    'DAI': 'dai',
+    'BUSD': 'binance-usd',
+    'FRAX': 'frax',
+    'TUSD': 'trueusd',
+    'USDP': 'paxos-standard',
+    'GUSD': 'gemini-dollar',
+    'USDD': 'usdd',
+    'LUSD': 'liquity-usd',
     // Handle lowercase versions
     'btc': 'bitcoin',
     'eth': 'ethereum',
     'sol': 'solana',
     'ada': 'cardano',
     'link': 'chainlink',
-    'avax': 'avalanche'
+    'avax': 'avalanche',
+    'dot': 'polkadot',
+    'matic': 'polygon',
+    'uni': 'uniswap',
+    'ltc': 'litecoin'
   };
+
+  constructor() {
+    this.loadSupportedCoins();
+  }
+
+  /**
+   * Load supported coins from database
+   */
+  private async loadSupportedCoins() {
+    try {
+      const { data: coins } = await supabase
+        .from('coins')
+        .select('coin_id')
+        .eq('glass_node_supported', true);
+      
+      this.supportedCoins = coins?.map(coin => coin.coin_id) || [];
+      console.log(`📊 Loaded ${this.supportedCoins.length} supported coins from database`);
+    } catch (error) {
+      console.error('Failed to load supported coins:', error);
+      // Fallback to default list
+      this.supportedCoins = [
+        'bitcoin', 'ethereum', 'solana', 'cardano', 'chainlink', 'avalanche',
+        'polkadot', 'polygon', 'uniswap', 'litecoin', 'bitcoin-cash', 'stellar'
+      ];
+    }
+  }
 
   /**
    * Map coin symbol to coinId
@@ -51,8 +127,11 @@ class GlassnodeDataInitializer {
     
     console.log(`🔍 Checking data freshness for: ${coinInput} → ${coinId}`);
     
+    // Refresh supported coins list
+    await this.loadSupportedCoins();
+    
     if (!this.supportedCoins.includes(coinId)) {
-      console.warn(`❌ Unsupported coin: ${coinInput} (${coinId}). Supported coins: ${this.supportedCoins.join(', ')}`);
+      console.warn(`❌ Unsupported coin: ${coinInput} (${coinId}). Run asset discovery to add more coins.`);
       return {
         hasData: false,
         dataAge: 999,
@@ -132,12 +211,15 @@ class GlassnodeDataInitializer {
     
     console.log(`🚀 Initializing data for: ${coinInput} → ${coinId}`);
     
+    // Refresh supported coins list
+    await this.loadSupportedCoins();
+    
     if (!this.supportedCoins.includes(coinId)) {
       return {
         coinId,
         success: false,
         dataPoints: 0,
-        errors: [`Unsupported coin: ${coinInput} (${coinId}). Supported coins: ${this.supportedCoins.join(', ')}`]
+        errors: [`Unsupported coin: ${coinInput} (${coinId}). Run asset discovery to add more coins.`]
       };
     }
 
@@ -210,6 +292,9 @@ class GlassnodeDataInitializer {
    */
   async initializeAllCoins(): Promise<InitializationResult[]> {
     console.log('🚀 Initializing all Glassnode data...');
+    
+    // Refresh supported coins list
+    await this.loadSupportedCoins();
     
     const results = await Promise.allSettled(
       this.supportedCoins.map(coinId => this.initializeSingleCoin(coinId))
