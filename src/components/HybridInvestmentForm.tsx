@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Shield, Calculator, Globe, AlertCircle } from 'lucide-react';
-import { CoinSelector } from '@/components/virtual-portfolio/CoinSelector';
+import CoinSelector from '@/components/virtual-portfolio/CoinSelector';
 import { symbolMappingService } from '@/services/symbolMappingService';
 import type { CoinMarketCapCoin } from '@/services/coinMarketCapService';
 
