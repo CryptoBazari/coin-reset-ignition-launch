@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { fetchCoinPrices } from './coinMarketCapService';
 import { fetchEconomicIndicators } from './fredService';
@@ -119,9 +118,9 @@ class APIDataVerificationService {
       const coinSymbol = this.getCoinSymbol(coinId);
       const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       
-      // Test AVIV ratio
+      // Test AVIV ratio - using correct property name
       try {
-        const avivData = await fetchGlassNodeMetric(GLASS_NODE_METRICS.AVIV, coinSymbol, since);
+        const avivData = await fetchGlassNodeMetric(GLASS_NODE_METRICS.AVIV_RATIO, coinSymbol, since);
         if (avivData && avivData.length > 0) {
           result.glassNodeData.avivRatio = {
             source: 'glassnode_api',
@@ -398,9 +397,9 @@ class APIDataVerificationService {
       });
     }
     
-    // Glass Node API
+    // Glass Node API - using correct property name
     try {
-      const avivData = await fetchGlassNodeMetric(GLASS_NODE_METRICS.AVIV, 'BTC', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+      const avivData = await fetchGlassNodeMetric(GLASS_NODE_METRICS.AVIV_RATIO, 'BTC', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
       endpoints.push({
         endpoint: 'Glass Node /metrics/indicators/aviv',
         status: avivData.length > 0 ? 'active' : 'inactive',
