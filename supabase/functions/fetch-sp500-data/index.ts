@@ -14,52 +14,97 @@ Deno.serve(async (req) => {
   try {
     const { startDate, endDate } = await req.json();
     
-    const startTimestamp = Math.floor(new Date(startDate).getTime() / 1000);
-    const endTimestamp = Math.floor(new Date(endDate).getTime() / 1000);
+    // Try Alpha Vantage first if available
+    const alphaVantageKey = Deno.env.get('ALPHA_VANTAGE_API_KEY');
     
-    // Yahoo Finance URL for S&P 500 historical data
-    const yahooUrl = `https://query1.finance.yahoo.com/v7/finance/download/%5EGSPC?period1=${startTimestamp}&period2=${endTimestamp}&interval=1mo&events=history`;
-    
-    console.log('Fetching S&P 500 data from Yahoo Finance');
-    
-    const response = await fetch(yahooUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Yahoo Finance API error: ${response.status}`);
-    }
-
-    const csvData = await response.text();
-    const lines = csvData.split('\n');
-    const headers = lines[0].split(',');
-    
-    const data = [];
-    for (let i = 1; i < lines.length; i++) {
-      if (lines[i].trim()) {
-        const values = lines[i].split(',');
-        const date = values[0];
-        const close = parseFloat(values[4]); // Close price is usually the 5th column
+    if (alphaVantageKey) {
+      try {
+        console.log('Fetching S&P 500 data from Alpha Vantage');
         
-        if (!isNaN(close)) {
-          data.push({
-            date: date,
-            price: close,
-            timestamp: new Date(date).toISOString()
-          });
+        const alphaUrl = `https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY&symbol=SPY&apikey=${alphaVantageKey}`;
+        const alphaResponse = await fetch(alphaUrl);
+        
+        if (alphaResponse.ok) {
+          const alphaData = await alphaResponse.json();
+          
+          if (alphaData['Monthly Time Series']) {
+            const timeSeries = alphaData['Monthly Time Series'];
+            const data = [];
+            
+            const startTime = new Date(startDate).getTime();
+            const endTime = new Date(endDate).getTime();
+            
+            for (const [date, values] of Object.entries(timeSeries)) {
+              const dateTime = new Date(date).getTime();
+              if (dateTime >= startTime && dateTime <= endTime) {
+                data.push({
+                  date: date,
+                  price: parseFloat((values as any)['4. close']),
+                  timestamp: new Date(date).toISOString()
+                });
+              }
+            }
+            
+            // Sort by date ascending
+            data.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            
+            console.log(`Successfully fetched ${data.length} S&P 500 data points from Alpha Vantage`);
+            
+            return new Response(
+              JSON.stringify({ 
+                data: data,
+                source: 'Alpha Vantage (SPY ETF)',
+                symbol: 'S&P 500 via SPY'
+              }),
+              { 
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+              }
+            );
+          }
         }
+      } catch (alphaError) {
+        console.warn('Alpha Vantage failed, trying fallback:', alphaError);
       }
     }
-
-    console.log(`Successfully fetched ${data.length} S&P 500 data points`);
-
+    
+    // Fallback to approximated S&P 500 data based on historical trends
+    console.log('Using approximated S&P 500 data based on historical patterns');
+    
+    const startTime = new Date(startDate).getTime();
+    const endTime = new Date(endDate).getTime();
+    const monthlyData = [];
+    
+    // Start with approximate S&P 500 value from start date
+    let currentPrice = 3200; // Reasonable starting point for recent years
+    const monthlyGrowthBase = 1.0067; // ~8.3% annual growth historical average
+    
+    // Add realistic volatility patterns
+    const volatilityFactors = [0.95, 1.02, 0.97, 1.04, 0.98, 1.03, 0.96, 1.05, 0.99, 1.01, 0.94, 1.06];
+    let monthIndex = 0;
+    
+    for (let timestamp = startTime; timestamp < endTime; timestamp += 30.44 * 24 * 60 * 60 * 1000) {
+      const volatilityFactor = volatilityFactors[monthIndex % volatilityFactors.length];
+      const randomFactor = 0.95 + Math.random() * 0.10; // ±5% random variation
+      
+      currentPrice *= monthlyGrowthBase * volatilityFactor * randomFactor;
+      
+      monthlyData.push({
+        date: new Date(timestamp).toISOString().split('T')[0],
+        price: Math.round(currentPrice * 100) / 100,
+        timestamp: new Date(timestamp).toISOString()
+      });
+      
+      monthIndex++;
+    }
+    
+    console.log(`Generated ${monthlyData.length} approximated S&P 500 data points`);
+    
     return new Response(
       JSON.stringify({ 
-        data: data,
-        source: 'Yahoo Finance',
-        symbol: 'S&P 500 (^GSPC)'
+        data: monthlyData,
+        source: 'Historical Pattern Approximation',
+        symbol: 'S&P 500 (Estimated)',
+        warning: 'Using approximated data - consider adding Alpha Vantage API key for real data'
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -69,34 +114,10 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Error in fetch-sp500-data function:', error);
     
-    // Fallback to approximated data if Yahoo Finance fails
-    const { startDate, endDate } = await req.json();
-    const startTime = new Date(startDate).getTime();
-    const endTime = new Date(endDate).getTime();
-    const monthlyData = [];
-    
-    let currentPrice = 3000; // Starting approximation
-    const monthlyGrowth = 1.007; // ~8.4% annual growth
-    
-    for (let timestamp = startTime; timestamp < endTime; timestamp += 30 * 24 * 60 * 60 * 1000) {
-      currentPrice *= monthlyGrowth + (Math.random() - 0.5) * 0.05; // Add volatility
-      monthlyData.push({
-        date: new Date(timestamp).toISOString().split('T')[0],
-        price: currentPrice,
-        timestamp: new Date(timestamp).toISOString()
-      });
-    }
-    
-    console.log('Using fallback S&P 500 approximation data');
-    
     return new Response(
-      JSON.stringify({ 
-        data: monthlyData,
-        source: 'Fallback Approximation',
-        symbol: 'S&P 500 (Estimated)',
-        warning: 'Using approximated data due to Yahoo Finance error'
-      }),
+      JSON.stringify({ error: error.message }),
       { 
+        status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
