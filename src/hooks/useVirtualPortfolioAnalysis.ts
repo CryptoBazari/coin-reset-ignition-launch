@@ -138,12 +138,15 @@ export const useVirtualPortfolioAnalysis = () => {
       }, 0);
 
       // Get risk analysis
-      const riskAnalysis = riskManagementService.analyzeRisk(assets, liveCoinsData);
+      const riskAnalysis = riskManagementService.analyzeRisk(assets as VirtualAsset[], liveCoinsData);
       const rebalanceRecommendations = await getRebalanceRecommendations(riskAnalysis);
 
       // Get Bitcoin market timing from first analysis (all use Bitcoin AVIV)
       const bitcoinAvivRatio = assetAnalyses[0]?.analysis?.metrics?.bitcoinAvivRatio || 1.0;
-      const marketTiming = analyzeMarketTiming(bitcoinAvivRatio);
+      const marketTiming = {
+        bitcoinAvivRatio,
+        ...analyzeMarketTiming(bitcoinAvivRatio)
+      };
 
       const result: VirtualPortfolioAnalysisResult = {
         totalValue,

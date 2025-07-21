@@ -8,6 +8,7 @@ export interface CoinMarketCapCoin {
   current_price: number;
   market_cap: number;
   price_change_24h: number;
+  price_change_percentage_24h?: number;
   price_change_7d?: number;
   price_change_30d?: number;
   volume_24h?: number;
