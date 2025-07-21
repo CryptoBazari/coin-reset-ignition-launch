@@ -8,6 +8,13 @@ interface DataFreshnessCheck {
   coinId: string;
 }
 
+export interface InitializationResult {
+  coinId: string;
+  success: boolean;
+  dataPoints: number;
+  errors: string[];
+}
+
 class GlassnodeDataInitializer {
   private readonly supportedCoins = [
     'bitcoin', 'ethereum', 'solana', 'cardano', 'chainlink', 'avalanche'
@@ -118,13 +125,20 @@ class GlassnodeDataInitializer {
   /**
    * Initialize data for a single coin
    */
-  async initializeSingleCoin(coinInput: string): Promise<void> {
+  async initializeSingleCoin(coinInput: string): Promise<InitializationResult> {
     const coinId = this.mapSymbolToCoinId(coinInput);
+    const errors: string[] = [];
+    let dataPoints = 0;
     
     console.log(`🚀 Initializing data for: ${coinInput} → ${coinId}`);
     
     if (!this.supportedCoins.includes(coinId)) {
-      throw new Error(`Unsupported coin: ${coinInput} (${coinId}). Supported coins: ${this.supportedCoins.join(', ')}`);
+      return {
+        coinId,
+        success: false,
+        dataPoints: 0,
+        errors: [`Unsupported coin: ${coinInput} (${coinId}). Supported coins: ${this.supportedCoins.join(', ')}`]
+      };
     }
 
     try {
@@ -136,7 +150,9 @@ class GlassnodeDataInitializer {
 
       if (priceError) {
         console.error(`❌ Price history initialization failed for ${coinId}:`, priceError);
-        throw new Error(`Price history initialization failed: ${priceError.message}`);
+        errors.push(`Price history failed: ${priceError.message}`);
+      } else {
+        dataPoints += priceResult?.dataPointsStored || 0;
       }
 
       // Initialize cointime metrics
@@ -147,8 +163,10 @@ class GlassnodeDataInitializer {
 
       if (cointimeError) {
         console.error(`❌ Cointime metrics initialization failed for ${coinId}:`, cointimeError);
-        // Don't throw here as cointime metrics might not be available for all coins
+        errors.push(`Cointime metrics failed: ${cointimeError.message}`);
         console.warn(`⚠️ Cointime metrics not available for ${coinId}, continuing...`);
+      } else {
+        dataPoints += cointimeResult?.dataPointsStored || 0;
       }
 
       // Update coin metadata
@@ -164,34 +182,65 @@ class GlassnodeDataInitializer {
 
       if (updateError) {
         console.error(`❌ Failed to update coin metadata for ${coinId}:`, updateError);
+        errors.push(`Metadata update failed: ${updateError.message}`);
       }
 
       console.log(`✅ Successfully initialized data for ${coinId}`);
       
+      return {
+        coinId,
+        success: errors.length === 0,
+        dataPoints,
+        errors
+      };
+      
     } catch (error) {
       console.error(`❌ Failed to initialize data for ${coinId}:`, error);
-      throw error;
+      return {
+        coinId,
+        success: false,
+        dataPoints,
+        errors: [...errors, error.message]
+      };
     }
   }
 
   /**
    * Initialize data for all supported coins
    */
-  async initializeAllData(): Promise<void> {
+  async initializeAllCoins(): Promise<InitializationResult[]> {
     console.log('🚀 Initializing all Glassnode data...');
     
     const results = await Promise.allSettled(
       this.supportedCoins.map(coinId => this.initializeSingleCoin(coinId))
     );
 
-    const successful = results.filter(result => result.status === 'fulfilled').length;
-    const failed = results.filter(result => result.status === 'rejected').length;
+    const initResults: InitializationResult[] = results.map((result, index) => {
+      if (result.status === 'fulfilled') {
+        return result.value;
+      } else {
+        return {
+          coinId: this.supportedCoins[index],
+          success: false,
+          dataPoints: 0,
+          errors: [result.reason?.message || 'Unknown error']
+        };
+      }
+    });
+
+    const successful = initResults.filter(r => r.success).length;
+    const failed = initResults.filter(r => !r.success).length;
 
     console.log(`✅ Initialization complete: ${successful} successful, ${failed} failed`);
     
-    if (failed > 0) {
-      console.warn(`⚠️ Some coins failed to initialize. Check logs for details.`);
-    }
+    return initResults;
+  }
+
+  /**
+   * Initialize data for all supported coins (legacy method)
+   */
+  async initializeAllData(): Promise<void> {
+    await this.initializeAllCoins();
   }
 
   /**
