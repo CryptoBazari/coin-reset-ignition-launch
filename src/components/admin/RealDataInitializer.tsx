@@ -3,8 +3,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { realDataPipelineService } from '@/services/realDataPipelineService';
-import { PlayCircle, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
+import { PlayCircle, RefreshCw, CheckCircle, AlertCircle, Activity, BarChart3 } from 'lucide-react';
+import { DataQualityMonitor } from './DataQualityMonitor';
+import { RealDataSystemStatus } from './RealDataSystemStatus';
 
 export const RealDataInitializer: React.FC = () => {
   const [isInitializing, setIsInitializing] = useState(false);
@@ -85,158 +88,154 @@ export const RealDataInitializer: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <PlayCircle className="h-5 w-5" />
-            Real Data Pipeline Initializer
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-sm font-medium">Recalculate ALL Financial Metrics with Real Data</p>
-              <p className="text-xs text-muted-foreground">
-                Replaces ALL estimated values with real calculations: Beta (0.10→1.2-1.8), Volatility, CAGR, IRR, Sharpe Ratio using 36 months of actual price data and real risk-free rates.
-              </p>
-            </div>
-            <Button 
-              onClick={handleInitializeRealData}
-              disabled={isInitializing}
-              className="min-w-[120px]"
-            >
-              {isInitializing ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Initializing...
-                </>
-              ) : (
-                <>
-                  <PlayCircle className="h-4 w-4 mr-2" />
-                  Start Real Data
-                </>
+      <h1 className="text-3xl font-bold">Real Data Pipeline Control Center</h1>
+      
+      <Tabs defaultValue="initializer" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="initializer" className="flex items-center gap-2">
+            <PlayCircle className="h-4 w-4" />
+            Initialize Pipeline
+          </TabsTrigger>
+          <TabsTrigger value="monitor" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Quality Monitor
+          </TabsTrigger>
+          <TabsTrigger value="status" className="flex items-center gap-2">
+            <Activity className="h-4 w-4" />
+            System Status
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="initializer" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <PlayCircle className="h-5 w-5" />
+                Real Data Pipeline Initializer
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Recalculate ALL Financial Metrics with Real Data</p>
+                  <p className="text-xs text-muted-foreground">
+                    Replaces ALL estimated values with real calculations: Beta (0.10→1.2-1.8), Volatility, CAGR, IRR, Sharpe Ratio using 36 months of actual price data and real risk-free rates.
+                  </p>
+                </div>
+                <Button 
+                  onClick={handleInitializeRealData}
+                  disabled={isInitializing}
+                  className="min-w-[120px]"
+                >
+                  {isInitializing ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Initializing...
+                    </>
+                  ) : (
+                    <>
+                      <PlayCircle className="h-4 w-4 mr-2" />
+                      Start Real Data
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {status === 'running' && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Initializing real data pipeline...</span>
+                  </div>
+                  <Progress value={progress} className="w-full" />
+                </div>
               )}
-            </Button>
-          </div>
 
-          {status === 'running' && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <RefreshCw className="h-4 w-4 animate-spin" />
-                <span className="text-sm">Initializing real data pipeline...</span>
-              </div>
-              <Progress value={progress} className="w-full" />
-            </div>
+              {status !== 'idle' && (
+                <div className={`flex items-center gap-2 ${getStatusColor()}`}>
+                  {getStatusIcon()}
+                  <span className="text-sm font-medium">
+                    {status === 'running' && 'Processing real data...'}
+                    {status === 'completed' && 'Real data pipeline activated successfully!'}
+                    {status === 'error' && 'Failed to initialize real data pipeline'}
+                  </span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {dataQuality && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  Quick Overview
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleRefreshStatus}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Total Coins</p>
+                    <div className="text-2xl font-bold">{dataQuality.totalCoins}</div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Real Data</p>
+                    <div className="flex items-center gap-2">
+                      <div className="text-2xl font-bold text-green-600">
+                        {dataQuality.realDataCoins}
+                      </div>
+                      <Badge variant="secondary">
+                        {Math.round((dataQuality.realDataCoins / dataQuality.totalCoins) * 100)}%
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Estimated Data</p>
+                    <div className="flex items-center gap-2">
+                      <div className="text-2xl font-bold text-orange-600">
+                        {dataQuality.estimatedDataCoins}
+                      </div>
+                      <Badge variant="outline">
+                        {Math.round((dataQuality.estimatedDataCoins / dataQuality.totalCoins) * 100)}%
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Quality Score</p>
+                    <div className="flex items-center gap-2">
+                      <div className="text-2xl font-bold text-blue-600">
+                        {dataQuality.averageQuality}%
+                      </div>
+                      <Badge variant={dataQuality.averageQuality >= 70 ? 'default' : 'secondary'}>
+                        {dataQuality.averageQuality >= 80 ? 'Excellent' : 
+                         dataQuality.averageQuality >= 60 ? 'Good' : 'Poor'}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           )}
+        </TabsContent>
 
-          {status !== 'idle' && (
-            <div className={`flex items-center gap-2 ${getStatusColor()}`}>
-              {getStatusIcon()}
-              <span className="text-sm font-medium">
-                {status === 'running' && 'Processing real data...'}
-                {status === 'completed' && 'Real data pipeline activated successfully!'}
-                {status === 'error' && 'Failed to initialize real data pipeline'}
-              </span>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        <TabsContent value="monitor">
+          <DataQualityMonitor />
+        </TabsContent>
 
-      {dataQuality && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              Data Quality Status
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleRefreshStatus}
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Total Coins</p>
-                <div className="text-2xl font-bold">{dataQuality.totalCoins}</div>
-              </div>
-              
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Real Data</p>
-                <div className="flex items-center gap-2">
-                  <div className="text-2xl font-bold text-green-600">
-                    {dataQuality.realDataCoins}
-                  </div>
-                  <Badge variant="secondary">
-                    {Math.round((dataQuality.realDataCoins / dataQuality.totalCoins) * 100)}%
-                  </Badge>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Estimated Data</p>
-                <div className="flex items-center gap-2">
-                  <div className="text-2xl font-bold text-orange-600">
-                    {dataQuality.estimatedDataCoins}
-                  </div>
-                  <Badge variant="outline">
-                    {Math.round((dataQuality.estimatedDataCoins / dataQuality.totalCoins) * 100)}%
-                  </Badge>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <p className="text-sm font-medium">High Quality</p>
-                <div className="flex items-center gap-2">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {dataQuality.highQualityCoins}
-                  </div>
-                  <Badge variant={dataQuality.averageQuality >= 70 ? 'default' : 'secondary'}>
-                    {dataQuality.averageQuality}% avg
-                  </Badge>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 p-4 bg-muted rounded-lg">
-              <p className="text-sm font-medium mb-2">Enhanced Financial Metrics Status:</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1">
-                    <div className={`w-3 h-3 rounded-full ${dataQuality.realDataCoins > 0 ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                    <span>Beta: {dataQuality.realDataCoins > 0 ? '1.2-1.8 (realistic)' : '0.10 (incorrect)'}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className={`w-3 h-3 rounded-full ${dataQuality.realDataCoins > 0 ? 'bg-green-500' : 'bg-orange-500'}`}></div>
-                    <span>Volatility: {dataQuality.realDataCoins > 0 ? 'Real price movements' : 'Static estimates'}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className={`w-3 h-3 rounded-full ${dataQuality.realDataCoins > 0 ? 'bg-green-500' : 'bg-orange-500'}`}></div>
-                    <span>CAGR/IRR: {dataQuality.realDataCoins > 0 ? '36 months real data' : 'Estimated returns'}</span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1">
-                    <div className={`w-3 h-3 rounded-full ${dataQuality.averageQuality >= 70 ? 'bg-green-500' : 'bg-orange-500'}`}></div>
-                    <span>Sharpe Ratio: {dataQuality.averageQuality >= 70 ? 'Real risk-free rates' : 'Default values'}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className={`w-3 h-3 rounded-full ${dataQuality.realDataCoins > 0 ? 'bg-green-500' : 'bg-orange-500'}`}></div>
-                    <span>Risk Analysis: {dataQuality.realDataCoins > 0 ? 'Monte Carlo ready' : 'Basic calculations'}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className={`w-3 h-3 rounded-full ${dataQuality.realDataCoins >= dataQuality.estimatedDataCoins ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                    <span>Investment Analysis: {dataQuality.realDataCoins >= dataQuality.estimatedDataCoins ? 'Real projections' : 'Mock scenarios'}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        <TabsContent value="status">
+          <RealDataSystemStatus />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

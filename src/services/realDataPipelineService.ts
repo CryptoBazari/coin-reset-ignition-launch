@@ -412,6 +412,64 @@ class RealDataPipelineService {
     }
   }
 
+  async getCoinQualityDetails() {
+    try {
+      console.log('🔍 Fetching detailed coin quality information...');
+      
+      const { data: coins, error } = await supabase
+        .from('coins')
+        .select(`
+          coin_id,
+          name,
+          glass_node_data_quality,
+          beta_data_source,
+          beta_confidence,
+          last_glass_node_update,
+          api_status
+        `)
+        .order('glass_node_data_quality', { ascending: false });
+
+      if (error) throw error;
+
+      const coinDetails = coins?.map(coin => {
+        const issues = [];
+        
+        if (coin.beta_data_source === 'estimated') {
+          issues.push('Estimated beta');
+        }
+        
+        if (coin.beta_confidence === 'low') {
+          issues.push('Low confidence beta');
+        }
+        
+        if (coin.api_status === 'error') {
+          issues.push('API connection failed');
+        }
+        
+        if (!coin.last_glass_node_update) {
+          issues.push('No Glass Node data');
+        }
+
+        return {
+          coin_id: coin.coin_id,
+          name: coin.name,
+          dataQuality: coin.glass_node_data_quality || 0,
+          hasRealData: coin.beta_data_source === 'real',
+          lastUpdated: coin.last_glass_node_update || 'Never',
+          betaSource: coin.beta_data_source as 'real' | 'estimated',
+          priceHistoryDays: coin.beta_data_source === 'real' ? 1095 : 0, // 36 months for real data
+          issues
+        };
+      }) || [];
+
+      console.log(`✅ Retrieved quality details for ${coinDetails.length} coins`);
+      return coinDetails;
+    } catch (error) {
+      console.error('❌ Failed to get coin quality details:', error);
+      throw error;
+    }
+  }
+
   /**
    * Force update a specific coin with real data
    */
