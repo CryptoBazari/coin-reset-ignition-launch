@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Shield, Globe, AlertCircle, TrendingUp, Activity } from 'lucide-react';
+import { Shield, Globe, AlertCircle, TrendingUp, Activity, Bitcoin, Coins } from 'lucide-react';
 import type { DirectAnalysisResult } from '@/services/directApiAnalysisService';
 
 interface HybridAnalysisResultsProps {
@@ -11,34 +11,74 @@ interface HybridAnalysisResultsProps {
 
 export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({ result }) => {
   const isGlassNodeData = result.dataSource === 'glassnode';
+  const isBitcoin = result.isBitcoin;
   
   return (
     <div className="space-y-6">
-      {/* Data Source Header */}
+      {/* Analysis Type Header */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            {isGlassNodeData ? (
-              <Shield className="h-5 w-5 text-green-600" />
+            {isBitcoin ? (
+              <Bitcoin className="h-5 w-5 text-orange-600" />
             ) : (
-              <Globe className="h-5 w-5 text-blue-600" />
+              <Coins className="h-5 w-5 text-blue-600" />
             )}
-            Analysis Results: {result.name} ({result.symbol})
+            {isBitcoin ? 'Bitcoin Analysis' : 'Altcoin Analysis'}: {result.name} ({result.symbol})
             <Badge variant="outline" className={`${
-              isGlassNodeData 
-                ? 'bg-green-100 text-green-800' 
-                : 'bg-blue-100 text-blue-800'
+              isBitcoin 
+                ? 'bg-orange-100 text-orange-800' 
+                : isGlassNodeData 
+                  ? 'bg-green-100 text-green-800' 
+                  : 'bg-blue-100 text-blue-800'
             }`}>
-              {isGlassNodeData ? 'GLASSNODE DATA' : 'COINMARKETCAP DATA'}
+              {isBitcoin ? 'FULL COINTIME ANALYSIS' : isGlassNodeData ? 'GLASSNODE DATA' : 'COINMARKETCAP DATA'}
             </Badge>
           </CardTitle>
           <CardDescription>
-            {isGlassNodeData 
-              ? 'Comprehensive analysis using real Glassnode on-chain data'
-              : 'Basic analysis using CoinMarketCap price data (Glassnode unavailable)'
+            {isBitcoin 
+              ? 'Comprehensive Bitcoin analysis with cointime metrics (AVIV, Active Supply, etc.)'
+              : isGlassNodeData 
+                ? 'Standard financial analysis using real Glassnode data'
+                : 'Basic financial analysis using CoinMarketCap price data'
             }
           </CardDescription>
         </CardHeader>
+      </Card>
+
+      {/* Bitcoin Market Context - Always shown */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bitcoin className="h-5 w-5 text-orange-600" />
+            Bitcoin Market Context
+            <Badge variant="outline" className={`${
+              result.bitcoinMarketState.condition === 'bullish' ? 'bg-green-100 text-green-800' :
+              result.bitcoinMarketState.condition === 'bearish' ? 'bg-red-100 text-red-800' :
+              'bg-yellow-100 text-yellow-800'
+            }`}>
+              {result.bitcoinMarketState.condition.toUpperCase()}
+            </Badge>
+          </CardTitle>
+          <CardDescription>
+            Current Bitcoin market state affects all cryptocurrency investments
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="font-medium">Market State:</span>
+              <span className={`${
+                result.bitcoinMarketState.condition === 'bullish' ? 'text-green-700' :
+                result.bitcoinMarketState.condition === 'bearish' ? 'text-red-700' :
+                'text-yellow-700'
+              }`}>
+                {result.bitcoinMarketState.condition} ({result.bitcoinMarketState.confidence}% confidence)
+              </span>
+            </div>
+            <p className="text-sm text-gray-600">{result.bitcoinMarketState.summary}</p>
+          </div>
+        </CardContent>
       </Card>
 
       {/* Basic Market Data */}
@@ -78,65 +118,77 @@ export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({ re
         </CardContent>
       </Card>
 
-      {/* Glassnode Metrics (only if available) */}
-      {isGlassNodeData && result.glassNodeMetrics && (
+      {/* Bitcoin Cointime Metrics (only for Bitcoin) */}
+      {isBitcoin && result.cointimeMetrics && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-green-600" />
-              On-Chain Metrics
-              <Badge variant="outline" className="bg-green-100 text-green-800 text-xs">
-                REAL GLASSNODE DATA
+              <Activity className="h-5 w-5 text-orange-600" />
+              Bitcoin Cointime Metrics
+              <Badge variant="outline" className="bg-orange-100 text-orange-800 text-xs">
+                EXCLUSIVE TO BITCOIN
               </Badge>
             </CardTitle>
+            <CardDescription>
+              Advanced on-chain metrics available only for Bitcoin analysis
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="text-center p-3 bg-green-50 rounded-lg">
-                <div className="text-xl font-bold text-green-700">
-                  {result.glassNodeMetrics.avivRatio.toFixed(3)}
+              <div className="text-center p-3 bg-orange-50 rounded-lg">
+                <div className="text-xl font-bold text-orange-700">
+                  {result.cointimeMetrics.avivRatio.toFixed(3)}
                 </div>
-                <div className="text-sm text-green-600">AVIV Ratio</div>
+                <div className="text-sm text-orange-600">AVIV Ratio</div>
               </div>
               <div className="text-center p-3 bg-blue-50 rounded-lg">
                 <div className="text-xl font-bold text-blue-700">
-                  {result.glassNodeMetrics.activeSupply.toFixed(1)}%
+                  {result.cointimeMetrics.activeSupply.toFixed(1)}%
                 </div>
                 <div className="text-sm text-blue-600">Active Supply</div>
               </div>
               <div className="text-center p-3 bg-purple-50 rounded-lg">
                 <div className="text-xl font-bold text-purple-700">
-                  {result.glassNodeMetrics.vaultedSupply.toFixed(1)}%
+                  {result.cointimeMetrics.vaultedSupply.toFixed(1)}%
                 </div>
                 <div className="text-sm text-purple-600">Vaulted Supply</div>
               </div>
-              <div className="text-center p-3 bg-orange-50 rounded-lg">
-                <div className="text-xl font-bold text-orange-700">
-                  {result.glassNodeMetrics.realizedVolatility.toFixed(1)}%
+              <div className="text-center p-3 bg-green-50 rounded-lg">
+                <div className="text-xl font-bold text-green-700">
+                  {result.cointimeMetrics.cointimeDestroyed.toFixed(0)}
                 </div>
-                <div className="text-sm text-orange-600">Realized Volatility</div>
+                <div className="text-sm text-green-600">Cointime Destroyed</div>
               </div>
               <div className="text-center p-3 bg-red-50 rounded-lg">
                 <div className="text-xl font-bold text-red-700">
-                  {result.glassNodeMetrics.cagr36m.toFixed(1)}%
+                  ${result.cointimeMetrics.cointimePrice.toFixed(2)}
                 </div>
-                <div className="text-sm text-red-600">36M CAGR</div>
+                <div className="text-sm text-red-600">Cointime Price</div>
               </div>
               <div className="text-center p-3 bg-indigo-50 rounded-lg">
                 <div className="text-xl font-bold text-indigo-700">
-                  {result.glassNodeMetrics.onChainStrength.toFixed(1)}
+                  {(result.cointimeMetrics.liquidSupply / 1000000).toFixed(2)}M
                 </div>
-                <div className="text-sm text-indigo-600">On-Chain Strength</div>
+                <div className="text-sm text-indigo-600">Liquid Supply</div>
               </div>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Financial Metrics */}
+      {/* Financial Metrics (for all coins) */}
       <Card>
         <CardHeader>
-          <CardTitle>Financial Analysis</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5" />
+            Financial Analysis
+            <Badge variant="outline" className="bg-green-100 text-green-800 text-xs">
+              REAL DATA CALCULATIONS
+            </Badge>
+          </CardTitle>
+          <CardDescription>
+            Standard financial metrics calculated from {isGlassNodeData ? 'real Glassnode' : 'CoinMarketCap'} data
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -174,9 +226,9 @@ export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({ re
             </div>
             <div className="text-center p-3 bg-slate-50 rounded-lg">
               <div className="text-xl font-bold text-indigo-700">
-                {result.financialMetrics.sharpeRatio.toFixed(2)}
+                {result.financialMetrics.beta.toFixed(2)}
               </div>
-              <div className="text-sm text-gray-600">Sharpe Ratio</div>
+              <div className="text-sm text-gray-600">Beta</div>
             </div>
           </div>
         </CardContent>
@@ -185,7 +237,15 @@ export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({ re
       {/* Investment Recommendation */}
       <Card>
         <CardHeader>
-          <CardTitle>Investment Recommendation</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Investment Recommendation
+            {isBitcoin && (
+              <Badge variant="outline" className="bg-orange-100 text-orange-800 text-xs">
+                BITCOIN ENHANCED
+              </Badge>
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -202,7 +262,7 @@ export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({ re
                 {result.recommendation.confidence}% confidence
               </div>
               <Badge variant="outline" className="text-xs">
-                {isGlassNodeData ? 'High Quality Data' : 'Limited Data'}
+                {isBitcoin ? 'Cointime Enhanced' : isGlassNodeData ? 'Glassnode Data' : 'Limited Data'}
               </Badge>
             </div>
             
@@ -231,18 +291,23 @@ export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({ re
         </CardContent>
       </Card>
 
-      {/* Data Quality Notice */}
+      {/* Data Quality Information */}
       <Card className="border-gray-200">
         <CardContent className="pt-6">
           <div className="flex items-start gap-2">
             <AlertCircle className="h-4 w-4 text-gray-600 mt-0.5" />
             <div className="text-xs text-gray-600">
-              <p className="font-medium">Data Quality Information:</p>
-              <p>• Analysis updated: {new Date(result.lastUpdated).toLocaleString()}</p>
-              <p>• Data source: {result.dataSource === 'glassnode' ? 'Glassnode API + CoinMarketCap' : 'CoinMarketCap API only'}</p>
-              <p>• Real-time data: {result.hasRealData ? 'Yes' : 'Limited'}</p>
-              {!isGlassNodeData && (
-                <p>• Note: For comprehensive analysis, select a Glassnode-supported cryptocurrency</p>
+              <p className="font-medium">Analysis Quality Information:</p>
+              <p>• Analysis type: {isBitcoin ? 'Bitcoin with cointime metrics' : 'Altcoin standard financial analysis'}</p>
+              <p>• Data quality score: {result.dataQuality.score}%</p>
+              <p>• Data source: {result.dataQuality.source}</p>
+              <p>• Freshness: {result.dataQuality.freshness}</p>
+              <p>• Last updated: {new Date(result.lastUpdated).toLocaleString()}</p>
+              {isBitcoin && (
+                <p>• Bitcoin gets exclusive cointime metrics (AVIV, Active Supply, etc.)</p>
+              )}
+              {!isBitcoin && (
+                <p>• Altcoins use standard financial metrics (NPV, CAGR, IRR, ROI, Beta)</p>
               )}
             </div>
           </div>

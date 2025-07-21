@@ -2,30 +2,24 @@
 import { fetchGlassNodeMetric, GLASS_NODE_METRICS } from '@/services/glassNodeService';
 import { fetchCoinPrices, CoinMarketCapCoin } from '@/services/coinMarketCapService';
 import { symbolMappingService } from '@/services/symbolMappingService';
+import { bitcoinAnalysisService } from '@/services/bitcoinAnalysisService';
+import { realDataFinancialCalculations } from '@/services/realDataFinancialCalculations';
+import { bitcoinMarketAnalyzer } from '@/services/bitcoinMarketAnalyzer';
 
 export interface DirectAnalysisResult {
   coinId: string;
   symbol: string;
   name: string;
+  isBitcoin: boolean;
   dataSource: 'glassnode' | 'coinmarketcap';
   hasRealData: boolean;
   
-  // Basic metrics (available from both sources)
+  // Basic market data (available for all coins)
   currentPrice: number;
   priceChange24h: number;
   marketCap: number;
   
-  // Glassnode-specific metrics (only when available)
-  glassNodeMetrics?: {
-    avivRatio: number;
-    activeSupply: number;
-    vaultedSupply: number;
-    realizedVolatility: number;
-    cagr36m: number;
-    onChainStrength: number;
-  };
-  
-  // Financial calculations
+  // Standard financial metrics (for all coins)
   financialMetrics: {
     npv: number;
     irr: number;
@@ -36,12 +30,36 @@ export interface DirectAnalysisResult {
     sharpeRatio: number;
   };
   
+  // Bitcoin-specific cointime metrics (only for Bitcoin)
+  cointimeMetrics?: {
+    avivRatio: number;
+    activeSupply: number;
+    vaultedSupply: number;
+    cointimeDestroyed: number;
+    cointimePrice: number;
+    liquidSupply: number;
+  };
+  
+  // Bitcoin market context (shown for all analyses)
+  bitcoinMarketState: {
+    condition: 'bullish' | 'bearish' | 'neutral';
+    confidence: number;
+    summary: string;
+  };
+  
   // Investment recommendation
   recommendation: {
     action: 'Buy' | 'Hold' | 'Sell' | 'Not Recommended';
     confidence: number;
     reasoning: string[];
     riskWarnings: string[];
+  };
+  
+  // Data quality indicators
+  dataQuality: {
+    score: number;
+    source: string;
+    freshness: string;
   };
   
   lastUpdated: string;
@@ -55,31 +73,104 @@ export class DirectApiAnalysisService {
     investmentAmount: number,
     timeHorizon: number
   ): Promise<DirectAnalysisResult> {
-    console.log(`🔄 Starting direct API analysis for ${symbol} (${coinId})`);
+    console.log(`🔄 Starting differentiated analysis for ${symbol} (${coinId})`);
     
+    const isBitcoin = this.isBitcoinSymbol(symbol);
+    
+    // Always get Bitcoin market state for context
+    const bitcoinMarketState = await bitcoinMarketAnalyzer.getBitcoinMarketState();
+    
+    if (isBitcoin) {
+      console.log('🟠 Detected Bitcoin - using full cointime analysis');
+      return this.analyzeBitcoinWithCointime(coinId, symbol, investmentAmount, timeHorizon, bitcoinMarketState);
+    } else {
+      console.log('🔵 Detected altcoin - using standard financial analysis');
+      return this.analyzeAltcoinStandard(coinId, symbol, investmentAmount, timeHorizon, bitcoinMarketState);
+    }
+  }
+  
+  private async analyzeBitcoinWithCointime(
+    coinId: string,
+    symbol: string,
+    investmentAmount: number,
+    timeHorizon: number,
+    bitcoinMarketState: any
+  ): Promise<DirectAnalysisResult> {
+    try {
+      // Get current Bitcoin price
+      const coinPrices = await fetchCoinPrices([symbol]);
+      const coinPrice = coinPrices[0];
+      
+      if (!coinPrice) {
+        throw new Error(`Unable to fetch Bitcoin price`);
+      }
+      
+      // Use Bitcoin analysis service for comprehensive analysis
+      const bitcoinAnalysis = await bitcoinAnalysisService.analyzeBitcoinInvestment(
+        investmentAmount,
+        timeHorizon
+      );
+      
+      console.log('✅ Bitcoin analysis completed with full cointime metrics');
+      
+      return {
+        coinId,
+        symbol,
+        name: coinPrice.name,
+        isBitcoin: true,
+        dataSource: 'glassnode',
+        hasRealData: true,
+        currentPrice: coinPrice.current_price,
+        priceChange24h: coinPrice.price_change_percentage_24h || 0,
+        marketCap: coinPrice.market_cap,
+        financialMetrics: bitcoinAnalysis.financialMetrics,
+        cointimeMetrics: bitcoinAnalysis.cointimeMetrics,
+        bitcoinMarketState: {
+          condition: bitcoinMarketState.condition,
+          confidence: bitcoinMarketState.confidence,
+          summary: bitcoinMarketState.summary
+        },
+        recommendation: bitcoinAnalysis.recommendation,
+        dataQuality: bitcoinAnalysis.dataQuality,
+        lastUpdated: new Date().toISOString()
+      };
+      
+    } catch (error) {
+      console.error(`❌ Bitcoin analysis failed:`, error);
+      throw error;
+    }
+  }
+  
+  private async analyzeAltcoinStandard(
+    coinId: string,
+    symbol: string,
+    investmentAmount: number,
+    timeHorizon: number,
+    bitcoinMarketState: any
+  ): Promise<DirectAnalysisResult> {
     const mapping = symbolMappingService.getMapping(coinId);
     const glassNodeAsset = mapping?.glassNodeAsset;
     
     let result: DirectAnalysisResult;
     
     if (glassNodeAsset && mapping?.glassNodeSupported) {
-      console.log(`✅ Using Glassnode data for ${symbol}`);
-      result = await this.analyzeWithGlassNode(coinId, symbol, glassNodeAsset, investmentAmount, timeHorizon);
+      console.log(`✅ Using Glassnode data for ${symbol} (no cointime metrics)`);
+      result = await this.analyzeAltcoinWithGlassNode(coinId, symbol, glassNodeAsset, investmentAmount, timeHorizon, bitcoinMarketState);
     } else {
-      console.log(`⚠️ Using CoinMarketCap data for ${symbol} (Glassnode not supported)`);
-      result = await this.analyzeWithCoinMarketCap(coinId, symbol, investmentAmount, timeHorizon);
+      console.log(`⚠️ Using CoinMarketCap data for ${symbol}`);
+      result = await this.analyzeAltcoinWithCoinMarketCap(coinId, symbol, investmentAmount, timeHorizon, bitcoinMarketState);
     }
     
-    console.log(`📊 Analysis completed for ${symbol}:`, result);
     return result;
   }
   
-  private async analyzeWithGlassNode(
+  private async analyzeAltcoinWithGlassNode(
     coinId: string,
     symbol: string,
     glassNodeAsset: string,
     investmentAmount: number,
-    timeHorizon: number
+    timeHorizon: number,
+    bitcoinMarketState: any
   ): Promise<DirectAnalysisResult> {
     try {
       // Get current price from CoinMarketCap
@@ -90,92 +181,70 @@ export class DirectApiAnalysisService {
         throw new Error(`Unable to fetch price for ${symbol}`);
       }
       
-      // Fetch Glassnode metrics
-      const since = new Date(Date.now() - 36 * 30 * 24 * 60 * 60 * 1000); // 36 months
-      
-      const [
-        priceData,
-        liquidSupplyData,
-        illiquidSupplyData,
-        avivData,
-        volatilityData,
-        activeAddressData
-      ] = await Promise.all([
-        fetchGlassNodeMetric(GLASS_NODE_METRICS.PRICE_USD, glassNodeAsset, since),
-        fetchGlassNodeMetric(GLASS_NODE_METRICS.LIQUID_SUPPLY, glassNodeAsset, since),
-        fetchGlassNodeMetric(GLASS_NODE_METRICS.ILLIQUID_SUPPLY, glassNodeAsset, since),
-        fetchGlassNodeMetric(GLASS_NODE_METRICS.AVIV_RATIO, glassNodeAsset, since),
-        fetchGlassNodeMetric(GLASS_NODE_METRICS.REALIZED_VOLATILITY, glassNodeAsset, since),
-        fetchGlassNodeMetric(GLASS_NODE_METRICS.ACTIVE_ADDRESSES, glassNodeAsset, since)
-      ]);
-      
-      // Calculate metrics from real data
-      const currentPrice = coinPrice.current_price;
-      const cagr36m = this.calculateCAGR(priceData, 36);
-      const realizedVolatility = this.getLatestValue(volatilityData) || 60;
-      const avivRatio = this.getLatestValue(avivData) || 1.0;
-      
-      const { activeSupply, vaultedSupply } = this.calculateSupplyMetrics(
-        liquidSupplyData,
-        illiquidSupplyData
-      );
-      
-      const onChainStrength = this.calculateOnChainStrength(
-        activeAddressData,
-        liquidSupplyData,
-        priceData
-      );
-      
-      // Financial calculations
-      const financialMetrics = this.calculateFinancialMetrics(
-        currentPrice,
-        cagr36m,
-        realizedVolatility,
+      // Calculate financial metrics using real Glassnode data
+      const financialMetrics = await realDataFinancialCalculations.calculateRealMetrics(
+        coinId,
+        symbol,
         investmentAmount,
-        timeHorizon
+        timeHorizon,
+        true
       );
       
-      // Generate recommendation
-      const recommendation = this.generateRecommendation(
+      // Generate altcoin recommendation (no cointime metrics)
+      const recommendation = this.generateAltcoinRecommendation(
         financialMetrics,
-        { avivRatio, activeSupply, vaultedSupply, onChainStrength },
-        realizedVolatility
+        bitcoinMarketState,
+        coinPrice.market_cap
       );
+      
+      console.log(`✅ Altcoin analysis completed with Glassnode data for ${symbol}`);
       
       return {
         coinId,
         symbol,
         name: coinPrice.name,
+        isBitcoin: false,
         dataSource: 'glassnode',
         hasRealData: true,
-        currentPrice,
+        currentPrice: coinPrice.current_price,
         priceChange24h: coinPrice.price_change_percentage_24h || 0,
         marketCap: coinPrice.market_cap,
-        glassNodeMetrics: {
-          avivRatio,
-          activeSupply,
-          vaultedSupply,
-          realizedVolatility,
-          cagr36m,
-          onChainStrength
+        financialMetrics: {
+          npv: financialMetrics.npv,
+          irr: financialMetrics.irr,
+          cagr: financialMetrics.cagr,
+          roi: financialMetrics.roi,
+          volatility: financialMetrics.volatility,
+          beta: financialMetrics.beta,
+          sharpeRatio: financialMetrics.sharpeRatio
         },
-        financialMetrics,
+        bitcoinMarketState: {
+          condition: bitcoinMarketState.condition,
+          confidence: bitcoinMarketState.confidence,
+          summary: bitcoinMarketState.summary
+        },
         recommendation,
+        dataQuality: {
+          score: financialMetrics.confidenceScore,
+          source: 'Glassnode + CoinMarketCap',
+          freshness: 'Real-time'
+        },
         lastUpdated: new Date().toISOString()
       };
       
     } catch (error) {
-      console.error(`❌ Glassnode analysis failed for ${symbol}:`, error);
+      console.error(`❌ Glassnode altcoin analysis failed for ${symbol}:`, error);
       // Fallback to CoinMarketCap
-      return this.analyzeWithCoinMarketCap(coinId, symbol, investmentAmount, timeHorizon);
+      return this.analyzeAltcoinWithCoinMarketCap(coinId, symbol, investmentAmount, timeHorizon, bitcoinMarketState);
     }
   }
   
-  private async analyzeWithCoinMarketCap(
+  private async analyzeAltcoinWithCoinMarketCap(
     coinId: string,
     symbol: string,
     investmentAmount: number,
-    timeHorizon: number
+    timeHorizon: number,
+    bitcoinMarketState: any
   ): Promise<DirectAnalysisResult> {
     try {
       const coinPrices = await fetchCoinPrices([symbol]);
@@ -185,222 +254,123 @@ export class DirectApiAnalysisService {
         throw new Error(`Unable to fetch price for ${symbol}`);
       }
       
-      const currentPrice = coinPrice.current_price;
-      const priceChange24h = coinPrice.price_change_percentage_24h || 0;
-      
-      // Use available price changes to estimate metrics
-      const estimatedCAGR = this.estimateCAGRFromPriceChanges(coinPrice);
-      const estimatedVolatility = this.estimateVolatilityFromPriceChanges(coinPrice);
-      
-      // Basic financial calculations
-      const financialMetrics = this.calculateFinancialMetrics(
-        currentPrice,
-        estimatedCAGR,
-        estimatedVolatility,
+      // Calculate financial metrics using CoinMarketCap data
+      const financialMetrics = await realDataFinancialCalculations.calculateRealMetrics(
+        coinId,
+        symbol,
         investmentAmount,
-        timeHorizon
+        timeHorizon,
+        false
       );
       
-      // Conservative recommendation for non-Glassnode coins
-      const recommendation = this.generateBasicRecommendation(
+      // Generate conservative altcoin recommendation
+      const recommendation = this.generateAltcoinRecommendation(
         financialMetrics,
-        estimatedVolatility,
+        bitcoinMarketState,
         coinPrice.market_cap
       );
+      
+      console.log(`⚠️ Altcoin analysis completed with CoinMarketCap data for ${symbol}`);
       
       return {
         coinId,
         symbol,
         name: coinPrice.name,
+        isBitcoin: false,
         dataSource: 'coinmarketcap',
         hasRealData: false,
-        currentPrice,
-        priceChange24h,
+        currentPrice: coinPrice.current_price,
+        priceChange24h: coinPrice.price_change_percentage_24h || 0,
         marketCap: coinPrice.market_cap,
-        financialMetrics,
+        financialMetrics: {
+          npv: financialMetrics.npv,
+          irr: financialMetrics.irr,
+          cagr: financialMetrics.cagr,
+          roi: financialMetrics.roi,
+          volatility: financialMetrics.volatility,
+          beta: financialMetrics.beta,
+          sharpeRatio: financialMetrics.sharpeRatio
+        },
+        bitcoinMarketState: {
+          condition: bitcoinMarketState.condition,
+          confidence: bitcoinMarketState.confidence,
+          summary: bitcoinMarketState.summary
+        },
         recommendation,
+        dataQuality: {
+          score: financialMetrics.confidenceScore,
+          source: 'CoinMarketCap only',
+          freshness: 'Real-time'
+        },
         lastUpdated: new Date().toISOString()
       };
       
     } catch (error) {
-      console.error(`❌ CoinMarketCap analysis failed for ${symbol}:`, error);
+      console.error(`❌ CoinMarketCap altcoin analysis failed for ${symbol}:`, error);
       throw error;
     }
   }
   
-  private getLatestValue(data: Array<{ value: number }>): number | null {
-    return data.length > 0 ? data[data.length - 1].value : null;
-  }
-  
-  private calculateCAGR(priceData: Array<{ value: number }>, months: number): number {
-    if (priceData.length < 2) return 0;
-    
-    const startPrice = priceData[0].value;
-    const endPrice = priceData[priceData.length - 1].value;
-    const years = months / 12;
-    
-    return (Math.pow(endPrice / startPrice, 1/years) - 1) * 100;
-  }
-  
-  private calculateSupplyMetrics(
-    liquidSupplyData: Array<{ value: number }>,
-    illiquidSupplyData: Array<{ value: number }>
-  ): { activeSupply: number; vaultedSupply: number } {
-    const latestLiquid = this.getLatestValue(liquidSupplyData) || 0;
-    const latestIlliquid = this.getLatestValue(illiquidSupplyData) || 0;
-    const total = latestLiquid + latestIlliquid;
-    
-    return {
-      activeSupply: total > 0 ? (latestLiquid / total) * 100 : 50,
-      vaultedSupply: total > 0 ? (latestIlliquid / total) * 100 : 50
-    };
-  }
-  
-  private calculateOnChainStrength(
-    activeAddressData: Array<{ value: number }>,
-    liquidSupplyData: Array<{ value: number }>,
-    priceData: Array<{ value: number }>
-  ): number {
-    const activeAddresses = this.getLatestValue(activeAddressData) || 0;
-    const liquidSupply = this.getLatestValue(liquidSupplyData) || 0;
-    const price = this.getLatestValue(priceData) || 0;
-    
-    // Simple on-chain strength calculation
-    const networkValue = activeAddresses * Math.log(liquidSupply + 1) * Math.log(price + 1);
-    return Math.min(100, Math.max(0, networkValue / 10000));
-  }
-  
-  private calculateFinancialMetrics(
-    currentPrice: number,
-    cagr: number,
-    volatility: number,
-    investmentAmount: number,
-    timeHorizon: number
-  ) {
-    const expectedReturn = cagr / 100;
-    const riskFreeRate = 0.05; // 5% risk-free rate
-    const beta = Math.min(2.0, Math.max(0.5, volatility / 50)); // Estimate beta from volatility
-    
-    // Calculate future value
-    const futureValue = investmentAmount * Math.pow(1 + expectedReturn, timeHorizon);
-    
-    // NPV calculation
-    const npv = futureValue - investmentAmount;
-    
-    // IRR approximation
-    const irr = Math.pow(futureValue / investmentAmount, 1/timeHorizon) - 1;
-    
-    // ROI
-    const roi = (futureValue - investmentAmount) / investmentAmount * 100;
-    
-    // Sharpe ratio
-    const sharpeRatio = (expectedReturn - riskFreeRate) / (volatility / 100);
-    
-    return {
-      npv,
-      irr: irr * 100,
-      cagr,
-      roi,
-      volatility,
-      beta,
-      sharpeRatio
-    };
-  }
-  
-  private generateRecommendation(
+  private generateAltcoinRecommendation(
     financialMetrics: any,
-    glassNodeMetrics: any,
-    volatility: number
-  ) {
-    const reasoning: string[] = [];
-    const riskWarnings: string[] = [];
-    
-    let action: 'Buy' | 'Hold' | 'Sell' | 'Not Recommended' = 'Hold';
-    let confidence = 50;
-    
-    // Positive signals
-    if (financialMetrics.npv > 0) {
-      reasoning.push('Positive NPV indicates good investment potential');
-      confidence += 10;
-    }
-    
-    if (financialMetrics.cagr > 20) {
-      reasoning.push('Strong historical returns (CAGR > 20%)');
-      confidence += 15;
-      action = 'Buy';
-    }
-    
-    if (glassNodeMetrics.avivRatio > 1.2) {
-      reasoning.push('Strong AVIV ratio indicates healthy on-chain activity');
-      confidence += 10;
-    }
-    
-    if (glassNodeMetrics.vaultedSupply > 60) {
-      reasoning.push('High vaulted supply suggests strong HODLing behavior');
-      confidence += 10;
-    }
-    
-    // Risk warnings
-    if (volatility > 80) {
-      riskWarnings.push('High volatility - expect significant price swings');
-      confidence -= 10;
-    }
-    
-    if (financialMetrics.beta > 1.5) {
-      riskWarnings.push('High beta - more volatile than market average');
-      confidence -= 5;
-    }
-    
-    if (financialMetrics.npv < 0) {
-      riskWarnings.push('Negative NPV - investment may not meet return expectations');
-      action = 'Not Recommended';
-      confidence = Math.max(20, confidence - 20);
-    }
-    
-    confidence = Math.min(95, Math.max(20, confidence));
-    
-    return {
-      action,
-      confidence,
-      reasoning,
-      riskWarnings
-    };
-  }
-  
-  private generateBasicRecommendation(
-    financialMetrics: any,
-    volatility: number,
+    bitcoinMarketState: any,
     marketCap: number
   ) {
     const reasoning: string[] = [];
     const riskWarnings: string[] = [];
     
     let action: 'Buy' | 'Hold' | 'Sell' | 'Not Recommended' = 'Hold';
-    let confidence = 40; // Lower confidence for basic analysis
+    let confidence = 40; // Lower base confidence for altcoins
     
-    reasoning.push('Analysis based on limited price data (Glassnode unavailable)');
-    
+    // Financial metrics analysis
     if (financialMetrics.npv > 0) {
-      reasoning.push('Positive NPV based on price history');
+      reasoning.push(`Positive NPV of $${financialMetrics.npv.toLocaleString()} indicates investment potential`);
       confidence += 10;
     }
     
-    if (marketCap > 1000000000) { // > $1B market cap
-      reasoning.push('Large market cap provides some stability');
+    if (financialMetrics.cagr > 20) {
+      reasoning.push(`Strong historical performance with ${financialMetrics.cagr.toFixed(1)}% CAGR`);
+      confidence += 15;
+      if (action === 'Hold') action = 'Buy';
+    }
+    
+    // Market cap considerations
+    if (marketCap > 1000000000) {
+      reasoning.push(`Large market cap ($${(marketCap / 1000000000).toFixed(1)}B) provides some stability`);
       confidence += 10;
+    } else if (marketCap < 100000000) {
+      riskWarnings.push(`Small market cap ($${(marketCap / 1000000).toFixed(1)}M) - high volatility risk`);
+      confidence -= 10;
     }
     
-    // Conservative warnings
-    riskWarnings.push('Limited on-chain data available for analysis');
-    riskWarnings.push('Recommendation based on price action only');
-    
-    if (volatility > 70) {
-      riskWarnings.push('High estimated volatility');
-      action = 'Not Recommended';
-      confidence = Math.max(20, confidence - 15);
+    // Bitcoin market context
+    if (bitcoinMarketState.condition === 'bullish') {
+      reasoning.push(`Bitcoin bullish trend supports altcoin investment timing`);
+      confidence += 8;
+    } else if (bitcoinMarketState.condition === 'bearish') {
+      riskWarnings.push(`Bitcoin bearish trend may negatively impact altcoin performance`);
+      confidence -= 8;
+      if (action === 'Buy') action = 'Hold';
     }
     
-    confidence = Math.min(75, Math.max(20, confidence)); // Cap at 75% for basic analysis
+    // Risk warnings
+    if (financialMetrics.volatility > 80) {
+      riskWarnings.push(`High volatility (${financialMetrics.volatility.toFixed(1)}%) - significant price swings expected`);
+      confidence -= 10;
+    }
+    
+    if (financialMetrics.beta > 1.5) {
+      riskWarnings.push(`High beta (${financialMetrics.beta.toFixed(2)}) - more volatile than market average`);
+      confidence -= 5;
+    }
+    
+    // Data source warning
+    if (financialMetrics.dataSource === 'coinmarketcap') {
+      riskWarnings.push(`Limited on-chain data available - analysis based on price action only`);
+      confidence -= 5;
+    }
+    
+    confidence = Math.min(85, Math.max(20, confidence)); // Cap altcoin confidence lower than Bitcoin
     
     return {
       action,
@@ -410,29 +380,9 @@ export class DirectApiAnalysisService {
     };
   }
   
-  private estimateCAGRFromPriceChanges(coinPrice: CoinMarketCapCoin): number {
-    const change24h = coinPrice.price_change_percentage_24h || 0;
-    const change7d = coinPrice.price_change_7d || 0;
-    const change30d = coinPrice.price_change_30d || 0;
-    
-    // Simple annualized estimate
-    if (change30d !== 0) {
-      return (change30d / 30) * 365;
-    } else if (change7d !== 0) {
-      return (change7d / 7) * 365;
-    } else {
-      return change24h * 365;
-    }
-  }
-  
-  private estimateVolatilityFromPriceChanges(coinPrice: CoinMarketCapCoin): number {
-    const change24h = Math.abs(coinPrice.price_change_percentage_24h || 0);
-    const change7d = Math.abs(coinPrice.price_change_7d || 0);
-    const change30d = Math.abs(coinPrice.price_change_30d || 0);
-    
-    // Estimate volatility from price changes
-    const avgChange = (change24h + change7d + change30d) / 3;
-    return Math.max(30, Math.min(150, avgChange * 5)); // Scale and bound
+  private isBitcoinSymbol(symbol: string): boolean {
+    const btcSymbols = ['BTC', 'BITCOIN', 'bitcoin', 'btc'];
+    return btcSymbols.includes(symbol.toUpperCase()) || btcSymbols.includes(symbol.toLowerCase());
   }
 }
 
