@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Newspaper, BookOpen, Coins, Users, CreditCard, TrendingUp } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import ApiStatusMonitor from '@/components/admin/ApiStatusMonitor';
+import { RealDataInitializer } from '@/components/admin/RealDataInitializer';
 
 interface DashboardStats {
   totalNews: number;
@@ -178,6 +179,8 @@ const AdminDashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        <RealDataInitializer />
       </div>
     </AdminLayout>
   );
