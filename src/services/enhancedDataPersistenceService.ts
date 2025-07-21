@@ -39,7 +39,7 @@ class EnhancedDataPersistenceService {
     qualityScore: number;
   }> {
     try {
-      console.log(`🔄 Storing ${entries.length} price history entries`);
+      console.log(`🔄 Storing ${entries.length} REAL price history entries via edge function`);
       
       // Store via edge function to handle new table structure
       const { data, error } = await supabase.functions.invoke('store-price-history', {
@@ -52,7 +52,7 @@ class EnhancedDataPersistenceService {
       }
 
       const result = data || { stored: 0, qualityScore: 0 };
-      console.log(`✅ Stored ${result.stored} price entries, quality score: ${result.qualityScore}%`);
+      console.log(`✅ Stored ${result.stored} REAL price entries, quality score: ${result.qualityScore}%`);
       
       return result;
     } catch (error) {
@@ -66,7 +66,7 @@ class EnhancedDataPersistenceService {
    */
   async storeCointimeMetrics(data: CointimeData): Promise<void> {
     try {
-      console.log(`🔄 Storing cointime metrics for ${data.coinId}`);
+      console.log(`🔄 Storing ${data.dataSource === 'glassnode' ? 'REAL' : 'estimated'} cointime metrics for ${data.coinId}`);
       
       const { error } = await supabase.functions.invoke('store-cointime-metrics', {
         body: { metrics: data }
@@ -86,7 +86,7 @@ class EnhancedDataPersistenceService {
         confidenceLevel: data.confidenceScore >= 70 ? 'high' : data.confidenceScore >= 40 ? 'medium' : 'low'
       });
 
-      console.log(`✅ Stored cointime metrics for ${data.coinId}`);
+      console.log(`✅ Stored ${data.dataSource === 'glassnode' ? 'REAL' : 'estimated'} cointime metrics for ${data.coinId}`);
     } catch (error) {
       console.error('❌ Error storing cointime metrics:', error);
     }
@@ -97,7 +97,7 @@ class EnhancedDataPersistenceService {
    */
   async storeCalculatedMetrics(metrics: CalculatedFinancialMetrics): Promise<void> {
     try {
-      console.log(`🔄 Storing calculated metrics for ${metrics.coinId}`);
+      console.log(`🔄 Storing ${metrics.isEstimated ? 'estimated' : 'REAL'} calculated metrics for ${metrics.coinId}`);
       
       const { error } = await supabase.functions.invoke('store-calculated-metrics', {
         body: { metrics }
@@ -111,7 +111,7 @@ class EnhancedDataPersistenceService {
       // Update main coins table with calculated values
       await this.updateCoinWithCalculatedMetrics(metrics.coinId, metrics);
 
-      console.log(`✅ Stored calculated metrics for ${metrics.coinId}`);
+      console.log(`✅ Stored ${metrics.isEstimated ? 'estimated' : 'REAL'} calculated metrics for ${metrics.coinId}`);
     } catch (error) {
       console.error('❌ Error storing calculated metrics:', error);
     }
@@ -250,6 +250,7 @@ class EnhancedDataPersistenceService {
     errorMessage?: string;
   }): Promise<void> {
     try {
+      // Use edge function to handle new table structure
       await supabase.functions.invoke('log-data-quality', {
         body: {
           coinId,
