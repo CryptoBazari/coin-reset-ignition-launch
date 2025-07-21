@@ -1,19 +1,19 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Navbar from '@/components/Navbar';
 import { EnhancedInvestmentForm } from '@/components/EnhancedInvestmentForm';
-import { EnhancedAnalysisResults } from '@/components/EnhancedAnalysisResults';
 import { RealDataStatus } from '@/components/analysis/RealDataStatus';
 import SubscriptionButton from '@/components/subscription/SubscriptionButton';
 import MarketOverview from '@/components/analysis/MarketOverview';
 import AssetLiveData from '@/components/analysis/AssetLiveData';
 import GlassNodeDashboard from '@/components/analysis/GlassNodeDashboard';
 import { useSubscription } from '@/hooks/useSubscription';
-import { useEnhancedInvestmentAnalysis } from '@/hooks/useEnhancedInvestmentAnalysis';
-import { Lock, BarChart3, Globe, TrendingUp, Calculator, Activity } from 'lucide-react';
 import { useRealInvestmentAnalysis } from '@/hooks/useRealInvestmentAnalysis';
+import { useRealDataPopulation } from '@/hooks/useRealDataPopulation';
+import { Lock, BarChart3, Globe, TrendingUp, Calculator, Activity } from 'lucide-react';
 import type { InvestmentInputs } from '@/types/investment';
 import type { CoinData } from '@/services/realTimeMarketService';
 
@@ -21,8 +21,19 @@ const CryptoAnalysis = () => {
   const [realAnalysisResult, setRealAnalysisResult] = useState(null);
   const [selectedCoin, setSelectedCoin] = useState<CoinData | null>(null);
   const [selectedCoinSymbol, setSelectedCoinSymbol] = useState<string>('BTC');
+  const [dataStatus, setDataStatus] = useState<any>(null);
+  
   const { hasActiveSubscription, user } = useSubscription();
   const { analyzeInvestment, loading, error } = useRealInvestmentAnalysis();
+  const { checkDataStatus } = useRealDataPopulation();
+
+  useEffect(() => {
+    const loadDataStatus = async () => {
+      const status = await checkDataStatus();
+      setDataStatus(status);
+    };
+    loadDataStatus();
+  }, [checkDataStatus]);
 
   const handleRealAnalysis = async (inputs: InvestmentInputs) => {
     console.log('🚀 Starting REAL Glass Node analysis (no more mock data!)');
@@ -59,10 +70,10 @@ const CryptoAnalysis = () => {
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm font-semibold mr-2">
-              REAL DATA
+              {dataStatus?.isPopulated ? 'REAL DATA ACTIVE' : 'INITIALIZING'}
             </span>
             Make informed investment decisions with REAL Glass Node data, Monte Carlo projections, 
-            and calculated volatility. No more mock data - everything is live and accurate.
+            and calculated volatility. {dataStatus?.isPopulated ? 'All calculations use live database data.' : 'Initialize data to start using real calculations.'}
           </p>
         </div>
 
@@ -98,7 +109,7 @@ const CryptoAnalysis = () => {
               </CardContent>
             </Card>
           ) : (
-            <Tabs defaultValue="overview" className="space-y-6">
+            <Tabs defaultValue="analysis" className="space-y-6">
               <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="overview" className="gap-2">
                   <Globe className="h-4 w-4" />
@@ -114,8 +125,10 @@ const CryptoAnalysis = () => {
                 </TabsTrigger>
                 <TabsTrigger value="analysis" className="gap-2">
                   <Calculator className="h-4 w-4" />
-                  <span className="bg-green-500 text-white px-1 py-0.5 rounded text-xs ml-1">REAL</span>
-                  Real Analysis
+                  <Badge variant="outline" className="bg-green-100 text-green-800 text-xs ml-1">
+                    {dataStatus?.isPopulated ? 'REAL' : 'INIT'}
+                  </Badge>
+                  Analysis
                 </TabsTrigger>
                 <TabsTrigger value="insights" className="gap-2">
                   <TrendingUp className="h-4 w-4" />
@@ -153,15 +166,19 @@ const CryptoAnalysis = () => {
               <TabsContent value="analysis" className="space-y-6">
                 <div className="space-y-6">
                   {/* Data Quality Banner */}
-                  <Card className="border-green-200 bg-green-50">
+                  <Card className={`${dataStatus?.isPopulated ? 'border-green-200 bg-green-50' : 'border-yellow-200 bg-yellow-50'}`}>
                     <CardContent className="pt-6">
-                      <div className="flex items-center gap-2 text-green-800">
+                      <div className={`flex items-center gap-2 ${dataStatus?.isPopulated ? 'text-green-800' : 'text-yellow-800'}`}>
                         <Activity className="h-5 w-5" />
                         <div>
-                          <div className="font-semibold">REAL Data Analysis Active</div>
+                          <div className="font-semibold">
+                            {dataStatus?.isPopulated ? 'REAL Data Analysis Active' : 'Data Initialization Required'}
+                          </div>
                           <div className="text-sm">
-                            Using live Glass Node API, Monte Carlo projections, and calculated volatility.
-                            No mock data - all calculations based on real historical prices and metrics.
+                            {dataStatus?.isPopulated 
+                              ? `Using live Glass Node API, Monte Carlo projections, and calculated volatility. ${dataStatus.coinsWithRealData}/${dataStatus.totalCoins} coins with real data (${dataStatus.dataQuality}% quality).`
+                              : 'Initialize the database above to start using real market data for calculations.'
+                            }
                           </div>
                         </div>
                       </div>
@@ -174,7 +191,7 @@ const CryptoAnalysis = () => {
                         <div className="flex items-center gap-2 text-yellow-800">
                           <TrendingUp className="h-4 w-4" />
                           <span className="text-sm">
-                            {error} - Falling back to available data sources.
+                            {error} - Check data initialization status above.
                           </span>
                         </div>
                       </CardContent>
@@ -196,7 +213,7 @@ const CryptoAnalysis = () => {
                             </Badge>
                           </CardTitle>
                           <CardDescription>
-                            Analysis powered by live Glass Node data and Monte Carlo simulation
+                            Analysis powered by {dataStatus?.isPopulated ? 'live database data' : 'available market data'} and Monte Carlo simulation
                           </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -276,16 +293,16 @@ const CryptoAnalysis = () => {
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Vaulted Supply:</span>
-                                  <span className="font-semibold">{realAnalysisResult.realTimeData.vaultedSupply.toFixed(1)}%</span>
+                                  <span className="font-semibold">{realAnalysisResult.realTimeData.vaulted_supply.toFixed(1)}%</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Beta:</span>
                                   <span className="font-semibold">{realAnalysisResult.betaAnalysis.beta.toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span>Data Quality:</span>
-                                  <Badge variant={realAnalysisResult.realTimeData.dataQuality > 80 ? 'default' : 'secondary'}>
-                                    {realAnalysisResult.realTimeData.dataQuality}%
+                                  <span>Data Source:</span>
+                                  <Badge variant={dataStatus?.isPopulated ? 'default' : 'secondary'}>
+                                    {dataStatus?.isPopulated ? 'Database' : 'Fallback'}
                                   </Badge>
                                 </div>
                               </div>
@@ -340,59 +357,15 @@ const CryptoAnalysis = () => {
               <TabsContent value="insights">
                 <Card>
                   <CardHeader>
-                    <CardTitle>AI-Powered Market Insights</CardTitle>
+                    <CardTitle>AI-Powered Investment Insights</CardTitle>
                     <CardDescription>
-                      Advanced AI analysis and predictions powered by Glass Node data
+                      Advanced market analysis and recommendations coming soon
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {realAnalysisResult?.insights ? (
-                      <div className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div>
-                            <h3 className="text-lg font-semibold mb-3">Market Analysis</h3>
-                            <div className="space-y-2">
-                              <p className="text-sm"><strong>Risk Profile:</strong> {realAnalysisResult.insights.riskProfile}</p>
-                              <p className="text-sm"><strong>Market Timing:</strong> {realAnalysisResult.insights.marketTiming}</p>
-                              <p className="text-sm"><strong>Position Sizing:</strong> {realAnalysisResult.insights.positionSizing}</p>
-                            </div>
-                          </div>
-                          <div>
-                            <h3 className="text-lg font-semibold mb-3">Glass Node Insights</h3>
-                            <ul className="text-sm space-y-1">
-                              {realAnalysisResult.insights.glassnodeInsights.map((insight, index) => (
-                                <li key={index}>• {insight}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div>
-                            <h3 className="text-lg font-semibold mb-3 text-red-600">Key Risks</h3>
-                            <ul className="text-sm space-y-1">
-                              {realAnalysisResult.insights.keyRisks.map((risk, index) => (
-                                <li key={index} className="text-red-700">⚠️ {risk}</li>
-                              ))}
-                            </ul>
-                          </div>
-                          <div>
-                            <h3 className="text-lg font-semibold mb-3 text-green-600">Opportunities</h3>
-                            <ul className="text-sm space-y-1">
-                              {realAnalysisResult.insights.opportunities.map((opportunity, index) => (
-                                <li key={index} className="text-green-700">✅ {opportunity}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <Activity className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                        <h3 className="text-lg font-semibold mb-2">Run Enhanced Analysis</h3>
-                        <p>Perform an investment analysis to see AI-powered insights based on Glass Node data.</p>
-                      </div>
-                    )}
+                    <div className="text-center p-8 text-muted-foreground">
+                      AI insights will be available in the next update
+                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>
