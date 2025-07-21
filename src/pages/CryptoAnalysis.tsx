@@ -13,6 +13,7 @@ import GlassNodeDashboard from '@/components/analysis/GlassNodeDashboard';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useRealInvestmentAnalysis } from '@/hooks/useRealInvestmentAnalysis';
 import { useRealDataPopulation } from '@/hooks/useRealDataPopulation';
+import { enhancedGlassNodeAnalyzer } from '@/services/enhancedGlassNodeAnalyzer';
 import { Lock, BarChart3, Globe, TrendingUp, Calculator, Activity } from 'lucide-react';
 import type { InvestmentInputs } from '@/types/investment';
 import type { CoinData } from '@/services/realTimeMarketService';
@@ -48,11 +49,20 @@ const CryptoAnalysis = () => {
     }
   };
 
-  const handleCoinSelect = (coinData: CoinData) => {
+  const handleCoinSelect = async (coinData: CoinData) => {
     setSelectedCoin(coinData);
     const symbol = coinData.symbol?.toUpperCase() || 'BTC';
     setSelectedCoinSymbol(symbol);
-    console.log('Selected coin for REAL Glass Node analysis:', symbol);
+    console.log('🚀 Auto-starting analysis for:', symbol);
+    
+    // Automatically start analysis when coin is selected
+    try {
+      const result = await enhancedGlassNodeAnalyzer.analyzeInvestment(symbol, 10000, 36);
+      console.log('✅ Auto-analysis completed:', result);
+      setRealAnalysisResult(result);
+    } catch (error) {
+      console.error('❌ Auto-analysis failed:', error);
+    }
   };
 
   return (
