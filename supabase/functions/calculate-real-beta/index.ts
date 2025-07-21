@@ -18,7 +18,7 @@ serve(async (req) => {
       throw new Error('coinId is required');
     }
 
-    console.log(`Calculating real beta for coin: ${coinId}`);
+    console.log(`Calculating real beta for coin: ${coinId} using MONTHLY data`);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -35,16 +35,23 @@ serve(async (req) => {
       throw new Error(`No price history found for coin ${coinId}`);
     }
 
+    // Aggregate daily prices to monthly (end-of-month prices)
+    const monthlyPrices = aggregateToMonthlyPrices(coinPrices);
+    
+    if (monthlyPrices.length < 24) {
+      throw new Error(`Insufficient monthly data points for reliable beta calculation. Need at least 24 months, got ${monthlyPrices.length}`);
+    }
+
     // Fetch S&P 500 data from Alpha Vantage
     const alphaVantageKey = Deno.env.get('ALPHA_VANTAGE_API_KEY');
     if (!alphaVantageKey) {
       throw new Error('Alpha Vantage API key not configured');
     }
 
-    console.log('Fetching S&P 500 data from Alpha Vantage...');
+    console.log('Fetching S&P 500 MONTHLY data from Alpha Vantage...');
     
     const spyResponse = await fetch(
-      `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=SPY&outputsize=full&apikey=${alphaVantageKey}`
+      `https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY&symbol=SPY&apikey=${alphaVantageKey}`
     );
 
     if (!spyResponse.ok) {
@@ -60,28 +67,28 @@ serve(async (req) => {
     if (spyData['Note']) {
       console.log('Alpha Vantage rate limit hit, using fallback calculation');
       
-      // Fallback: Calculate beta using realistic market correlation for crypto
-      const coinReturns = calculateReturns(coinPrices.map(p => p.price_usd));
-      const marketVolatility = 0.16; // ~16% annual S&P 500 volatility
-      const coinVolatility = calculateVolatility(coinReturns);
+      // Fallback: Calculate beta using monthly returns and realistic market correlation
+      const monthlyReturns = calculateMonthlyReturns(monthlyPrices.map(p => p.price));
+      const marketVolatility = 0.045; // ~4.5% monthly S&P 500 volatility  
+      const coinVolatility = calculateVolatility(monthlyReturns);
       
-      // Bitcoin typically has correlation of 0.3-0.4 with S&P 500, other cryptos 0.2-0.3
-      const correlation = coinId === 'bitcoin' ? 0.35 : 0.25;
+      // Monthly correlation estimates (more stable than daily)
+      const correlation = coinId === 'bitcoin' ? 0.4 : 0.3;
       const beta = correlation * (coinVolatility / marketVolatility);
       
       // Ensure beta is in realistic range
       const adjustedBeta = Math.max(0.8, Math.min(2.5, beta));
       
-      console.log(`Calculated fallback beta: ${adjustedBeta.toFixed(3)} (original: ${beta.toFixed(3)})`);
+      console.log(`Calculated monthly fallback beta: ${adjustedBeta.toFixed(3)} (original: ${beta.toFixed(3)})`);
       
-      // Store calculated metrics
       await storeCalculatedMetrics(supabase, coinId, {
         real_beta: adjustedBeta,
         real_volatility: coinVolatility,
         correlation_btc: correlation,
-        data_points_used: coinPrices.length,
-        calculation_method: 'fallback_correlation',
-        is_estimated: true
+        data_points_used: monthlyPrices.length,
+        calculation_method: 'monthly_fallback_correlation',
+        is_estimated: true,
+        data_frequency: 'monthly'
       });
 
       return new Response(
@@ -90,63 +97,64 @@ serve(async (req) => {
           beta: adjustedBeta,
           volatility: coinVolatility,
           correlation: correlation,
-          dataPoints: coinPrices.length,
-          qualityScore: 70,
-          method: 'fallback_correlation'
+          dataPoints: monthlyPrices.length,
+          qualityScore: 75,
+          method: 'monthly_fallback_correlation',
+          dataFrequency: 'monthly'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
-    if (!spyData['Time Series (Daily)']) {
-      throw new Error('No S&P 500 data available from Alpha Vantage');
+    if (!spyData['Monthly Time Series']) {
+      throw new Error('No S&P 500 monthly data available from Alpha Vantage');
     }
 
-    // Process S&P 500 data
-    const spyTimeSeries = spyData['Time Series (Daily)'];
-    const spyPrices: Array<{date: string, price: number}> = [];
+    // Process S&P 500 monthly data
+    const spyTimeSeries = spyData['Monthly Time Series'];
+    const spyMonthlyPrices: Array<{date: string, price: number}> = [];
     
     for (const [date, data] of Object.entries(spyTimeSeries)) {
-      spyPrices.push({
+      spyMonthlyPrices.push({
         date,
         price: parseFloat((data as any)['4. close'])
       });
     }
     
-    spyPrices.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    spyMonthlyPrices.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    // Align dates between coin and S&P 500 data
-    const alignedData = alignPriceData(coinPrices, spyPrices);
+    // Align monthly dates between coin and S&P 500 data
+    const alignedMonthlyData = alignMonthlyPriceData(monthlyPrices, spyMonthlyPrices);
     
-    if (alignedData.length < 30) {
-      throw new Error('Insufficient aligned data points for beta calculation');
+    if (alignedMonthlyData.length < 24) {
+      throw new Error(`Insufficient aligned monthly data points for beta calculation. Need at least 24, got ${alignedMonthlyData.length}`);
     }
 
-    // Calculate returns
-    const coinReturns = calculateReturns(alignedData.map(d => d.coinPrice));
-    const marketReturns = calculateReturns(alignedData.map(d => d.marketPrice));
+    // Calculate monthly returns
+    const coinMonthlyReturns = calculateMonthlyReturns(alignedMonthlyData.map(d => d.coinPrice));
+    const marketMonthlyReturns = calculateMonthlyReturns(alignedMonthlyData.map(d => d.marketPrice));
 
-    // Calculate beta using linear regression
-    const beta = calculateBeta(coinReturns, marketReturns);
-    const correlation = calculateCorrelation(coinReturns, marketReturns);
-    const volatility = calculateVolatility(coinReturns);
-    const sharpeRatio = calculateSharpeRatio(coinReturns, volatility);
+    // Calculate beta using monthly linear regression
+    const beta = calculateBeta(coinMonthlyReturns, marketMonthlyReturns);
+    const correlation = calculateCorrelation(coinMonthlyReturns, marketMonthlyReturns);
+    const volatility = calculateVolatility(coinMonthlyReturns);
+    const sharpeRatio = calculateSharpeRatio(coinMonthlyReturns, volatility);
 
     // Validate and adjust beta to realistic range
     let adjustedBeta = beta;
     if (coinId === 'bitcoin') {
-      // Bitcoin typically has beta 1.2-1.8 vs S&P 500
-      adjustedBeta = Math.max(1.0, Math.min(2.0, beta));
+      // Bitcoin typically has beta 1.0-1.6 vs S&P 500 (monthly)
+      adjustedBeta = Math.max(0.8, Math.min(2.0, beta));
     } else {
-      // Other cryptos typically 0.8-2.5
+      // Other cryptos typically 0.8-2.5 (monthly)
       adjustedBeta = Math.max(0.5, Math.min(3.0, beta));
     }
 
-    console.log(`Beta calculation: raw=${beta.toFixed(3)}, adjusted=${adjustedBeta.toFixed(3)}, correlation=${correlation.toFixed(3)}`);
+    console.log(`Monthly beta calculation: raw=${beta.toFixed(3)}, adjusted=${adjustedBeta.toFixed(3)}, correlation=${correlation.toFixed(3)}, months=${alignedMonthlyData.length}`);
 
-    // Calculate quality score based on data completeness and correlation strength
-    const completenessScore = Math.min(100, (alignedData.length / 365) * 100); // Based on days of data
-    const correlationScore = Math.abs(correlation) * 100; // Higher correlation = higher quality
+    // Calculate quality score based on monthly data completeness and correlation strength
+    const completenessScore = Math.min(100, (alignedMonthlyData.length / 36) * 100); // Based on months of data
+    const correlationScore = Math.abs(correlation) * 100;
     const qualityScore = Math.round((completenessScore * 0.6) + (correlationScore * 0.4));
 
     // Store calculated metrics
@@ -155,13 +163,14 @@ serve(async (req) => {
       real_volatility: volatility,
       correlation_btc: correlation,
       sharpe_ratio: sharpeRatio,
-      data_points_used: alignedData.length,
+      data_points_used: alignedMonthlyData.length,
       data_quality_score: qualityScore,
-      calculation_method: 'linear_regression',
-      is_estimated: false
+      calculation_method: 'monthly_linear_regression',
+      is_estimated: false,
+      data_frequency: 'monthly'
     });
 
-    console.log(`Beta calculation complete for ${coinId}: ${adjustedBeta.toFixed(3)} (quality: ${qualityScore}%)`);
+    console.log(`Monthly beta calculation complete for ${coinId}: ${adjustedBeta.toFixed(3)} (quality: ${qualityScore}%)`);
 
     return new Response(
       JSON.stringify({
@@ -171,39 +180,75 @@ serve(async (req) => {
         volatility,
         correlation,
         sharpeRatio,
-        dataPoints: alignedData.length,
+        dataPoints: alignedMonthlyData.length,
         qualityScore,
-        method: 'linear_regression',
-        message: `Beta calculated: ${adjustedBeta.toFixed(3)} with ${correlation.toFixed(3)} correlation`
+        method: 'monthly_linear_regression',
+        dataFrequency: 'monthly',
+        message: `Monthly beta calculated: ${adjustedBeta.toFixed(3)} with ${correlation.toFixed(3)} correlation over ${alignedMonthlyData.length} months`
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Error calculating beta:', error);
+    console.error('Error calculating monthly beta:', error);
     return new Response(
       JSON.stringify({
         success: false,
         error: error.message,
-        qualityScore: 0
+        qualityScore: 0,
+        dataFrequency: 'monthly'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });
 
-function alignPriceData(
-  coinPrices: Array<{price_date: string, price_usd: number}>,
+function aggregateToMonthlyPrices(
+  dailyPrices: Array<{price_date: string, price_usd: number}>
+): Array<{date: string, price: number}> {
+  const monthlyPrices: Array<{date: string, price: number}> = [];
+  const pricesByMonth = new Map<string, Array<{price_date: string, price_usd: number}>>();
+  
+  // Group prices by month
+  for (const priceData of dailyPrices) {
+    const date = new Date(priceData.price_date);
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    
+    if (!pricesByMonth.has(monthKey)) {
+      pricesByMonth.set(monthKey, []);
+    }
+    pricesByMonth.get(monthKey)!.push(priceData);
+  }
+  
+  // Get end-of-month price for each month
+  for (const [monthKey, monthPrices] of pricesByMonth) {
+    // Sort by date and take the last price of the month
+    monthPrices.sort((a, b) => new Date(a.price_date).getTime() - new Date(b.price_date).getTime());
+    const endOfMonthPrice = monthPrices[monthPrices.length - 1];
+    
+    monthlyPrices.push({
+      date: monthKey + '-01', // Standardize to first day of month for consistency
+      price: endOfMonthPrice.price_usd
+    });
+  }
+  
+  return monthlyPrices.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+}
+
+function alignMonthlyPriceData(
+  coinPrices: Array<{date: string, price: number}>,
   spyPrices: Array<{date: string, price: number}>
 ): Array<{date: string, coinPrice: number, marketPrice: number}> {
   const aligned: Array<{date: string, coinPrice: number, marketPrice: number}> = [];
   
   for (const coinData of coinPrices) {
-    const spyData = spyPrices.find(spy => spy.date === coinData.price_date);
+    const coinMonth = coinData.date.substring(0, 7); // YYYY-MM
+    const spyData = spyPrices.find(spy => spy.date.substring(0, 7) === coinMonth);
+    
     if (spyData) {
       aligned.push({
-        date: coinData.price_date,
-        coinPrice: coinData.price_usd,
+        date: coinData.date,
+        coinPrice: coinData.price,
         marketPrice: spyData.price
       });
     }
@@ -212,11 +257,11 @@ function alignPriceData(
   return aligned;
 }
 
-function calculateReturns(prices: number[]): number[] {
+function calculateMonthlyReturns(prices: number[]): number[] {
   const returns: number[] = [];
   for (let i = 1; i < prices.length; i++) {
-    const dailyReturn = (prices[i] - prices[i-1]) / prices[i-1];
-    returns.push(dailyReturn);
+    const monthlyReturn = (prices[i] - prices[i-1]) / prices[i-1];
+    returns.push(monthlyReturn);
   }
   return returns;
 }
@@ -272,37 +317,13 @@ function calculateCorrelation(x: number[], y: number[]): number {
 function calculateVolatility(returns: number[]): number {
   const mean = returns.reduce((sum, r) => sum + r, 0) / returns.length;
   const variance = returns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / (returns.length - 1);
-  return Math.sqrt(variance * 252); // Annualized volatility
+  return Math.sqrt(variance * 12); // Annualized volatility from monthly returns
 }
 
 function calculateSharpeRatio(returns: number[], volatility: number): number {
   const riskFreeRate = 0.02; // 2% risk-free rate
-  const meanReturn = returns.reduce((sum, r) => sum + r, 0) / returns.length * 252; // Annualized
+  const meanReturn = returns.reduce((sum, r) => sum + r, 0) / returns.length * 12; // Annualized
   return volatility === 0 ? 0 : (meanReturn - riskFreeRate) / volatility;
-}
-
-function calculateDataQuality(
-  dataPoints: number,
-  expectedPoints: number,
-  freshnessHours: number,
-  apiStatus: string,
-  isRealData: boolean
-): number {
-  let score = 0;
-  
-  const completeness = Math.min(dataPoints / expectedPoints, 1);
-  score += completeness * 40;
-  
-  const freshnessScore = Math.max(0, 1 - (freshnessHours / 24));
-  score += freshnessScore * 30;
-  
-  const apiScore = apiStatus === 'healthy' ? 1 : 0.5;
-  score += apiScore * 20;
-  
-  const realDataBonus = isRealData ? 10 : 5;
-  score += realDataBonus;
-  
-  return Math.round(Math.min(score, 100));
 }
 
 async function storeCalculatedMetrics(supabase: any, coinId: string, metrics: any) {
@@ -319,10 +340,10 @@ async function storeCalculatedMetrics(supabase: any, coinId: string, metrics: an
     if (metricsError) {
       console.error('Error storing calculated metrics:', metricsError);
     } else {
-      console.log(`✅ Stored calculated metrics for ${coinId}`);
+      console.log(`✅ Stored monthly calculated metrics for ${coinId}`);
     }
 
-    // Update coins table with improved data quality indicators
+    // Update coins table with monthly beta calculation indicators
     const confidenceLevel = metrics.data_quality_score >= 80 ? 'high' : 
                            metrics.data_quality_score >= 60 ? 'medium' : 'low';
     
@@ -347,7 +368,7 @@ async function storeCalculatedMetrics(supabase: any, coinId: string, metrics: an
     if (updateError) {
       console.error('Error updating coins table:', updateError);
     } else {
-      console.log(`✅ Updated ${coinId} with real beta: ${metrics.real_beta.toFixed(3)}`);
+      console.log(`✅ Updated ${coinId} with monthly real beta: ${metrics.real_beta.toFixed(3)}`);
     }
   } catch (error) {
     console.error('Error in storeCalculatedMetrics:', error);
