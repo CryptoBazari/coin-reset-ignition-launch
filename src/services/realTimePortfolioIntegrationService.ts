@@ -183,13 +183,18 @@ class RealTimePortfolioIntegrationService {
     }
   }
 
-  private calculateMarketInsights(assets: LiveAssetData[]) {
+  private calculateMarketInsights(assets: LiveAssetData[]): {
+    topPerformer: string;
+    worstPerformer: string;
+    marketTrend: 'bullish' | 'bearish' | 'neutral';
+    riskLevel: 'low' | 'medium' | 'high';
+  } {
     if (assets.length === 0) {
       return {
         topPerformer: 'N/A',
         worstPerformer: 'N/A',
-        marketTrend: 'neutral' as const,
-        riskLevel: 'low' as const
+        marketTrend: 'neutral',
+        riskLevel: 'low'
       };
     }
 
@@ -200,14 +205,14 @@ class RealTimePortfolioIntegrationService {
 
     // Calculate overall trend
     const averageChange = assets.reduce((sum, asset) => sum + asset.dayChangePercent, 0) / assets.length;
-    const marketTrend = averageChange > 2 ? 'bullish' : averageChange < -2 ? 'bearish' : 'neutral';
+    const marketTrend: 'bullish' | 'bearish' | 'neutral' = averageChange > 2 ? 'bullish' : averageChange < -2 ? 'bearish' : 'neutral';
 
     // Calculate risk level based on volatility and beta
     const averageVolatility = assets
       .filter(asset => asset.volatility !== null)
       .reduce((sum, asset, _, arr) => sum + (asset.volatility! / arr.length), 0);
     
-    const riskLevel = averageVolatility > 0.6 ? 'high' : averageVolatility > 0.3 ? 'medium' : 'low';
+    const riskLevel: 'low' | 'medium' | 'high' = averageVolatility > 0.6 ? 'high' : averageVolatility > 0.3 ? 'medium' : 'low';
 
     return {
       topPerformer,
