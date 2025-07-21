@@ -29,7 +29,7 @@ export class SymbolMappingService {
       { coinMarketCapId: 'yearn-finance', coinMarketCapSymbol: 'YFI', glassNodeAsset: 'YFI', glassNodeSupported: true, name: 'Yearn Finance' },
       { coinMarketCapId: 'sushi', coinMarketCapSymbol: 'SUSHI', glassNodeAsset: 'SUSHI', glassNodeSupported: true, name: 'SushiSwap' },
       { coinMarketCapId: '1inch', coinMarketCapSymbol: '1INCH', glassNodeAsset: '1INCH', glassNodeSupported: true, name: '1inch' },
-      { coinMarketCapId: 'balancer', chainLinkAsset: 'BAL', glassNodeAsset: 'BAL', glassNodeSupported: true, name: 'Balancer' },
+      { coinMarketCapId: 'balancer', coinMarketCapSymbol: 'BAL', glassNodeAsset: 'BAL', glassNodeSupported: true, name: 'Balancer' },
       { coinMarketCapId: 'curve-dao-token', coinMarketCapSymbol: 'CRV', glassNodeAsset: 'CRV', glassNodeSupported: true, name: 'Curve DAO Token' },
       { coinMarketCapId: 'synthetix', coinMarketCapSymbol: 'SNX', glassNodeAsset: 'SNX', glassNodeSupported: true, name: 'Synthetix' },
       { coinMarketCapId: 'ens', coinMarketCapSymbol: 'ENS', glassNodeAsset: 'ENS', glassNodeSupported: true, name: 'Ethereum Name Service' },
