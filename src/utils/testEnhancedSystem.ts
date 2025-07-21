@@ -12,7 +12,7 @@ export const testEnhancedSystem = () => {
   
   // Test 2: Enhanced Allocation Rules
   console.log('\n=== Test 2: Enhanced Allocation Rules ===');
-  const bitcoinAllocation = checkAdvancedAllocation(5000, 10000, 'Bitcoin');
+  const bitcoinAllocation = checkAdvancedAllocation(5000, 10000, 'bitcoin');
   console.log('Bitcoin allocation analysis:', bitcoinAllocation);
   console.log('✅ Bitcoin 60% rule active:', bitcoinAllocation.status === 'underexposed');
   

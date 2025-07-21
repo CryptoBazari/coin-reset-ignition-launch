@@ -18,7 +18,7 @@ export const fetchCoinData = async (coinId: string): Promise<CoinData> => {
     id: coinDataRaw.id,
     coin_id: coinDataRaw.coin_id,
     name: coinDataRaw.name,
-    basket: coinDataRaw.basket as 'Bitcoin' | 'Blue Chip' | 'Small-Cap',
+    basket: coinDataRaw.basket,
     current_price: coinDataRaw.current_price,
     market_cap: coinDataRaw.market_cap,
     price_history: coinDataRaw.price_history,
@@ -40,7 +40,7 @@ export const fetchCoinData = async (coinId: string): Promise<CoinData> => {
   };
 };
 
-export const fetchBasketAssumptions = async (basket: 'Bitcoin' | 'Blue Chip' | 'Small-Cap') => {
+export const fetchBasketAssumptions = async (basket: 'bitcoin' | 'blue_chip' | 'small_cap') => {
   const { data: assumptions, error: assumptionsError } = await supabase
     .from('assumptions')
     .select('*')

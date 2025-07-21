@@ -87,7 +87,7 @@ export const useEnhancedInvestmentAnalysis = () => {
       // 2. Get basket assumptions and benchmark data
       console.log('🎯 Fetching basket assumptions and benchmark data...');
       const assumptions = await fetchBasketAssumptions(enhancedCoinData.basket);
-      const benchmarkId = enhancedCoinData.basket === 'Bitcoin' ? 'SP500' : 'BTC';
+      const benchmarkId = enhancedCoinData.basket === 'bitcoin' ? 'SP500' : 'BTC';
       const benchmark = await fetchBenchmarkData(benchmarkId);
 
       // 3. Get market conditions with real-time data
@@ -597,7 +597,7 @@ async function fallbackToBasicAnalysis(inputs: InvestmentInputs): Promise<Enhanc
     const fallbackEnhancedData: EnhancedCoinData = {
       ...basicCoinData,
       coin_id: inputs.coinId,
-      basket: 'Bitcoin' as const, // Default basket
+      basket: 'bitcoin' as const, // Default basket
       liveMetrics: {
         avivRatio: 1.0,
         activeSupply: 50,

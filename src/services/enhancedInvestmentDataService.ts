@@ -95,7 +95,7 @@ class EnhancedInvestmentDataService {
         id: coinDataRaw.id,
         coin_id: coinDataRaw.coin_id,
         name: coinDataRaw.name,
-        basket: coinDataRaw.basket as 'Bitcoin' | 'Blue Chip' | 'Small-Cap',
+        basket: coinDataRaw.basket,
         
         // Live price data from CoinMarketCap
         current_price: livePriceData.current_price,

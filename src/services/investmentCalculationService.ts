@@ -137,7 +137,7 @@ export const calculateAllocation = (
   inputs: InvestmentInputs,
   assumptions: any,
   coinData: CoinData,
-  currentPortfolioBreakdown?: { bitcoin: number; blueChip: number; smallCap: number }
+  currentPortfolioBreakdown?: { bitcoin: number; blue_chip: number; small_cap: number }
 ) => {
   console.log('🚀 Using ENHANCED allocation analysis for', coinData.basket);
   // Use only enhanced allocation analysis - NO LEGACY

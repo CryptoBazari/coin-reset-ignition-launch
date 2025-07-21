@@ -28,7 +28,7 @@ export const generateAdvancedRecommendation = (
   const basketType = coin.basket;
   
   // BITCOIN BASKET LOGIC (60-80% target)
-  if (basketType === 'Bitcoin') {
+  if (basketType === 'bitcoin') {
     if (portfolioPercentage < 60) {
       recommendation = 'Buy';
       conditions = `Bitcoin allocation (${portfolioPercentage.toFixed(1)}%) below minimum 60%. Increase for portfolio stability.`;
@@ -46,7 +46,7 @@ export const generateAdvancedRecommendation = (
   }
   
   // BLUE-CHIP BASKET LOGIC (0-40% target)
-  else if (basketType === 'Blue Chip') {
+  else if (basketType === 'blue_chip') {
     if (portfolioPercentage > 40) {
       recommendation = 'Do Not Buy';
       conditions = `Blue-chip allocation (${portfolioPercentage.toFixed(1)}%) exceeds maximum 40%. Reduce exposure.`;
@@ -61,7 +61,7 @@ export const generateAdvancedRecommendation = (
   }
   
   // SMALL-CAP BASKET LOGIC (0-15% target)
-  else if (basketType === 'Small-Cap') {
+  else if (basketType === 'small_cap') {
     if (portfolioPercentage > 15) {
       recommendation = 'Sell';
       conditions = `Small-cap allocation (${portfolioPercentage.toFixed(1)}%) exceeds maximum 15%. High risk exposure.`;
@@ -130,7 +130,7 @@ export const generateAdvancedRecommendation = (
     rebalancingActions.push(`Reduce ${basketType} allocation from ${portfolioPercentage.toFixed(1)}%`);
   }
   
-  if (allocation.status === 'underexposed' && basketType === 'Bitcoin') {
+  if (allocation.status === 'underexposed' && basketType === 'bitcoin') {
     rebalancingActions.push(`Increase Bitcoin allocation to at least 60%`);
   }
   
@@ -145,7 +145,7 @@ export const generateAdvancedRecommendation = (
     goodTiming: marketConditions.bitcoinState === 'bullish',
     appropriateAmount: allocation.status === 'optimal',
     riskFactor: calculateBasketRiskFactor(basketType, portfolioPercentage),
-    shouldDiversify: basketType !== 'Bitcoin' || portfolioPercentage > 80,
+    shouldDiversify: basketType !== 'bitcoin' || portfolioPercentage > 80,
     conditions,
     risks,
     rebalancingActions,

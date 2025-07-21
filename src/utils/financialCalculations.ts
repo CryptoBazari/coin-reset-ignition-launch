@@ -182,20 +182,20 @@ export const adjustDiscountRateForFed = (
 // Basket allocation rules interface
 interface BasketAllocationRules {
   bitcoin: { min: number; max: number; recommended: [number, number] };
-  blueChip: { min: number; max: number; recommended: [number, number] };
-  smallCap: { min: number; max: number; recommended: [number, number] };
+  blue_chip: { min: number; max: number; recommended: [number, number] };
+  small_cap: { min: number; max: number; recommended: [number, number] };
 }
 
 const BASKET_RULES: BasketAllocationRules = {
   bitcoin: { min: 60, max: 80, recommended: [60, 75] },
-  blueChip: { min: 0, max: 40, recommended: [20, 35] },
-  smallCap: { min: 0, max: 15, recommended: [5, 10] }
+  blue_chip: { min: 0, max: 40, recommended: [20, 35] },
+  small_cap: { min: 0, max: 15, recommended: [5, 10] }
 };
 
 // Enhanced allocation result
 interface AllocationResult {
   portfolioPercentage: number;
-  basketType: 'bitcoin' | 'blueChip' | 'smallCap';
+  basketType: 'bitcoin' | 'blue_chip' | 'small_cap';
   status: 'underexposed' | 'optimal' | 'overexposed';
   recommendation: 'increase' | 'decrease' | 'maintain';
   message: string;
@@ -205,14 +205,13 @@ interface AllocationResult {
 export const checkAdvancedAllocation = (
   investmentAmount: number,
   totalPortfolio: number,
-  coinBasket: 'Bitcoin' | 'Blue Chip' | 'Small-Cap',
-  currentPortfolioBreakdown?: { bitcoin: number; blueChip: number; smallCap: number }
+  coinBasket: 'bitcoin' | 'blue_chip' | 'small_cap',
+  currentPortfolioBreakdown?: { bitcoin: number; blue_chip: number; small_cap: number }
 ): AllocationResult => {
   const portfolioPercentage = (investmentAmount / totalPortfolio) * 100;
   
-  // Map basket types
-  const basketType = coinBasket === 'Bitcoin' ? 'bitcoin' : 
-                    coinBasket === 'Blue Chip' ? 'blueChip' : 'smallCap';
+  // Use basket type directly
+  const basketType = coinBasket;
   
   const rules = BASKET_RULES[basketType];
   
@@ -367,15 +366,15 @@ export const calculateAnnualizedVolatility = (
 
 // Portfolio validation function
 export const validatePortfolioAllocation = (
-  portfolioBreakdown: { bitcoin: number; blueChip: number; smallCap: number }
+  portfolioBreakdown: { bitcoin: number; blue_chip: number; small_cap: number }
 ): {
   isValid: boolean;
   totalAllocation: number;
   violations: string[];
   recommendations: string[];
 } => {
-  const { bitcoin, blueChip, smallCap } = portfolioBreakdown;
-  const totalAllocation = bitcoin + blueChip + smallCap;
+  const { bitcoin, blue_chip, small_cap } = portfolioBreakdown;
+  const totalAllocation = bitcoin + blue_chip + small_cap;
   const violations: string[] = [];
   const recommendations: string[] = [];
   
@@ -385,14 +384,14 @@ export const validatePortfolioAllocation = (
     recommendations.push(`Increase Bitcoin to at least ${BASKET_RULES.bitcoin.min}%`);
   }
   
-  if (blueChip > BASKET_RULES.blueChip.max) {
-    violations.push(`Blue-chip exceeds maximum ${BASKET_RULES.blueChip.max}%`);
-    recommendations.push(`Reduce blue-chip to below ${BASKET_RULES.blueChip.max}%`);
+  if (blue_chip > BASKET_RULES.blue_chip.max) {
+    violations.push(`Blue-chip exceeds maximum ${BASKET_RULES.blue_chip.max}%`);
+    recommendations.push(`Reduce blue-chip to below ${BASKET_RULES.blue_chip.max}%`);
   }
   
-  if (smallCap > BASKET_RULES.smallCap.max) {
-    violations.push(`Small-cap exceeds maximum ${BASKET_RULES.smallCap.max}%`);
-    recommendations.push(`Reduce small-cap to below ${BASKET_RULES.smallCap.max}%`);
+  if (small_cap > BASKET_RULES.small_cap.max) {
+    violations.push(`Small-cap exceeds maximum ${BASKET_RULES.small_cap.max}%`);
+    recommendations.push(`Reduce small-cap to below ${BASKET_RULES.small_cap.max}%`);
   }
   
   // Check total allocation
