@@ -23,7 +23,8 @@ const SUPPORTED_METRICS = {
     'supply/liquid_sum',
     'supply/illiquid_sum',
     'indicators/cdd',
-    'indicators/aviv'
+    'indicators/aviv',
+    'indicators/coin_blocks_destroyed' // New endpoint
   ],
   'ETH': [
     'market/price_usd_close',
@@ -31,8 +32,19 @@ const SUPPORTED_METRICS = {
     'market/realized_volatility_all',
     'addresses/active_count',
     'transactions/transfers_to_exchanges_sum',
-    'transactions/transfers_from_exchanges_sum',
-    'indicators/aviv'
+    'transactions/transfers_from_exchanges_sum'
+  ],
+  'SOL': [
+    'market/price_usd_close',
+    'addresses/active_count'
+  ],
+  'ADA': [
+    'market/price_usd_close',
+    'addresses/active_count'
+  ],
+  'LTC': [
+    'market/price_usd_close',
+    'addresses/active_count'
   ]
 };
 
@@ -112,7 +124,6 @@ Deno.serve(async (req) => {
           }
         );
       } else if (response.status === 404) {
-        // Return empty data for 404s instead of throwing error
         console.log(`Metric ${metric} not found for ${asset}, returning empty data`);
         return new Response(
           JSON.stringify({ 

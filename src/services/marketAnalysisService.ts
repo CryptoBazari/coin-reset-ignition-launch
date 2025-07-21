@@ -1,4 +1,3 @@
-
 import { analyzeBitcoinMarketState } from '@/utils/financialCalculations';
 import type { CoinData, MarketConditions, MarketDataResult } from '@/types/investment';
 import { fetchRealMarketData } from './realDataService';
@@ -9,34 +8,37 @@ export const createMarketConditions = (
   marketSentiment: { sentiment_score: number; smart_money_activity: boolean },
   fedRateChange: number
 ): MarketConditions => {
-  // Analyze Bitcoin market state using Cointime Economics
+  console.log('🎯 Creating market conditions with Bitcoin AVIV ratio:', coinData.aviv_ratio);
+  
+  // IMPORTANT: coinData.aviv_ratio should now ALWAYS contain Bitcoin's AVIV ratio
+  // regardless of the selected coin, as updated in the analysis hooks
   const bitcoinState = analyzeBitcoinMarketState(
-    coinData.aviv_ratio,
+    coinData.aviv_ratio, // This is now always Bitcoin AVIV ratio
     coinData.active_supply,
     coinData.vaulted_supply,
     marketSentiment.smart_money_activity
   );
+
+  console.log(`📊 Bitcoin market state: ${bitcoinState} (AVIV: ${coinData.aviv_ratio.toFixed(3)})`);
 
   return {
     bitcoinState,
     sentimentScore: marketSentiment.sentiment_score,
     smartMoneyActivity: marketSentiment.smart_money_activity,
     fedRateChange,
-    avivRatio: coinData.aviv_ratio,
+    avivRatio: coinData.aviv_ratio, // Always Bitcoin AVIV ratio
     activeSupply: coinData.active_supply,
     vaultedSupply: coinData.vaulted_supply
   };
 };
 
 export const getMarketData = async (): Promise<MarketDataResult> => {
-  // Try to fetch real data first
   try {
     const realData = await fetchRealMarketData(['BTC', 'ETH', 'SOL', 'ADA']);
     
     if (realData && realData.length > 0) {
       console.log('Using real market data from CoinMarketCap');
       
-      // Fetch real Fed rate data from Alpha Vantage
       const fedRateData = await fetchFedFundsRate();
       let fedRateChange = 0;
       
@@ -47,14 +49,13 @@ export const getMarketData = async (): Promise<MarketDataResult> => {
         console.log(`Fed rate change: ${fedRateChange.toFixed(2)}%`);
       }
       
-      // Extract market sentiment from price changes (basic sentiment analysis)
       const btcData = realData.find(coin => coin.symbol === 'BTC');
       const sentimentScore = btcData ? 
         (btcData.price_change_24h > 5 ? 1 : btcData.price_change_24h < -5 ? -1 : 0) : 0;
       
       const marketSentiment = {
         sentiment_score: sentimentScore,
-        smart_money_activity: btcData ? btcData.price_change_24h < -10 : false // Large drops might indicate smart money selling
+        smart_money_activity: btcData ? btcData.price_change_24h < -10 : false
       };
 
       return { fedRateChange, marketSentiment, realMarketData: realData };
@@ -63,18 +64,15 @@ export const getMarketData = async (): Promise<MarketDataResult> => {
     console.error('Failed to fetch real market data, falling back to simulated:', error);
   }
 
-  // Fallback to simulated data
   console.log('Using simulated market data');
   return getSimulatedMarketData();
 };
 
 export const getSimulatedMarketData = (): MarketDataResult => {
-  // Simulate Fed rate data (4.5% neutral rate)
-  const fedRateChange = 0; // No recent change
+  const fedRateChange = 0;
 
-  // Fetch latest market sentiment (simulated for now)
   const marketSentiment = {
-    sentiment_score: 0, // Neutral
+    sentiment_score: 0,
     smart_money_activity: false
   };
 

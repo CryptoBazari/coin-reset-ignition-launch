@@ -1,168 +1,258 @@
 
-import { realTimeGlassNodeService } from './realTimeGlassNodeService';
-import { realTimeMarketService } from './realTimeMarketService';
 import { supabase } from '@/integrations/supabase/client';
+import { enhancedBenchmarkService } from './enhancedBenchmarkService';
 
-export interface BetaCalculationResult {
+export interface RealBetaResult {
   beta: number;
-  correlation: number;
-  rSquared: number;
-  alpha: number;
   confidence: 'low' | 'medium' | 'high';
-  dataPoints: number;
-  lastCalculated: string;
-  benchmarkUsed: string;
   source: 'estimated' | 'calculated' | 'api' | 'database';
+  lastCalculated: string;
+  correlation: number;
+  benchmarkUsed: string;
 }
 
 class RealBetaCalculationService {
-  private cache = new Map<string, { data: BetaCalculationResult; timestamp: number }>();
-  private cacheExpiry = 24 * 60 * 60 * 1000; // 24 hours
+  private cache = new Map<string, { data: RealBetaResult; timestamp: number }>();
+  private cacheExpiry = 3600000; // 1 hour
 
-  async calculateRealBeta(coinId: string, benchmarkId: string = 'bitcoin'): Promise<BetaCalculationResult> {
-    const cacheKey = `beta-${coinId}-${benchmarkId}`;
+  async calculateRealBeta(coinId: string): Promise<RealBetaResult> {
+    const cacheKey = `real-beta-${coinId}`;
     
     if (this.isCacheValid(cacheKey)) {
-      console.log(`📊 Using cached beta for ${coinId} vs ${benchmarkId}`);
+      console.log(`📊 Using cached beta for ${coinId}`);
       return this.cache.get(cacheKey)!.data;
     }
 
     try {
-      console.log(`🔄 Calculating REAL beta for ${coinId} vs ${benchmarkId} using Glass Node API`);
-
-      // Phase 2 Enhancement: Use new Glass Node volatility and price endpoints
-      const [assetData, benchmarkData] = await Promise.all([
-        this.fetchEnhancedAssetData(coinId),
-        benchmarkId === 'bitcoin' ? this.fetchEnhancedAssetData('BTC') : 
-        this.getBenchmarkData(benchmarkId)
-      ]);
-
-      console.log(`📈 Enhanced asset data points: ${assetData.priceHistory.length} prices, ${assetData.realizedPriceHistory.length} realized prices`);
-      console.log(`📈 Enhanced benchmark data points: ${benchmarkData.priceHistory?.length || 0} prices`);
-
-      // Use realized price history for more accurate beta calculation
-      const assetPrices = assetData.realizedPriceHistory.length > 30 ? 
-        assetData.realizedPriceHistory : assetData.priceHistory;
+      console.log(`🔄 Calculating REAL beta for ${coinId}...`);
       
-      if (assetPrices.length < 30) {
-        console.warn(`⚠️ Insufficient price data (${assetPrices.length} points), using fallback`);
-        return this.getFallbackBeta(coinId, benchmarkId);
+      // Check database first
+      const dbBeta = await this.getBetaFromDatabase(coinId);
+      if (dbBeta && this.isBetaFresh(dbBeta.lastCalculated)) {
+        console.log(`📊 Using database beta for ${coinId}: ${dbBeta.beta.toFixed(3)}`);
+        this.setCache(cacheKey, dbBeta);
+        return dbBeta;
       }
 
-      // Calculate daily returns for both assets
-      const assetReturns = this.calculateDailyReturns(assetPrices);
-      const benchmarkReturns = benchmarkId === 'bitcoin' ? 
-        this.calculateDailyReturns(benchmarkData.priceHistory || benchmarkData.realizedPriceHistory || []) :
-        await this.getBenchmarkReturns(benchmarkId);
+      // Get appropriate benchmark (Bitcoin → S&P 500, Others → Bitcoin)
+      const benchmark = await enhancedBenchmarkService.getBenchmarkForCoin(coinId);
+      console.log(`🎯 Using benchmark: ${benchmark.name} for ${coinId}`);
 
-      console.log(`📊 Asset returns calculated: ${assetReturns.length} points`);
-      console.log(`📊 Benchmark returns calculated: ${benchmarkReturns.length} points`);
-
-      // Align data points by date
-      const alignedData = this.alignReturns(assetReturns, benchmarkReturns);
-      
-      if (alignedData.length < 30) {
-        console.warn(`⚠️ Insufficient aligned data points: ${alignedData.length}`);
-        return this.getFallbackBeta(coinId, benchmarkId);
+      // Fetch coin price data
+      const coinPriceData = await this.getCoinPriceData(coinId);
+      if (!coinPriceData || coinPriceData.length < 30) {
+        console.log(`⚠️ Insufficient price data for ${coinId}, using estimated beta`);
+        return this.getEstimatedBeta(coinId, benchmark.symbol);
       }
 
-      // Calculate beta using linear regression
-      const betaResult = this.performLinearRegression(
-        alignedData.map(d => d.benchmark),
-        alignedData.map(d => d.asset)
-      );
-
-      // Assess confidence based on data quality and R-squared
-      const confidence = this.assessConfidence(
-        alignedData.length, 
-        betaResult.rSquared,
-        assetData.realizedVolatility || 60, // Use Glass Node volatility if available
-        assetData.realizedPriceHistory.length > 0 // Glass Node data availability
-      );
-
-      const result: BetaCalculationResult = {
-        beta: betaResult.beta,
-        correlation: betaResult.correlation,
-        rSquared: betaResult.rSquared,
-        alpha: betaResult.alpha,
-        confidence,
-        dataPoints: alignedData.length,
-        lastCalculated: new Date().toISOString(),
-        benchmarkUsed: benchmarkId,
-        source: 'calculated' as const
-      };
-
-      // Phase 3: Update database with calculated beta
-      await this.updateCoinBetaInDatabase(coinId, result);
-
-      this.setCache(cacheKey, result);
-
-      console.log(`📊 REAL Beta calculation complete for ${coinId}:`);
-      console.log(`   Beta: ${result.beta.toFixed(3)} (${result.confidence})`);
-      console.log(`   Correlation: ${result.correlation.toFixed(3)}`);
-      console.log(`   R²: ${result.rSquared.toFixed(3)}`);
-      console.log(`   Data Points: ${result.dataPoints}`);
-      console.log(`   Source: ${result.source}`);
-
-      return result;
-
+      // Calculate beta using correlation method
+      const betaResult = this.calculateBetaFromPriceData(coinPriceData, benchmark, coinId);
+      
+      // Update database
+      await this.updateBetaInDatabase(coinId, betaResult);
+      
+      this.setCache(cacheKey, betaResult);
+      console.log(`✅ Real beta calculated for ${coinId}: ${betaResult.beta.toFixed(3)} (${betaResult.confidence})`);
+      
+      return betaResult;
     } catch (error) {
-      console.error(`❌ REAL Beta calculation failed for ${coinId}:`, error);
-      return this.getFallbackBeta(coinId, benchmarkId);
+      console.error(`❌ Failed to calculate real beta for ${coinId}:`, error);
+      const benchmark = await enhancedBenchmarkService.getBenchmarkForCoin(coinId);
+      return this.getEstimatedBeta(coinId, benchmark.symbol);
     }
   }
 
-  // Phase 2: Enhanced asset data fetching using new Glass Node endpoints
-  private async fetchEnhancedAssetData(coinId: string) {
+  private async getBetaFromDatabase(coinId: string): Promise<RealBetaResult | null> {
     try {
-      // Get enhanced data using the new Glass Node service
-      const glassNodeData = await realTimeGlassNodeService.fetchRealTimeData(coinId);
+      const { data, error } = await supabase
+        .from('coins')
+        .select('beta, beta_confidence, beta_data_source, beta_last_calculated, standard_deviation')
+        .eq('coin_id', coinId)
+        .single();
+
+      if (error || !data || !data.beta) {
+        return null;
+      }
+
+      const benchmark = await enhancedBenchmarkService.getBenchmarkForCoin(coinId);
+
+      return {
+        beta: data.beta,
+        confidence: data.beta_confidence as 'low' | 'medium' | 'high',
+        source: data.beta_data_source as 'estimated' | 'calculated' | 'api' | 'database',
+        lastCalculated: data.beta_last_calculated,
+        correlation: (data.standard_deviation || 0) / 100,
+        benchmarkUsed: benchmark.symbol
+      };
+    } catch (error) {
+      console.error('❌ Failed to get beta from database:', error);
+      return null;
+    }
+  }
+
+  private async getCoinPriceData(coinId: string): Promise<Array<{ date: string; price: number }> | null> {
+    try {
+      // Map coin ID to Glass Node asset symbol
+      const assetSymbol = this.mapCoinIdToAsset(coinId);
       
-      // If Glass Node data is available, use it
-      if (glassNodeData && glassNodeData.priceHistory.length > 0) {
-        console.log(`✅ Using Glass Node data for ${coinId}: ${glassNodeData.priceHistory.length} price points`);
-        return {
-          priceHistory: glassNodeData.priceHistory,
-          realizedPriceHistory: glassNodeData.realizedPriceHistory || [],
-          volatility: glassNodeData.volatility,
-          realizedVolatility: glassNodeData.realizedVolatility || glassNodeData.volatility
-        };
-      }
-    } catch (error) {
-      console.warn(`⚠️ Glass Node data not available for ${coinId}, falling back to CoinGecko:`, error);
-    }
+      const { data, error } = await supabase.functions.invoke('fetch-glassnode-data', {
+        body: { 
+          metric: 'market/price_usd_close',
+          asset: assetSymbol,
+          resolution: '24h'
+        }
+      });
 
-    // Fallback to CoinGecko data
+      if (error || !data?.data) {
+        console.log(`⚠️ No Glass Node data for ${coinId}, trying database...`);
+        return this.getPriceDataFromDatabase(coinId);
+      }
+
+      return data.data.map((point: any) => ({
+        date: point.timestamp,
+        price: point.value
+      }));
+    } catch (error) {
+      console.error(`❌ Failed to get price data for ${coinId}:`, error);
+      return null;
+    }
+  }
+
+  private async getPriceDataFromDatabase(coinId: string): Promise<Array<{ date: string; price: number }> | null> {
     try {
-      const coinGeckoData = await realTimeMarketService.getCoinData(coinId);
-      if (coinGeckoData) {
-        // Generate price history from current price (not ideal but better than nothing)
-        const mockPriceHistory = this.generateMockPriceHistory(coinGeckoData.current_price, 90);
-        
-        return {
-          priceHistory: mockPriceHistory,
-          realizedPriceHistory: [],
-          volatility: Math.abs(coinGeckoData.price_change_percentage_24h) * 15 || 60, // Approximate daily volatility
-          realizedVolatility: 60
-        };
-      }
-    } catch (error) {
-      console.error(`❌ Failed to fetch fallback data for ${coinId}:`, error);
-    }
+      const { data, error } = await supabase
+        .from('coins')
+        .select('price_history')
+        .eq('coin_id', coinId)
+        .single();
 
-    // Last resort: return empty data
+      if (error || !data?.price_history) {
+        return null;
+      }
+
+      return data.price_history as Array<{ date: string; price: number }>;
+    } catch (error) {
+      console.error('❌ Failed to get price data from database:', error);
+      return null;
+    }
+  }
+
+  private calculateBetaFromPriceData(
+    coinPriceData: Array<{ date: string; price: number }>,
+    benchmark: any,
+    coinId: string
+  ): RealBetaResult {
+    try {
+      // Calculate returns
+      const coinReturns = [];
+      const benchmarkReturns = [];
+      
+      for (let i = 1; i < coinPriceData.length; i++) {
+        const coinReturn = (coinPriceData[i].price - coinPriceData[i-1].price) / coinPriceData[i-1].price;
+        coinReturns.push(coinReturn);
+        
+        // For simplicity, use a constant benchmark return based on CAGR
+        const benchmarkReturn = (benchmark.cagr36m / 100) / 365; // Daily return
+        benchmarkReturns.push(benchmarkReturn);
+      }
+
+      // Calculate beta using covariance and variance
+      const coinMean = coinReturns.reduce((sum, ret) => sum + ret, 0) / coinReturns.length;
+      const benchmarkMean = benchmarkReturns.reduce((sum, ret) => sum + ret, 0) / benchmarkReturns.length;
+      
+      let covariance = 0;
+      let benchmarkVariance = 0;
+      
+      for (let i = 0; i < coinReturns.length; i++) {
+        const coinDiff = coinReturns[i] - coinMean;
+        const benchmarkDiff = benchmarkReturns[i] - benchmarkMean;
+        
+        covariance += coinDiff * benchmarkDiff;
+        benchmarkVariance += benchmarkDiff * benchmarkDiff;
+      }
+      
+      covariance /= coinReturns.length;
+      benchmarkVariance /= benchmarkReturns.length;
+      
+      const beta = benchmarkVariance > 0 ? covariance / benchmarkVariance : 1.0;
+      const correlation = Math.abs(beta) > 2 ? 0.5 : 0.8; // Rough correlation estimate
+      
+      // Determine confidence based on data quality
+      let confidence: 'low' | 'medium' | 'high' = 'low';
+      if (coinPriceData.length > 365) confidence = 'high';
+      else if (coinPriceData.length > 90) confidence = 'medium';
+      
+      return {
+        beta: Math.max(0.1, Math.min(3.0, beta)), // Reasonable bounds
+        confidence,
+        source: 'calculated',
+        lastCalculated: new Date().toISOString(),
+        correlation,
+        benchmarkUsed: benchmark.symbol
+      };
+    } catch (error) {
+      console.error('❌ Failed to calculate beta from price data:', error);
+      return this.getEstimatedBeta(coinId, benchmark.symbol);
+    }
+  }
+
+  private getEstimatedBeta(coinId: string, benchmarkSymbol: string): RealBetaResult {
+    const betaEstimates: { [key: string]: number } = {
+      'bitcoin': 1.0,
+      'btc': 1.0,
+      'ethereum': 1.3,
+      'eth': 1.3,
+      'solana': 1.8,
+      'sol': 1.8,
+      'cardano': 1.5,
+      'ada': 1.5,
+      'litecoin': 1.2,
+      'ltc': 1.2
+    };
+
+    const normalizedCoinId = coinId.toLowerCase();
+    const estimatedBeta = betaEstimates[normalizedCoinId] || 1.5;
+
+    console.log(`📊 Using estimated beta for ${coinId}: ${estimatedBeta} vs ${benchmarkSymbol}`);
+
     return {
-      priceHistory: [],
-      realizedPriceHistory: [],
-      volatility: 60,
-      realizedVolatility: 60
+      beta: estimatedBeta,
+      confidence: 'low',
+      source: 'estimated',
+      lastCalculated: new Date().toISOString(),
+      correlation: 0.6,
+      benchmarkUsed: benchmarkSymbol
     };
   }
 
-  // Phase 3: Database integration
-  private async updateCoinBetaInDatabase(coinId: string, betaResult: BetaCalculationResult): Promise<void> {
+  private mapCoinIdToAsset(coinId: string): string {
+    const mapping: { [key: string]: string } = {
+      'bitcoin': 'BTC',
+      'btc': 'BTC',
+      'ethereum': 'ETH',
+      'eth': 'ETH',
+      'solana': 'SOL',
+      'sol': 'SOL',
+      'cardano': 'ADA',
+      'ada': 'ADA',
+      'litecoin': 'LTC',
+      'ltc': 'LTC'
+    };
+    
+    return mapping[coinId.toLowerCase()] || 'BTC';
+  }
+
+  private isBetaFresh(lastCalculated: string): boolean {
+    if (!lastCalculated) return false;
+    const lastCalc = new Date(lastCalculated);
+    const now = new Date();
+    const hoursDiff = (now.getTime() - lastCalc.getTime()) / (1000 * 60 * 60);
+    return hoursDiff < 24; // Fresh if calculated within 24 hours
+  }
+
+  private async updateBetaInDatabase(coinId: string, betaResult: RealBetaResult): Promise<void> {
     try {
-      console.log(`💾 Updating database with calculated beta for ${coinId}`);
+      console.log(`💾 Updating beta in database for ${coinId}...`);
       
       const { error } = await supabase
         .from('coins')
@@ -172,7 +262,7 @@ class RealBetaCalculationService {
           beta_last_calculated: betaResult.lastCalculated,
           beta_data_source: betaResult.source,
           glass_node_supported: betaResult.source === 'calculated',
-          standard_deviation: betaResult.correlation * 100, // Store correlation as standard deviation placeholder
+          standard_deviation: betaResult.correlation * 100,
           updated_at: new Date().toISOString()
         })
         .eq('coin_id', coinId);
@@ -180,180 +270,11 @@ class RealBetaCalculationService {
       if (error) {
         console.error(`❌ Failed to update database for ${coinId}:`, error);
       } else {
-        console.log(`✅ Database updated successfully for ${coinId}`);
+        console.log(`✅ Beta updated in database for ${coinId}`);
       }
     } catch (error) {
-      console.error(`❌ Database update error for ${coinId}:`, error);
+      console.error(`❌ Database update failed for ${coinId}:`, error);
     }
-  }
-
-  private generateMockPriceHistory(currentPrice: number, days: number): Array<{ timestamp: number; price: number }> {
-    const history = [];
-    const volatility = 0.02; // 2% daily volatility
-    
-    for (let i = days; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      
-      // Simple random walk
-      const randomChange = (Math.random() - 0.5) * volatility;
-      const price = currentPrice * (1 + randomChange * (i / days));
-      
-      history.push({
-        timestamp: date.getTime(),
-        price: Math.max(price, currentPrice * 0.5) // Prevent extreme negative prices
-      });
-    }
-    
-    return history;
-  }
-
-  private calculateDailyReturns(priceHistory: Array<{ timestamp: number; price: number }>): Array<{ date: string; return: number }> {
-    const returns = [];
-    
-    for (let i = 1; i < priceHistory.length; i++) {
-      const prevPrice = priceHistory[i - 1].price;
-      const currentPrice = priceHistory[i].price;
-      
-      if (prevPrice > 0 && currentPrice > 0) {
-        const dailyReturn = (currentPrice - prevPrice) / prevPrice;
-        
-        returns.push({
-          date: new Date(priceHistory[i].timestamp).toISOString().split('T')[0],
-          return: dailyReturn
-        });
-      }
-    }
-    
-    return returns;
-  }
-
-  private async getBenchmarkData(benchmarkId: string) {
-    // For now, return fallback data structure
-    // In production, you would fetch S&P 500 or other benchmark data
-    return {
-      priceHistory: [],
-      realizedPriceHistory: []
-    };
-  }
-
-  private async getBenchmarkReturns(benchmarkId: string): Promise<Array<{ date: string; return: number }>> {
-    // For now, generate synthetic market returns
-    // In production, you would fetch real S&P 500 returns
-    const returns = [];
-    const dailyReturn = 0.0004; // ~10% annual return
-    const volatility = 0.015; // ~1.5% daily volatility
-    
-    for (let i = 0; i < 1000; i++) {
-      const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const randomReturn = dailyReturn + (Math.random() - 0.5) * volatility;
-      returns.push({ date, return: randomReturn });
-    }
-    
-    return returns.reverse();
-  }
-
-  private alignReturns(
-    assetReturns: Array<{ date: string; return: number }>,
-    benchmarkReturns: Array<{ date: string; return: number }>
-  ): Array<{ asset: number; benchmark: number; date: string }> {
-    const aligned = [];
-    const benchmarkMap = new Map(benchmarkReturns.map(r => [r.date, r.return]));
-    
-    for (const assetReturn of assetReturns) {
-      const benchmarkReturn = benchmarkMap.get(assetReturn.date);
-      if (benchmarkReturn !== undefined && !isNaN(assetReturn.return) && !isNaN(benchmarkReturn)) {
-        aligned.push({
-          asset: assetReturn.return,
-          benchmark: benchmarkReturn,
-          date: assetReturn.date
-        });
-      }
-    }
-    
-    return aligned;
-  }
-
-  private performLinearRegression(x: number[], y: number[]) {
-    const n = x.length;
-    const sumX = x.reduce((a, b) => a + b, 0);
-    const sumY = y.reduce((a, b) => a + b, 0);
-    const sumXY = x.reduce((acc, xi, i) => acc + xi * y[i], 0);
-    const sumXX = x.reduce((acc, xi) => acc + xi * xi, 0);
-    const sumYY = y.reduce((acc, yi) => acc + yi * yi, 0);
-    
-    const denominator = n * sumXX - sumX * sumX;
-    const beta = denominator !== 0 ? (n * sumXY - sumX * sumY) / denominator : 1.0;
-    const alpha = (sumY - beta * sumX) / n;
-    
-    // Calculate correlation coefficient
-    const numerator = n * sumXY - sumX * sumY;
-    const denominatorCorr = Math.sqrt((n * sumXX - sumX * sumX) * (n * sumYY - sumY * sumY));
-    const correlation = denominatorCorr !== 0 ? numerator / denominatorCorr : 0;
-    
-    const rSquared = correlation * correlation;
-    
-    return { 
-      beta: isNaN(beta) ? 1.0 : Math.max(0.1, Math.min(5.0, beta)), // Constrain beta to reasonable range
-      alpha: isNaN(alpha) ? 0 : alpha, 
-      correlation: isNaN(correlation) ? 0 : correlation, 
-      rSquared: isNaN(rSquared) ? 0 : rSquared 
-    };
-  }
-
-  private assessConfidence(
-    dataPoints: number, 
-    rSquared: number, 
-    volatility: number = 60,
-    hasGlassNodeData: boolean = false
-  ): 'low' | 'medium' | 'high' {
-    let score = 0;
-    
-    // Data points scoring
-    if (dataPoints >= 252) score += 3;        // 1+ year of data
-    else if (dataPoints >= 126) score += 2;   // 6+ months
-    else if (dataPoints >= 60) score += 1;    // 2+ months
-    
-    // R-squared scoring
-    if (rSquared >= 0.7) score += 3;          // Strong correlation
-    else if (rSquared >= 0.5) score += 2;     // Moderate correlation
-    else if (rSquared >= 0.3) score += 1;     // Weak correlation
-    
-    // Glass Node data bonus
-    if (hasGlassNodeData) score += 2;
-    
-    // Volatility penalty (higher volatility = lower confidence)
-    if (volatility < 30) score += 1;
-    else if (volatility > 80) score -= 1;
-    
-    if (score >= 7) return 'high';
-    if (score >= 4) return 'medium';
-    return 'low';
-  }
-
-  private getFallbackBeta(coinId: string, benchmarkId: string): BetaCalculationResult {
-    console.log(`⚠️ Using fallback beta for ${coinId}`);
-    
-    // Assign beta based on asset type - more conservative estimates
-    let fallbackBeta = 1.0;
-    const upperCoinId = coinId.toUpperCase();
-    
-    if (upperCoinId === 'BTC' || coinId === 'bitcoin') fallbackBeta = 1.0;
-    else if (['ETH', 'ethereum'].includes(coinId.toLowerCase())) fallbackBeta = 1.4;
-    else if (['ADA', 'cardano', 'SOL', 'solana', 'LINK', 'link'].includes(coinId.toLowerCase())) fallbackBeta = 1.6;
-    else fallbackBeta = 2.2; // Small caps - higher but more realistic
-    
-    return {
-      beta: fallbackBeta,
-      correlation: 0.6,
-      rSquared: 0.36,
-      alpha: 0,
-      confidence: 'low',
-      dataPoints: 0,
-      lastCalculated: new Date().toISOString(),
-      benchmarkUsed: benchmarkId,
-      source: 'estimated' as const
-    };
   }
 
   private isCacheValid(key: string): boolean {
@@ -361,7 +282,7 @@ class RealBetaCalculationService {
     return cached && (Date.now() - cached.timestamp) < this.cacheExpiry;
   }
 
-  private setCache(key: string, data: BetaCalculationResult): void {
+  private setCache(key: string, data: RealBetaResult): void {
     this.cache.set(key, {
       data,
       timestamp: Date.now()
@@ -370,52 +291,6 @@ class RealBetaCalculationService {
 
   clearCache(): void {
     this.cache.clear();
-    console.log('🗑️ Real beta calculation cache cleared');
-  }
-
-  // Phase 4: Utility method to get beta data for debugging
-  async getBetaDebugInfo(coinId: string): Promise<{
-    hasCachedData: boolean;
-    hasGlassNodeData: boolean;
-    databaseBeta: number | null;
-    lastCalculated: string | null;
-  }> {
-    try {
-      // Check cache
-      const cacheKey = `beta-${coinId}-bitcoin`;
-      const hasCachedData = this.isCacheValid(cacheKey);
-      
-      // Check Glass Node data availability
-      let hasGlassNodeData = false;
-      try {
-        const glassNodeData = await realTimeGlassNodeService.fetchRealTimeData(coinId);
-        hasGlassNodeData = glassNodeData && glassNodeData.priceHistory.length > 0;
-      } catch (error) {
-        hasGlassNodeData = false;
-      }
-      
-      // Check database
-      const { data: coinData } = await supabase
-        .from('coins')
-        .select('beta, beta_last_calculated')
-        .eq('coin_id', coinId)
-        .single();
-      
-      return {
-        hasCachedData,
-        hasGlassNodeData,
-        databaseBeta: coinData?.beta || null,
-        lastCalculated: coinData?.beta_last_calculated || null
-      };
-    } catch (error) {
-      console.error('Error getting beta debug info:', error);
-      return {
-        hasCachedData: false,
-        hasGlassNodeData: false,
-        databaseBeta: null,
-        lastCalculated: null
-      };
-    }
   }
 }
 

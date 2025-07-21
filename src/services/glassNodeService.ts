@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { bitcoinGlassNodeService } from './bitcoinGlassNodeService';
 
 export interface GlassNodeDataPoint {
   timestamp: string;
@@ -50,12 +51,13 @@ export const GLASS_NODE_METRICS = {
   FUTURES_VOLUME: 'derivatives/futures_volume_daily_sum',
   OPTIONS_VOLUME: 'derivatives/options_volume_daily_sum',
   
-  // Cointime metrics
+  // Cointime metrics - ALWAYS use Bitcoin data
   COINTIME_DESTROYED: 'indicators/cdd',
   COINTIME_PRICE: 'indicators/ctp',
   COINTIME_CAP: 'indicators/ctc',
+  COIN_BLOCKS_DESTROYED: 'indicators/coin_blocks_destroyed', // New endpoint
   
-  // AVIV Ratio - Premium Glass Node metric
+  // AVIV Ratio - ALWAYS use Bitcoin data
   AVIV_RATIO: 'indicators/aviv'
 };
 
@@ -91,7 +93,6 @@ export const fetchGlassNodeMetric = async (
   }
 };
 
-// Get multiple metrics at once
 export const fetchMultipleGlassNodeMetrics = async (
   metrics: string[],
   asset: string = 'BTC',
@@ -115,7 +116,6 @@ export const fetchMultipleGlassNodeMetrics = async (
   }
 };
 
-// Get historical price data using realized price
 export const fetchHistoricalRealizedPrice = async (
   asset: string = 'BTC',
   since?: Date,
@@ -138,7 +138,6 @@ export const fetchHistoricalRealizedPrice = async (
   }
 };
 
-// Get volatility data
 export const fetchRealizedVolatility = async (
   asset: string = 'BTC',
   since?: Date,
@@ -161,7 +160,6 @@ export const fetchRealizedVolatility = async (
   }
 };
 
-// Get comprehensive volatility and price analysis
 export const getVolatilityPriceAnalysis = async (
   asset: string = 'BTC',
   days: number = 30
@@ -186,7 +184,6 @@ export const getVolatilityPriceAnalysis = async (
       fetchRealizedVolatility(asset, since, until)
     ]);
 
-    // Calculate analysis metrics
     const currentVolatility = realizedVolatility.length > 0 
       ? realizedVolatility[realizedVolatility.length - 1].value 
       : 0;
@@ -195,12 +192,10 @@ export const getVolatilityPriceAnalysis = async (
       ? realizedVolatility.reduce((sum, point) => sum + point.value, 0) / realizedVolatility.length
       : 0;
 
-    // Calculate price deviation between historical and realized price
     const priceDeviation = historicalPrice.length > 0 && realizedPrice.length > 0
       ? Math.abs(historicalPrice[historicalPrice.length - 1].value - realizedPrice[realizedPrice.length - 1].value) / historicalPrice[historicalPrice.length - 1].value * 100
       : 0;
 
-    // Determine volatility trend
     let volatilityTrend: 'increasing' | 'decreasing' | 'stable' = 'stable';
     if (realizedVolatility.length >= 10) {
       const recent = realizedVolatility.slice(-5).reduce((sum, p) => sum + p.value, 0) / 5;
@@ -237,29 +232,31 @@ export const getVolatilityPriceAnalysis = async (
   }
 };
 
-// Cointime formulas implementation
+// UPDATED: Cointime formulas now always use Bitcoin data
 export const calculateCointimeMetrics = (
   priceData: GlassNodeDataPoint[],
   cointimeData: GlassNodeDataPoint[]
 ) => {
+  console.log('📊 IMPORTANT: Cointime metrics ALWAYS use Bitcoin data, regardless of selected coin');
+  
   if (priceData.length === 0 || cointimeData.length === 0) {
+    console.log('⚠️ No cointime data available, using Bitcoin service fallback');
     return { cointimePrice: 0, cointimeRatio: 0 };
   }
 
   const latestPrice = priceData[priceData.length - 1]?.value || 0;
   const latestCointime = cointimeData[cointimeData.length - 1]?.value || 0;
   
-  // Cointime Price = Price / Cointime Destroyed
   const cointimePrice = latestCointime > 0 ? latestPrice / latestCointime : 0;
-  
-  // Cointime Ratio = Current Cointime / Historical Average
   const avgCointime = cointimeData.reduce((sum, point) => sum + point.value, 0) / cointimeData.length;
   const cointimeRatio = avgCointime > 0 ? latestCointime / avgCointime : 0;
+
+  console.log(`📊 Bitcoin Cointime Metrics - Price: ${cointimePrice.toFixed(2)}, Ratio: ${cointimeRatio.toFixed(3)}`);
 
   return { cointimePrice, cointimeRatio };
 };
 
-// Get comprehensive on-chain analysis
+// Get comprehensive on-chain analysis for SELECTED coin
 export const getOnChainAnalysis = async (
   asset: string = 'BTC',
   days: number = 30
@@ -274,6 +271,8 @@ export const getOnChainAnalysis = async (
   const until = new Date();
 
   try {
+    console.log(`📊 Fetching on-chain analysis for ${asset} (coin-specific data)`);
+    
     const [
       price,
       activeAddresses,
@@ -289,15 +288,18 @@ export const getOnChainAnalysis = async (
       fetchGlassNodeMetric(GLASS_NODE_METRICS.EXCHANGE_OUTFLOW, asset, since, until),
       fetchGlassNodeMetric(GLASS_NODE_METRICS.LIQUID_SUPPLY, asset, since, until),
       fetchGlassNodeMetric(GLASS_NODE_METRICS.ILLIQUID_SUPPLY, asset, since, until),
-      fetchGlassNodeMetric(GLASS_NODE_METRICS.COINTIME_DESTROYED, asset, since, until)
+      fetchGlassNodeMetric(GLASS_NODE_METRICS.COINTIME_DESTROYED, 'BTC', since, until) // Always Bitcoin for cointime
     ]);
+
+    console.log(`✅ On-chain analysis completed for ${asset}`);
+    console.log(`📊 Note: Cointime data is from Bitcoin regardless of selected coin`);
 
     return {
       price,
       activeAddresses,
       exchangeFlow: { inflow: exchangeInflow, outflow: exchangeOutflow },
       supply: { liquid: liquidSupply, illiquid: illiquidSupply },
-      cointime
+      cointime // This is always Bitcoin cointime data
     };
   } catch (error) {
     console.error('Error fetching on-chain analysis:', error);

@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { enhancedRealTimeMarketService } from '@/services/enhancedRealTimeMarketService';
 import { fetchBasketAssumptions, fetchBenchmarkData, storeAnalysisResult } from '@/services/investmentDataService';
@@ -7,6 +6,8 @@ import { generateAdvancedRecommendation } from '@/services/recommendationService
 import { createMarketConditions } from '@/services/marketAnalysisService';
 import { getOnChainAnalysis, calculateCointimeMetrics } from '@/services/glassNodeService';
 import { realBetaCalculationService } from '@/services/realBetaCalculationService';
+import { bitcoinGlassNodeService } from '@/services/bitcoinGlassNodeService';
+import { enhancedBenchmarkService } from '@/services/enhancedBenchmarkService';
 import type { InvestmentInputs, AnalysisResult, MarketDataResult } from '@/types/investment';
 
 export const useEnhancedGlassNodeAnalysis = () => {
@@ -19,47 +20,55 @@ export const useEnhancedGlassNodeAnalysis = () => {
 
     try {
       console.log('🔬 Starting enhanced Glass Node analysis for:', inputs.coinId);
+      console.log('📊 KEY CHANGE: AVIV Ratio will ALWAYS use Bitcoin data, regardless of selected coin');
 
-      // 1. Fetch enhanced coin data with Glass Node metrics
+      // 1. Fetch enhanced coin data with Glass Node metrics for the SELECTED coin
       const enhancedCoinData = await enhancedRealTimeMarketService.getEnhancedCoinData(inputs.coinId);
       if (!enhancedCoinData) {
         throw new Error('Failed to fetch enhanced coin data');
       }
 
-      // 2. Get comprehensive on-chain analysis from Glass Node
+      // 2. Get Bitcoin-specific cointime data (ALWAYS Bitcoin, regardless of selected coin)
+      console.log('₿ Fetching Bitcoin AVIV Ratio and Cointime data (market timing indicators)...');
+      const bitcoinCointimeData = await bitcoinGlassNodeService.getBitcoinCointimeData();
+      
+      // 3. Get on-chain analysis for the SELECTED coin
       const coinSymbol = getCoinSymbol(inputs.coinId);
       const onChainAnalysis = await getOnChainAnalysis(coinSymbol, 30);
       
-      // 3. Calculate cointime metrics
-      const cointimeMetrics = calculateCointimeMetrics(
-        onChainAnalysis.price,
-        onChainAnalysis.cointime
-      );
+      // 4. Calculate cointime metrics using BITCOIN data (not selected coin)
+      const cointimeMetrics = {
+        cointimePrice: bitcoinCointimeData.cointimePrice,
+        cointimeRatio: bitcoinCointimeData.cointimeRatio
+      };
 
-      // 4. Fetch basket assumptions and benchmark data
-      const coinData = await convertToCoinData(enhancedCoinData, cointimeMetrics);
+      // 5. Convert to coin data structure with BITCOIN AVIV ratio
+      const coinData = await convertToCoinData(enhancedCoinData, cointimeMetrics, bitcoinCointimeData.avivRatio);
+      
+      // 6. Fetch basket assumptions and proper benchmark data
       const assumptions = await fetchBasketAssumptions(coinData.basket);
-      const benchmarkId = coinData.basket === 'Bitcoin' ? 'SP500' : 'BTC';
-      const benchmark = await fetchBenchmarkData(benchmarkId);
+      const benchmark = await enhancedBenchmarkService.getBenchmarkForCoin(inputs.coinId);
+      
+      console.log(`🎯 Using benchmark: ${benchmark.name} for ${inputs.coinId}`);
 
-      // 5. Get REAL beta analysis using Glass Node data
-      console.log('🎯 Calculating real beta with Glass Node data...');
+      // 7. Get REAL beta analysis with proper benchmark
+      console.log('🎯 Calculating real beta with proper benchmark...');
       const betaAnalysis = await realBetaCalculationService.calculateRealBeta(inputs.coinId);
 
-      // 6. Create market conditions with enhanced data
+      // 8. Create market conditions with BITCOIN AVIV ratio (not selected coin)
       const marketConditions = createMarketConditions(
-        coinData,
+        coinData, // This now contains Bitcoin AVIV ratio
         {
           sentiment_score: calculateSentimentFromOnChain(enhancedCoinData.onChainMetrics),
           smart_money_activity: detectSmartMoneyActivity(enhancedCoinData.onChainMetrics)
         },
-        0 // Fed rate change - could be enhanced with real data
+        0 // Fed rate change
       );
 
-      // 7. Calculate expected price with Glass Node insights
+      // 9. Calculate expected price using SELECTED coin data
       const expectedPrice = calculateExpectedPrice(coinData, inputs, marketConditions);
       
-      // 8. Calculate enhanced financial metrics
+      // 10. Calculate enhanced financial metrics with proper benchmark
       const adjustedDiscountRate = calculateAdjustedDiscountRate(assumptions, 0, coinData.basket);
       const metrics = await calculateFinancialMetrics(inputs, coinData, expectedPrice, adjustedDiscountRate, marketConditions);
 
@@ -68,10 +77,10 @@ export const useEnhancedGlassNodeAnalysis = () => {
       metrics.betaConfidence = betaAnalysis.confidence;
       metrics.dataQuality = betaAnalysis.source;
 
-      // 9. Calculate allocation
+      // 11. Calculate allocation
       const allocation = calculateAllocation(inputs, assumptions, coinData);
 
-      // 10. Generate recommendation
+      // 12. Generate recommendation
       const recommendation = generateAdvancedRecommendation(
         metrics.npv,
         metrics.irr,
@@ -84,7 +93,7 @@ export const useEnhancedGlassNodeAnalysis = () => {
         allocation
       );
 
-      // 11. Store analysis result with real beta data
+      // 13. Store analysis result
       await storeAnalysisResult({
         coin_id: inputs.coinId,
         investment_amount: inputs.investmentAmount,
@@ -97,7 +106,7 @@ export const useEnhancedGlassNodeAnalysis = () => {
         roi: metrics.roi,
         risk_factor: metrics.riskFactor,
         recommendation: recommendation.recommendation,
-        conditions: `Beta: ${betaAnalysis.beta.toFixed(3)} (${betaAnalysis.confidence}) - ${recommendation.conditions}`,
+        conditions: `Beta: ${betaAnalysis.beta.toFixed(3)} (${betaAnalysis.confidence}) vs ${betaAnalysis.benchmarkUsed} - Bitcoin AVIV: ${bitcoinCointimeData.avivRatio.toFixed(3)} - ${recommendation.conditions}`,
         risks: `Beta Source: ${betaAnalysis.source} - ${recommendation.risks}`,
         price_cagr: metrics.cagr,
         total_return_cagr: metrics.totalReturnCAGR,
@@ -111,17 +120,19 @@ export const useEnhancedGlassNodeAnalysis = () => {
         portfolio_compliant: allocation.status === 'optimal'
       });
 
-      console.log('✅ Enhanced Glass Node analysis completed with REAL beta data');
-      console.log(`📊 Real Beta: ${betaAnalysis.beta.toFixed(3)} (${betaAnalysis.confidence})`);
-      console.log(`📈 Data Source: ${betaAnalysis.source}`);
+      console.log('✅ Enhanced Glass Node analysis completed with BITCOIN AVIV ratio');
+      console.log(`📊 Bitcoin AVIV Ratio: ${bitcoinCointimeData.avivRatio.toFixed(3)} (used for ALL coins)`);
+      console.log(`📊 Real Beta: ${betaAnalysis.beta.toFixed(3)} (${betaAnalysis.confidence}) vs ${betaAnalysis.benchmarkUsed}`);
+      console.log(`📈 Coin-specific metrics calculated for: ${inputs.coinId}`);
 
       return {
         coin: coinData,
         metrics: {
           ...metrics,
-          // Add Glass Node specific metrics
-          cointimePrice: cointimeMetrics.cointimePrice,
-          cointimeRatio: cointimeMetrics.cointimeRatio,
+          // Add Bitcoin-specific metrics
+          bitcoinAvivRatio: bitcoinCointimeData.avivRatio, // Always Bitcoin
+          cointimePrice: cointimeMetrics.cointimePrice, // Always Bitcoin
+          cointimeRatio: cointimeMetrics.cointimeRatio, // Always Bitcoin
           onChainScore: calculateOnChainHealthScore(enhancedCoinData.onChainMetrics)
         },
         recommendation,
@@ -130,13 +141,14 @@ export const useEnhancedGlassNodeAnalysis = () => {
         betaAnalysis,
         benchmarkComparison: {
           coinPerformance: coinData.cagr_36m || 0,
-          benchmarkPerformance: benchmark.cagr_36m,
+          benchmarkPerformance: benchmark.cagr36m,
           benchmarkName: benchmark.name
         },
         glassNodeData: {
           onChainAnalysis,
           cointimeMetrics,
-          onChainMetrics: enhancedCoinData.onChainMetrics
+          onChainMetrics: enhancedCoinData.onChainMetrics,
+          bitcoinCointimeData // Include Bitcoin-specific data
         }
       };
 
@@ -159,16 +171,20 @@ function getCoinSymbol(coinId: string): string {
     'ethereum': 'ETH',
     'solana': 'SOL',
     'cardano': 'ADA',
+    'litecoin': 'LTC',
     'BTC': 'BTC',
     'ETH': 'ETH',
     'SOL': 'SOL',
-    'ADA': 'ADA'
+    'ADA': 'ADA',
+    'LTC': 'LTC'
   };
   
   return symbolMap[coinId] || 'BTC';
 }
 
-async function convertToCoinData(enhancedData: any, cointimeMetrics: any): Promise<any> {
+async function convertToCoinData(enhancedData: any, cointimeMetrics: any, bitcoinAvivRatio: number): Promise<any> {
+  console.log(`🔄 Converting coin data with Bitcoin AVIV ratio: ${bitcoinAvivRatio.toFixed(3)}`);
+  
   return {
     id: enhancedData.id,
     coin_id: enhancedData.id,
@@ -179,10 +195,10 @@ async function convertToCoinData(enhancedData: any, cointimeMetrics: any): Promi
     cagr_36m: enhancedData.price_change_percentage_30d || 20,
     fundamentals_score: 7,
     volatility: calculateVolatilityFromOnChain(enhancedData.onChainMetrics),
-    aviv_ratio: cointimeMetrics.cointimeRatio,
+    aviv_ratio: bitcoinAvivRatio, // ALWAYS Bitcoin AVIV ratio
     active_supply: enhancedData.onChainMetrics?.liquidSupply || 0,
     vaulted_supply: enhancedData.onChainMetrics?.illiquidSupply || 0,
-    cointime_inflation: cointimeMetrics.cointimePrice,
+    cointime_inflation: cointimeMetrics.cointimePrice, // Bitcoin-based
     staking_yield: 0,
     beta: 1.0
   };
@@ -200,21 +216,18 @@ function calculateSentimentFromOnChain(metrics: any): number {
   const netFlow = metrics.exchangeOutflow - metrics.exchangeInflow;
   const flowRatio = netFlow / (metrics.exchangeInflow + 1);
   
-  // Positive outflow = bullish, negative = bearish
   return Math.max(-1, Math.min(1, flowRatio));
 }
 
 function detectSmartMoneyActivity(metrics: any): boolean {
   if (!metrics) return false;
   
-  // Large exchange outflows might indicate smart money accumulation
   return metrics.exchangeOutflow > metrics.exchangeInflow * 1.5;
 }
 
 function calculateVolatilityFromOnChain(metrics: any): number {
   if (!metrics) return 50;
   
-  // Higher exchange activity = higher volatility
   const activityScore = (metrics.exchangeInflow + metrics.exchangeOutflow) / 2;
   return Math.min(100, Math.max(20, activityScore / 1000));
 }
@@ -224,13 +237,8 @@ function calculateOnChainHealthScore(metrics: any): number {
   
   let score = 5;
   
-  // Active addresses (positive indicator)
   if (metrics.activeAddresses > 100000) score += 1;
-  
-  // Net outflow from exchanges (positive indicator)
   if (metrics.exchangeOutflow > metrics.exchangeInflow) score += 1;
-  
-  // High liquid supply relative to illiquid (risk indicator)
   if (metrics.liquidSupply > metrics.illiquidSupply * 2) score -= 1;
   
   return Math.max(1, Math.min(10, score));
