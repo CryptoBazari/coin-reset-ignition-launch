@@ -1,63 +1,62 @@
+import React from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Toaster } from '@/components/ui/toaster';
+import { QueryClient } from 'react-query';
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
-import Landing from "./pages/Landing";
-import CryptoAnalysis from "./pages/CryptoAnalysis";
-import VirtualPortfolio from "./pages/VirtualPortfolio";
-import Auth from "./pages/Auth";
-import News from "./pages/News";
-import NewsDetail from "./pages/NewsDetail";
-import Learning from "./pages/Learning";
-import LearningDetail from "./pages/LearningDetail";
-import CryptoList from "./pages/CryptoList";
-import CryptoListDetail from "./pages/CryptoListDetail";
-import AdminAccess from "./pages/AdminAccess";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import NewsManagement from "./pages/admin/NewsManagement";
-import LearningManagement from "./pages/admin/LearningManagement";
-import CryptoListingsManagement from "./pages/admin/CryptoListingsManagement";
-import SubscriptionManagement from "./pages/admin/SubscriptionManagement";
-import PaymentManagement from "./pages/admin/PaymentManagement";
-import NotFound from "./pages/NotFound";
-import Dashboard from "./pages/Dashboard";
+import LandingPage from '@/pages/LandingPage';
+import Dashboard from '@/pages/Dashboard';
+import CoinDetails from '@/pages/CoinDetails';
+import Learning from '@/pages/Learning';
+import News from '@/pages/News';
+import VirtualPortfolio from '@/pages/VirtualPortfolio';
+import InvestmentAnalysis from '@/pages/InvestmentAnalysis';
+import Auth from '@/pages/Auth';
+import NotFound from '@/pages/NotFound';
 
-const queryClient = new QueryClient();
+import { ProtectedRoute } from '@/components/ProtectedRoute';
+import AdminLayout from '@/components/admin/AdminLayout';
+import AdminDashboard from '@/pages/admin/AdminDashboard';
+import NewsManagement from '@/pages/admin/NewsManagement';
+import LearningManagement from '@/pages/admin/LearningManagement';
+import CryptoListingsManagement from '@/pages/admin/CryptoListingsManagement';
+import SubscriptionManagement from '@/pages/admin/SubscriptionManagement';
+import PaymentManagement from '@/pages/admin/PaymentManagement';
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
+import DataPopulation from '@/pages/admin/DataPopulation';
+
+function App() {
+  return (
+    <QueryClient>
       <BrowserRouter>
+        <Toaster />
         <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/analysis" element={<CryptoAnalysis />} />
+          {/* Public routes */}
+          <Route path="/" element={<LandingPage />} />
           <Route path="/auth" element={<Auth />} />
-          <Route path="/virtual-portfolio" element={<ProtectedRoute><VirtualPortfolio /></ProtectedRoute>} />
-          <Route path="/news" element={<News />} />
-          <Route path="/news/:id" element={<NewsDetail />} />
-          <Route path="/learning" element={<Learning />} />
-          <Route path="/learning/:id" element={<LearningDetail />} />
-          <Route path="/crypto-list" element={<CryptoList />} />
-          <Route path="/crypto-list/:id" element={<CryptoListDetail />} />
-          <Route path="/admin-access" element={<ProtectedRoute><AdminAccess /></ProtectedRoute>} />
-          <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-          <Route path="/admin/news" element={<ProtectedRoute><NewsManagement /></ProtectedRoute>} />
-          <Route path="/admin/learning" element={<ProtectedRoute><LearningManagement /></ProtectedRoute>} />
-          <Route path="/admin/crypto-listings" element={<ProtectedRoute><CryptoListingsManagement /></ProtectedRoute>} />
-          <Route path="/admin/subscriptions" element={<ProtectedRoute><SubscriptionManagement /></ProtectedRoute>} />
-          <Route path="/admin/payments" element={<ProtectedRoute><PaymentManagement /></ProtectedRoute>} />
+
+          {/* Protected routes */}
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="/coin/:coinId" element={<ProtectedRoute><CoinDetails /></ProtectedRoute>} />
+          <Route path="/learning" element={<ProtectedRoute><Learning /></ProtectedRoute>} />
+          <Route path="/news" element={<ProtectedRoute><News /></ProtectedRoute>} />
+          <Route path="/portfolio" element={<ProtectedRoute><VirtualPortfolio /></ProtectedRoute>} />
+          <Route path="/investment/:coinId" element={<ProtectedRoute><InvestmentAnalysis /></ProtectedRoute>} />
+
+          {/* Admin routes */}
+          <Route path="/admin" element={<AdminLayout><AdminDashboard /></AdminLayout>} />
+          <Route path="/admin/data-population" element={<AdminLayout><DataPopulation /></AdminLayout>} />
+          <Route path="/admin/news" element={<AdminLayout><NewsManagement /></AdminLayout>} />
+          <Route path="/admin/learning" element={<AdminLayout><LearningManagement /></AdminLayout>} />
+          <Route path="/admin/crypto-listings" element={<AdminLayout><CryptoListingsManagement /></AdminLayout>} />
+          <Route path="/admin/subscriptions" element={<AdminLayout><SubscriptionManagement /></AdminLayout>} />
+          <Route path="/admin/payments" element={<AdminLayout><PaymentManagement /></AdminLayout>} />
+          
+          {/* Not Found route */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+    </QueryClient>
+  );
+}
 
 export default App;

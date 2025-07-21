@@ -1,86 +1,84 @@
+
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { 
   LayoutDashboard, 
-  Newspaper, 
+  FileText, 
   BookOpen, 
-  Coins, 
+  List, 
   Users, 
   CreditCard,
+  Database,
   Settings
 } from 'lucide-react';
 
 const AdminSidebar = () => {
   const location = useLocation();
-
+  
   const menuItems = [
     {
-      label: 'Dashboard',
+      title: 'Dashboard',
       href: '/admin',
-      icon: LayoutDashboard,
+      icon: LayoutDashboard
     },
     {
-      label: 'News Management',
+      title: 'Data Population',
+      href: '/admin/data-population',
+      icon: Database
+    },
+    {
+      title: 'News Management',
       href: '/admin/news',
-      icon: Newspaper,
+      icon: FileText
     },
     {
-      label: 'Learning Management',
+      title: 'Learning Management',
       href: '/admin/learning',
-      icon: BookOpen,
+      icon: BookOpen
     },
     {
-      label: 'Crypto Listings',
+      title: 'Crypto Listings',
       href: '/admin/crypto-listings',
-      icon: Coins,
+      icon: List
     },
     {
-      label: 'User Management',
-      href: '/admin/users',
-      icon: Users,
-    },
-    {
-      label: 'Subscriptions',
+      title: 'Subscriptions',
       href: '/admin/subscriptions',
-      icon: CreditCard,
+      icon: Users
     },
     {
-      label: 'Payments',
+      title: 'Payments',
       href: '/admin/payments',
-      icon: CreditCard,
-    },
-    {
-      label: 'Settings',
-      href: '/admin/settings',
-      icon: Settings,
-    },
+      icon: CreditCard
+    }
   ];
 
   return (
-    <aside className="w-64 border-r bg-muted/30 min-h-[calc(100vh-4rem)]">
-      <nav className="p-4 space-y-2">
+    <div className="w-64 bg-card border-r h-full">
+      <div className="p-6">
+        <h2 className="text-lg font-semibold">Admin Panel</h2>
+      </div>
+      <nav className="px-4 space-y-2">
         {menuItems.map((item) => {
-          const isActive = location.pathname === item.href;
           const Icon = item.icon;
-          
           return (
             <Link
               key={item.href}
               to={item.href}
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                isActive
+                location.pathname === item.href
                   ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
               )}
             >
               <Icon className="h-4 w-4" />
-              {item.label}
+              {item.title}
             </Link>
           );
         })}
       </nav>
-    </aside>
+    </div>
   );
 };
 
