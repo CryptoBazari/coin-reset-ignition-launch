@@ -1,3 +1,4 @@
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, TrendingUp, Download, Share2, Calculator, History } from 'lucide-react';
@@ -5,7 +6,7 @@ import { Plus, TrendingUp, Download, Share2, Calculator, History } from 'lucide-
 interface QuickActionsProps {
   onAddTransaction: () => void;
   onShowTransactionHistory: () => void;
-  onAnalyzePortfolio?: () => void;
+  onAnalyzePortfolio: () => void;
   onExportData?: () => void;
   onSharePortfolio?: () => void;
 }
@@ -39,7 +40,7 @@ const QuickActions = ({
       icon: Calculator,
       onClick: onAnalyzePortfolio,
       variant: "outline" as const,
-      disabled: !onAnalyzePortfolio
+      className: "bg-green-600 hover:bg-green-700 text-white"
     },
     {
       title: "Export",

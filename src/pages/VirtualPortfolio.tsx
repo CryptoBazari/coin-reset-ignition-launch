@@ -1,15 +1,16 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Navbar from '@/components/Navbar';
-import PortfolioSelection from '@/components/virtual-portfolio/PortfolioSelection';
-import CreatePortfolioDialog from '@/components/virtual-portfolio/CreatePortfolioDialog';
 import PortfolioDashboard from '@/components/virtual-portfolio/PortfolioDashboard';
 import AddTransactionDialog from '@/components/virtual-portfolio/AddTransactionDialog';
 import TransactionHistory from '@/components/virtual-portfolio/TransactionHistory';
 import EmptyPortfolioState from '@/components/virtual-portfolio/EmptyPortfolioState';
+import CreatePortfolioDialog from '@/components/virtual-portfolio/CreatePortfolioDialog';
 import SubscriptionButton from '@/components/subscription/SubscriptionButton';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useRealTimePortfolio } from '@/hooks/useRealTimePortfolio';
 import { VirtualPortfolio as VirtualPortfolioType } from '@/types/virtualPortfolio';
 import { Lock } from 'lucide-react';
 
@@ -21,6 +22,9 @@ const VirtualPortfolio = () => {
   const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [showTransactionHistory, setShowTransactionHistory] = useState(false);
   const { hasActiveSubscription, user } = useSubscription();
+
+  // Real-time portfolio data
+  const { portfolioData, refetch: refetchPortfolioData } = useRealTimePortfolio(selectedPortfolioId || '');
 
   useEffect(() => {
     if (user && hasActiveSubscription) {
@@ -55,6 +59,18 @@ const VirtualPortfolio = () => {
   };
 
   const selectedPortfolio = portfolios.find(p => p.id === selectedPortfolioId);
+
+  // Update portfolio with real-time data if available
+  const enhancedPortfolio = selectedPortfolio && portfolioData ? {
+    ...selectedPortfolio,
+    total_value: portfolioData.totalValue,
+    all_time_profit: portfolioData.totalProfit
+  } : selectedPortfolio;
+
+  const handleTransactionSuccess = async () => {
+    await fetchPortfolios();
+    await refetchPortfolioData();
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -106,7 +122,7 @@ const VirtualPortfolio = () => {
         ) : (
           <PortfolioDashboard
             portfolios={portfolios}
-            selectedPortfolio={selectedPortfolio!}
+            selectedPortfolio={enhancedPortfolio!}
             selectedPortfolioId={selectedPortfolioId}
             onSelectPortfolio={setSelectedPortfolioId}
             onShowTransactionHistory={() => setShowTransactionHistory(true)}
@@ -127,14 +143,14 @@ const VirtualPortfolio = () => {
               open={showAddTransaction}
               onOpenChange={setShowAddTransaction}
               portfolioId={selectedPortfolio.id}
-              onSuccess={fetchPortfolios}
+              onSuccess={handleTransactionSuccess}
             />
 
             <TransactionHistory
               open={showTransactionHistory}
               onOpenChange={setShowTransactionHistory}
               portfolioId={selectedPortfolio.id}
-              onTransactionUpdated={fetchPortfolios}
+              onTransactionUpdated={handleTransactionSuccess}
             />
           </>
         )}

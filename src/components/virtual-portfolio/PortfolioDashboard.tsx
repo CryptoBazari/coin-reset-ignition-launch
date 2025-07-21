@@ -1,6 +1,5 @@
 
-import { Button } from '@/components/ui/button';
-import { History } from 'lucide-react';
+import { useState } from 'react';
 import { VirtualPortfolio } from '@/types/virtualPortfolio';
 import PortfolioOverview from './PortfolioOverview';
 import AssetHoldings from './AssetHoldings';
@@ -13,6 +12,7 @@ import PortfolioComparison from './PortfolioComparison';
 import AdvancedAnalytics from './AdvancedAnalytics';
 import AnalyticsSummary from './AnalyticsSummary';
 import RiskAnalysisCard from './RiskAnalysisCard';
+import PortfolioAnalysisModal from './PortfolioAnalysisModal';
 
 interface PortfolioDashboardProps {
   portfolios: VirtualPortfolio[];
@@ -31,6 +31,22 @@ const PortfolioDashboard = ({
   onShowTransactionHistory,
   onAddTransaction
 }: PortfolioDashboardProps) => {
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+
+  const handleAnalyzePortfolio = () => {
+    setShowAnalysisModal(true);
+  };
+
+  const handleExportData = () => {
+    // TODO: Implement export functionality
+    console.log('Export data functionality to be implemented');
+  };
+
+  const handleSharePortfolio = () => {
+    // TODO: Implement share functionality
+    console.log('Share portfolio functionality to be implemented');
+  };
+
   return (
     <div className="space-y-6">
       {/* Portfolio Selection */}
@@ -52,6 +68,9 @@ const PortfolioDashboard = ({
       <QuickActions
         onAddTransaction={onAddTransaction}
         onShowTransactionHistory={onShowTransactionHistory}
+        onAnalyzePortfolio={handleAnalyzePortfolio}
+        onExportData={handleExportData}
+        onSharePortfolio={handleSharePortfolio}
       />
 
       {/* Portfolio Overview */}
@@ -80,6 +99,14 @@ const PortfolioDashboard = ({
 
       {/* Asset Holdings */}
       <AssetHoldings portfolioId={selectedPortfolio.id} />
+
+      {/* Analysis Modal */}
+      <PortfolioAnalysisModal
+        open={showAnalysisModal}
+        onOpenChange={setShowAnalysisModal}
+        portfolioId={selectedPortfolio.id}
+        portfolioName={selectedPortfolio.name}
+      />
     </div>
   );
 };
