@@ -12,95 +12,71 @@ serve(async (req) => {
   }
 
   try {
-    const { entries } = await req.json()
-
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    console.log(`📊 Storing ${entries.length} price history entries`)
+    const { coinId, priceData } = await req.json()
 
-    let stored = 0
-    let errors = 0
-
-    // Process entries in batches to avoid overwhelming the database
-    const batchSize = 100
-    for (let i = 0; i < entries.length; i += batchSize) {
-      const batch = entries.slice(i, i + batchSize)
-      
-      const insertData = batch.map((entry: any) => ({
-        coin_id: entry.coinId,
-        price_date: entry.priceDate,
-        price_usd: entry.priceUsd,
-        volume_24h: entry.volume24h || 0,
-        market_cap: entry.marketCap || 0
-      }))
-
-      const { data, error } = await supabaseClient
-        .from('price_history_36m')
-        .upsert(insertData, {
-          onConflict: 'coin_id,price_date',
-          ignoreDuplicates: false
-        })
-
-      if (error) {
-        console.error(`❌ Batch ${i / batchSize + 1} failed:`, error)
-        errors += batch.length
-      } else {
-        stored += batch.length
-        console.log(`✅ Batch ${i / batchSize + 1} stored: ${batch.length} entries`)
-      }
+    if (!coinId || !priceData || !Array.isArray(priceData)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid request: coinId and priceData array required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    // Calculate quality score
-    const successRate = entries.length > 0 ? (stored / entries.length) * 100 : 0
-    let qualityScore = 0
+    console.log(`Storing price history for ${coinId}, ${priceData.length} data points`)
 
-    if (successRate >= 95) qualityScore = 90
-    else if (successRate >= 80) qualityScore = 75
-    else if (successRate >= 60) qualityScore = 60
-    else if (successRate >= 40) qualityScore = 45
-    else qualityScore = 25
+    // Transform and validate data
+    const records = priceData.map((data: any) => ({
+      coin_id: coinId,
+      price_date: data.date,
+      price_usd: parseFloat(data.price),
+      volume_24h: data.volume ? parseFloat(data.volume) : null,
+      market_cap: data.marketCap ? parseInt(data.marketCap) : null,
+      data_source: 'coinmarketcap'
+    })).filter(record => !isNaN(record.price_usd) && record.price_usd > 0)
 
-    // Log data quality
-    await supabaseClient
-      .from('data_quality_log')
-      .insert({
-        coin_id: entries[0]?.coinId || 'unknown',
-        metric_type: 'price_history',
-        data_source: 'batch_storage',
-        quality_score: qualityScore,
-        data_points: stored,
-        completeness_pct: successRate,
-        freshness_hours: 0,
-        api_status: errors === 0 ? 'healthy' : 'degraded',
-        error_message: errors > 0 ? `${errors} failed insertions` : null
+    if (records.length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'No valid price data to store' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Store price history data
+    const { error: insertError } = await supabaseClient
+      .from('price_history_36m')
+      .upsert(records, { 
+        onConflict: 'coin_id,price_date',
+        ignoreDuplicates: false 
       })
 
-    console.log(`📈 Price history storage complete: ${stored}/${entries.length} stored, quality: ${qualityScore}%`)
+    if (insertError) {
+      console.error('Error storing price history:', insertError)
+      return new Response(
+        JSON.stringify({ error: 'Failed to store price history', details: insertError.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log(`Successfully stored ${records.length} price history records for ${coinId}`)
 
     return new Response(
       JSON.stringify({ 
-        stored, 
-        errors, 
-        qualityScore, 
-        successRate: successRate.toFixed(1) 
+        success: true, 
+        stored_records: records.length,
+        coin_id: coinId 
       }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      },
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
-    console.error('❌ Error in store-price-history function:', error)
+    console.error('Error in store-price-history function:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      },
+      JSON.stringify({ error: 'Internal server error', details: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 })

@@ -212,6 +212,51 @@ export type Database = {
         }
         Relationships: []
       }
+      cointime_metrics: {
+        Row: {
+          active_supply_pct: number | null
+          aviv_ratio: number | null
+          coin_id: string
+          cointime_created: number | null
+          cointime_destroyed: number | null
+          confidence_score: number
+          created_at: string
+          data_source: string
+          id: string
+          liquid_supply_pct: number | null
+          metric_date: string
+          vaulted_supply_pct: number | null
+        }
+        Insert: {
+          active_supply_pct?: number | null
+          aviv_ratio?: number | null
+          coin_id: string
+          cointime_created?: number | null
+          cointime_destroyed?: number | null
+          confidence_score?: number
+          created_at?: string
+          data_source?: string
+          id?: string
+          liquid_supply_pct?: number | null
+          metric_date: string
+          vaulted_supply_pct?: number | null
+        }
+        Update: {
+          active_supply_pct?: number | null
+          aviv_ratio?: number | null
+          coin_id?: string
+          cointime_created?: number | null
+          cointime_destroyed?: number | null
+          confidence_score?: number
+          created_at?: string
+          data_source?: string
+          id?: string
+          liquid_supply_pct?: number | null
+          metric_date?: string
+          vaulted_supply_pct?: number | null
+        }
+        Relationships: []
+      }
       course_chapters: {
         Row: {
           chapter_number: number
@@ -680,6 +725,117 @@ export type Database = {
           total_value?: number
           user_id?: string | null
           violations?: string[] | null
+        }
+        Relationships: []
+      }
+      portfolio_daily_snapshots: {
+        Row: {
+          asset_breakdown: Json
+          created_at: string
+          day_change: number
+          day_change_percent: number
+          id: string
+          portfolio_id: string
+          snapshot_date: string
+          total_profit: number
+          total_value: number
+        }
+        Insert: {
+          asset_breakdown?: Json
+          created_at?: string
+          day_change?: number
+          day_change_percent?: number
+          id?: string
+          portfolio_id: string
+          snapshot_date: string
+          total_profit?: number
+          total_value?: number
+        }
+        Update: {
+          asset_breakdown?: Json
+          created_at?: string
+          day_change?: number
+          day_change_percent?: number
+          id?: string
+          portfolio_id?: string
+          snapshot_date?: string
+          total_profit?: number
+          total_value?: number
+        }
+        Relationships: []
+      }
+      portfolio_performance_metrics: {
+        Row: {
+          alpha: number | null
+          beta: number | null
+          calculation_date: string
+          correlation_sp500: number | null
+          created_at: string
+          data_points_used: number
+          id: string
+          max_drawdown: number | null
+          portfolio_id: string
+          sharpe_ratio: number | null
+          volatility: number | null
+        }
+        Insert: {
+          alpha?: number | null
+          beta?: number | null
+          calculation_date: string
+          correlation_sp500?: number | null
+          created_at?: string
+          data_points_used?: number
+          id?: string
+          max_drawdown?: number | null
+          portfolio_id: string
+          sharpe_ratio?: number | null
+          volatility?: number | null
+        }
+        Update: {
+          alpha?: number | null
+          beta?: number | null
+          calculation_date?: string
+          correlation_sp500?: number | null
+          created_at?: string
+          data_points_used?: number
+          id?: string
+          max_drawdown?: number | null
+          portfolio_id?: string
+          sharpe_ratio?: number | null
+          volatility?: number | null
+        }
+        Relationships: []
+      }
+      price_history_36m: {
+        Row: {
+          coin_id: string
+          created_at: string
+          data_source: string
+          id: string
+          market_cap: number | null
+          price_date: string
+          price_usd: number
+          volume_24h: number | null
+        }
+        Insert: {
+          coin_id: string
+          created_at?: string
+          data_source?: string
+          id?: string
+          market_cap?: number | null
+          price_date: string
+          price_usd: number
+          volume_24h?: number | null
+        }
+        Update: {
+          coin_id?: string
+          created_at?: string
+          data_source?: string
+          id?: string
+          market_cap?: number | null
+          price_date?: string
+          price_usd?: number
+          volume_24h?: number | null
         }
         Relationships: []
       }
