@@ -23,10 +23,6 @@ import { ComprehensiveInvestmentForm } from '@/components/ComprehensiveInvestmen
 import { ComprehensiveAnalysisResults } from '@/components/ComprehensiveAnalysisResults';
 import { comprehensiveGlassNodeAnalyzer, AnalysisInputs, ComprehensiveAnalysisResult } from '@/services/comprehensiveGlassNodeAnalyzer';
 import { useGlassnodeDataInitialization } from '@/hooks/useGlassnodeDataInitialization';
-import { EnhancedNPVForm } from '@/components/analysis/EnhancedNPVForm';
-import { NPVAnalysisResults } from '@/components/analysis/NPVAnalysisResults';
-import { useNPVAnalysis } from '@/hooks/useNPVAnalysis';
-import type { NPVFormData } from '@/components/analysis/EnhancedNPVForm';
 
 const CryptoAnalysis = () => {
   const [realAnalysisResult, setRealAnalysisResult] = useState(null);
@@ -48,8 +44,6 @@ const CryptoAnalysis = () => {
     initializeSingleCoin,
     checkDataFreshness 
   } = useGlassnodeDataInitialization();
-
-  const { loading: npvLoading, results: npvResults, analyzeNPV } = useNPVAnalysis();
 
   useEffect(() => {
     const loadDataStatus = async () => {
@@ -132,19 +126,6 @@ const CryptoAnalysis = () => {
     }
   };
 
-  const handleNPVAnalysis = async (formData: NPVFormData) => {
-    console.log('🚀 Starting NPV analysis with comprehensive Glassnode data');
-    console.log('📊 Analysis inputs:', formData);
-    
-    await analyzeNPV({
-      coinSymbol: formData.coinSymbol,
-      investmentAmount: formData.investmentAmount,
-      projectionPeriods: formData.projectionPeriods,
-      stakingYield: formData.stakingYield || 0,
-      riskFreeRate: formData.riskFreeRate
-    });
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       <Navbar />
@@ -204,15 +185,8 @@ const CryptoAnalysis = () => {
               </CardContent>
             </Card>
           ) : (
-            <Tabs defaultValue="npv" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-6">
-                <TabsTrigger value="npv" className="gap-2">
-                  <Calculator className="h-4 w-4" />
-                  <Badge variant="outline" className="bg-purple-100 text-purple-800 text-xs ml-1">
-                    NPV
-                  </Badge>
-                  NPV Analysis
-                </TabsTrigger>
+            <Tabs defaultValue="hybrid" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="overview" className="gap-2">
                   <Globe className="h-4 w-4" />
                   Market Overview
@@ -237,50 +211,6 @@ const CryptoAnalysis = () => {
                   Legacy Analysis
                 </TabsTrigger>
               </TabsList>
-
-              <TabsContent value="npv">
-                <div className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Calculator className="h-5 w-5" />
-                        Comprehensive NPV Analysis
-                        <Badge variant="outline" className="bg-purple-100 text-purple-800 text-xs">
-                          GLASSNODE DATA
-                        </Badge>
-                        <Badge variant="outline" className="bg-green-100 text-green-800 text-xs">
-                          REAL BENCHMARKS
-                        </Badge>
-                        {accessType === 'admin' && (
-                          <Badge variant="outline" className="bg-blue-100 text-blue-800 text-xs">
-                            <Shield className="h-3 w-3 mr-1" />
-                            ADMIN ACCESS
-                          </Badge>
-                        )}
-                      </CardTitle>
-                      <CardDescription>
-                        Advanced NPV calculation using real Glassnode data, proper benchmarking (S&P 500 for Bitcoin, Bitcoin for altcoins), 
-                        and comprehensive financial modeling with staking yields, stress testing, and liquidity analysis.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <div className="lg:col-span-1">
-                          <EnhancedNPVForm 
-                            onSubmit={handleNPVAnalysis}
-                            loading={npvLoading}
-                          />
-                        </div>
-                        <div className="lg:col-span-2">
-                          {npvResults && (
-                            <NPVAnalysisResults results={npvResults} />
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </TabsContent>
 
               <TabsContent value="overview">
                 <MarketOverview />
@@ -497,7 +427,7 @@ const CryptoAnalysis = () => {
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Vaulted Supply:</span>
-                                  <span className="font-semibold">{realAnalysisResult.realTimeData.vaultedSupply.toFixed(1)}%</span>
+                                  <span className="font-semibold">{realAnalysisResult.realTimeData.vaulted_supply.toFixed(1)}%</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Beta:</span>
