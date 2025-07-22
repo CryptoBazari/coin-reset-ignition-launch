@@ -427,7 +427,7 @@ const CryptoAnalysis = () => {
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Vaulted Supply:</span>
-                                  <span className="font-semibold">{realAnalysisResult.realTimeData.vaulted_supply.toFixed(1)}%</span>
+                                  <span className="font-semibold">{realAnalysisResult.realTimeData.vaultedSupply.toFixed(1)}%</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Beta:</span>
