@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import {
   Form,
@@ -9,7 +10,6 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,6 +28,8 @@ import { useForm } from "react-hook-form"
 import { Label } from "@/components/ui/label"
 import { enhancedInvestmentCalculationService } from '@/services/enhancedInvestmentCalculationService';
 import { bitcoinGlassNodeService } from '@/services/bitcoinGlassNodeService';
+import CoinSelector from '@/components/virtual-portfolio/CoinSelector';
+import { CoinMarketCapCoin } from '@/services/coinMarketCapService';
 
 interface AnalysisResult {
   npv: number;
@@ -81,6 +83,7 @@ export const EnhancedHybridInvestmentForm = () => {
     stakingYield: 5,
     riskFreeRate: 2,
   });
+  const [selectedCoinData, setSelectedCoinData] = useState<CoinMarketCapCoin | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,6 +111,16 @@ export const EnhancedHybridInvestmentForm = () => {
     });
   }
 
+  const handleCoinSelection = (coinId: string, coinData: CoinMarketCapCoin) => {
+    console.log('Coin selected in form:', coinId, coinData);
+    setSelectedCoinData(coinData);
+    setFormData(prev => ({
+      ...prev,
+      coinSymbol: coinData.symbol
+    }));
+    form.setValue('coinSymbol', coinData.symbol);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -115,6 +128,9 @@ export const EnhancedHybridInvestmentForm = () => {
     setResult(null);
 
     try {
+      console.log('Starting analysis with form data:', formData);
+      console.log('Selected coin data:', selectedCoinData);
+
       // Use the enhanced service that now bypasses database completely
       const analysisResult = await enhancedInvestmentCalculationService.calculateInvestmentAnalysis({
         coinId: formData.coinSymbol.toLowerCase(),
@@ -171,24 +187,23 @@ export const EnhancedHybridInvestmentForm = () => {
                   name="coinSymbol"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Coin Symbol</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a coin" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="BTC">BTC</SelectItem>
-                          <SelectItem value="ETH">ETH</SelectItem>
-                          <SelectItem value="SOL">SOL</SelectItem>
-                          <SelectItem value="ADA">ADA</SelectItem>
-                          <SelectItem value="LTC">LTC</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <FormLabel>Cryptocurrency</FormLabel>
+                      <FormControl>
+                        <CoinSelector
+                          value={selectedCoinData?.id.toString() || ''}
+                          onValueChange={handleCoinSelection}
+                          placeholder="Select a cryptocurrency"
+                        />
+                      </FormControl>
                       <FormDescription>
-                        Select the cryptocurrency for analysis.
+                        Search and select the cryptocurrency for analysis.
                       </FormDescription>
+                      {selectedCoinData && (
+                        <div className="text-sm text-gray-600 mt-2">
+                          Selected: {selectedCoinData.symbol} - {selectedCoinData.name} 
+                          (${selectedCoinData.current_price.toLocaleString()})
+                        </div>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
@@ -201,7 +216,12 @@ export const EnhancedHybridInvestmentForm = () => {
                     <FormItem>
                       <FormLabel>Initial Investment ($)</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="10000" {...field} />
+                        <Input 
+                          type="number" 
+                          placeholder="10000" 
+                          {...field} 
+                          onChange={(e) => field.onChange(Number(e.target.value))}
+                        />
                       </FormControl>
                       <FormDescription>
                         Enter the amount you plan to invest.
@@ -218,7 +238,12 @@ export const EnhancedHybridInvestmentForm = () => {
                     <FormItem>
                       <FormLabel>Projection Years</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="5" {...field} />
+                        <Input 
+                          type="number" 
+                          placeholder="5" 
+                          {...field} 
+                          onChange={(e) => field.onChange(Number(e.target.value))}
+                        />
                       </FormControl>
                       <FormDescription>
                         Enter the number of years for the investment projection.
@@ -247,7 +272,12 @@ export const EnhancedHybridInvestmentForm = () => {
                         </TooltipProvider>
                       </FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="5" {...field} />
+                        <Input 
+                          type="number" 
+                          placeholder="5" 
+                          {...field} 
+                          onChange={(e) => field.onChange(Number(e.target.value))}
+                        />
                       </FormControl>
                       <FormDescription>
                         If the coin is stakeable, enter the annual yield.
@@ -277,7 +307,12 @@ export const EnhancedHybridInvestmentForm = () => {
                         </TooltipProvider>
                       </FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="2" {...field} />
+                        <Input 
+                          type="number" 
+                          placeholder="2" 
+                          {...field} 
+                          onChange={(e) => field.onChange(Number(e.target.value))}
+                        />
                       </FormControl>
                       <FormDescription>
                         Enter the current risk-free rate.
@@ -301,10 +336,18 @@ export const EnhancedHybridInvestmentForm = () => {
           </CardHeader>
           <CardContent className="flex flex-col space-y-4">
             <div className="space-y-2">
+              <Label htmlFor="selectedCoin">Selected Cryptocurrency</Label>
+              <Input
+                id="selectedCoin"
+                value={selectedCoinData ? `${selectedCoinData.symbol} - ${selectedCoinData.name}` : 'No coin selected'}
+                disabled
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="initialInvestment">Initial Investment</Label>
               <Input
                 id="initialInvestment"
-                value={`$${formData.initialInvestment}`}
+                value={`$${formData.initialInvestment.toLocaleString()}`}
                 disabled
               />
             </div>
@@ -316,10 +359,17 @@ export const EnhancedHybridInvestmentForm = () => {
                 disabled
               />
             </div>
-            <Button onClick={handleSubmit} disabled={loading}>
+            <Button 
+              onClick={handleSubmit} 
+              disabled={loading || !selectedCoinData}
+              className="w-full"
+            >
               {loading ? "Analyzing..." : "Analyze Investment"}
             </Button>
-            {error && <p className="text-red-500">{error}</p>}
+            {!selectedCoinData && (
+              <p className="text-amber-600 text-sm">Please select a cryptocurrency first</p>
+            )}
+            {error && <p className="text-red-500 text-sm">{error}</p>}
           </CardContent>
         </Card>
       </div>
