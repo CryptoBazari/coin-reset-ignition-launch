@@ -1,361 +1,327 @@
 import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
-import { Shield, Calculator, Globe, AlertCircle, TrendingUp, Bitcoin, Zap } from 'lucide-react';
-import CoinSelector from '@/components/virtual-portfolio/CoinSelector';
-import { symbolMappingService } from '@/services/symbolMappingService';
-import type { CoinMarketCapCoin } from '@/services/coinMarketCapService';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, Search, TrendingUp } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { advancedInvestmentService } from '@/services/advancedInvestmentCalculationService';
+import { HybridAnalysisResults } from './HybridAnalysisResults';
 
-const formSchema = z.object({
-  coinId: z.string().min(1, 'Please select a cryptocurrency'),
-  investmentAmount: z.number().min(100, 'Minimum investment is $100').max(1000000, 'Maximum investment is $1,000,000'),
-  projectionPeriods: z.number().min(1, 'Minimum projection period is 1 year').max(10, 'Maximum projection period is 10 years'),
-  stakingYield: z.number().min(0, 'Staking yield cannot be negative').max(50, 'Maximum staking yield is 50%'),
-  riskFreeRate: z.number().min(0.5, 'Minimum risk-free rate is 0.5%').max(10, 'Maximum risk-free rate is 10%'),
-});
-
-interface EnhancedHybridInvestmentFormProps {
-  onSubmit: (data: {
-    coinId: string;
-    symbol: string;
-    name: string;
-    investmentAmount: number;
-    projectionPeriods: number;
-    stakingYield: number;
-    riskFreeRate: number;
-    hasGlassNodeData: boolean;
-    isStakeable: boolean;
-  }) => void;
-  loading: boolean;
+interface FormData {
+  coinSymbol: string;
+  initialInvestment: number;
+  projectionYears: number;
+  stakingYield: number;
+  riskFreeRate: number;
 }
 
-// List of stakeable cryptocurrencies
-const STAKEABLE_COINS = ['eth', 'ada', 'sol', 'dot', 'atom', 'near', 'algo', 'tezos', 'avax'];
+interface CoinOption {
+  id: string;
+  symbol: string;
+  name: string;
+  current_price?: number;
+  price_change_24h?: number;
+  logo_url?: string;
+}
 
-export const EnhancedHybridInvestmentForm: React.FC<EnhancedHybridInvestmentFormProps> = ({
-  onSubmit,
-  loading
-}) => {
-  const [selectedCoin, setSelectedCoin] = useState<CoinMarketCapCoin | null>(null);
-  const [selectedCoinId, setSelectedCoinId] = useState<string>('');
-  const [isStakeable, setIsStakeable] = useState(false);
+export const EnhancedHybridInvestmentForm: React.FC = () => {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [coinSearch, setCoinSearch] = useState('');
+  const [availableCoins, setAvailableCoins] = useState<CoinOption[]>([]);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    setValue,
-    watch,
-    reset,
-  } = useForm<{
-    coinId: string;
-    investmentAmount: number;
-    projectionPeriods: number;
-    stakingYield: number;
-    riskFreeRate: number;
-  }>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      coinId: '',
-      investmentAmount: 10000,
-      projectionPeriods: 5,
-      stakingYield: 0,
-      riskFreeRate: 3,
-    }
+  // Stakeable coins list
+  const stakeableCoins = ['eth', 'ada', 'sol', 'dot', 'atom', 'avax', 'near', 'algo', 'matic', 'one'];
+
+  const [formData, setFormData] = useState<FormData>({
+    coinSymbol: 'btc',
+    initialInvestment: 10000,
+    projectionYears: 5,
+    stakingYield: 0,
+    riskFreeRate: 3
   });
 
-  const watchedValues = watch();
-  const hasGlassNodeSupport = selectedCoinId ? symbolMappingService.isGlassNodeSupported(selectedCoinId) : false;
-  const isBitcoin = selectedCoin?.symbol?.toLowerCase() === 'btc';
+  // Check if selected coin is stakeable
+  const isStakeable = (symbol: string) => {
+    return stakeableCoins.includes(symbol.toLowerCase());
+  };
 
-  const handleCoinSelect = (coinId: string, coinData: CoinMarketCapCoin) => {
-    console.log('🪙 Selected coin for enhanced analysis:', coinId, coinData);
-    setSelectedCoin(coinData);
-    setSelectedCoinId(coinId);
-    setValue('coinId', coinId);
-    
-    // Check if coin is stakeable
-    const isStakeableCoin = STAKEABLE_COINS.includes(coinData.symbol.toLowerCase());
-    setIsStakeable(isStakeableCoin);
-    
-    // Reset staking yield if coin is not stakeable
-    if (!isStakeableCoin) {
-      setValue('stakingYield', 0);
+  // Load popular coins on component mount
+  useEffect(() => {
+    loadPopularCoins();
+  }, []);
+
+  // Reset staking yield when coin changes to non-stakeable
+  useEffect(() => {
+    if (!isStakeable(formData.coinSymbol)) {
+      setFormData(prev => ({ ...prev, stakingYield: 0 }));
+    }
+  }, [formData.coinSymbol]);
+
+  const loadPopularCoins = async () => {
+    try {
+      // Popular crypto coins with their symbols
+      const popularCoins = [
+        { id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' },
+        { id: 'ethereum', symbol: 'eth', name: 'Ethereum' },
+        { id: 'cardano', symbol: 'ada', name: 'Cardano' },
+        { id: 'solana', symbol: 'sol', name: 'Solana' },
+        { id: 'polkadot', symbol: 'dot', name: 'Polkadot' },
+        { id: 'cosmos', symbol: 'atom', name: 'Cosmos' },
+        { id: 'avalanche-2', symbol: 'avax', name: 'Avalanche' },
+        { id: 'near', symbol: 'near', name: 'NEAR Protocol' },
+        { id: 'algorand', symbol: 'algo', name: 'Algorand' },
+        { id: 'polygon', symbol: 'matic', name: 'Polygon' },
+        { id: 'chainlink', symbol: 'link', name: 'Chainlink' },
+        { id: 'uniswap', symbol: 'uni', name: 'Uniswap' },
+        { id: 'litecoin', symbol: 'ltc', name: 'Litecoin' },
+        { id: 'bitcoin-cash', symbol: 'bch', name: 'Bitcoin Cash' }
+      ];
+
+      setAvailableCoins(popularCoins);
+    } catch (error) {
+      console.error('Failed to load coins:', error);
+      toast({
+        title: "Warning",
+        description: "Failed to load coin list. You can still enter symbols manually.",
+        variant: "destructive"
+      });
     }
   };
 
-  const handleFormSubmit = (data: {
-    coinId: string;
-    investmentAmount: number;
-    projectionPeriods: number;
-    stakingYield: number;
-    riskFreeRate: number;
-  }) => {
-    if (!selectedCoin) return;
-    
-    const hasGlassNodeData = symbolMappingService.isGlassNodeSupported(selectedCoinId);
-    
-    console.log('📊 Submitting enhanced hybrid analysis:', {
-      ...data,
-      symbol: selectedCoin.symbol,
-      name: selectedCoin.name,
-      hasGlassNodeData,
-      isStakeable
-    });
-    
-    onSubmit({
-      coinId: selectedCoinId,
-      symbol: selectedCoin.symbol,
-      name: selectedCoin.name,
-      investmentAmount: data.investmentAmount,
-      projectionPeriods: data.projectionPeriods,
-      stakingYield: isStakeable ? data.stakingYield : 0,
-      riskFreeRate: data.riskFreeRate,
-      hasGlassNodeData,
-      isStakeable
-    });
+  const handleInputChange = (field: keyof FormData, value: string | number) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
-  // Calculate expected cash flows for preview
-  const expectedAnnualCashFlow = watchedValues.investmentAmount * 0.2; // 20% base flow
-  const stakingIncome = isStakeable ? (watchedValues.stakingYield / 100) * watchedValues.investmentAmount : 0;
-  const totalAnnualCashFlow = expectedAnnualCashFlow + stakingIncome;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.coinSymbol) {
+      toast({
+        title: "Error",
+        description: "Please select a cryptocurrency",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setLoading(true);
+    setResult(null);
+
+    try {
+      const analysisResult = await advancedInvestmentService.calculateAdvancedNPV({
+        coinSymbol: formData.coinSymbol,
+        initialInvestment: formData.initialInvestment,
+        projectionYears: formData.projectionYears,
+        stakingYield: isStakeable(formData.coinSymbol) ? formData.stakingYield : undefined,
+        riskFreeRate: formData.riskFreeRate
+      });
+
+      // For altcoins, fetch Bitcoin context
+      let bitcoinContext = null;
+      if (formData.coinSymbol.toLowerCase() !== 'btc') {
+        // Mock Bitcoin context - in real implementation, this would come from cointime analysis
+        bitcoinContext = {
+          cointime: {
+            aviv_ratio: 2.5,
+            market_state: 'accumulation',
+            confidence: 75
+          }
+        };
+      }
+
+      setResult({ ...analysisResult, bitcoinContext });
+
+      toast({
+        title: "Analysis Complete",
+        description: `NPV calculation completed for ${formData.coinSymbol.toUpperCase()}`,
+      });
+    } catch (error) {
+      console.error('Analysis failed:', error);
+      toast({
+        title: "Analysis Failed",
+        description: error instanceof Error ? error.message : "Failed to complete analysis",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredCoins = availableCoins.filter(coin =>
+    coin.symbol.toLowerCase().includes(coinSearch.toLowerCase()) ||
+    coin.name.toLowerCase().includes(coinSearch.toLowerCase())
+  );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Calculator className="h-5 w-5" />
-          Enhanced Crypto Investment Analysis
-          <Badge variant="outline" className="bg-blue-100 text-blue-800">
-            REAL GLASSNODE API
-          </Badge>
-        </CardTitle>
-        <CardDescription>
-          Advanced NPV calculations with real Glassnode data, benchmark analysis, and comprehensive risk assessment
-        </CardDescription>
-      </CardHeader>
-      
-      <CardContent>
-        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
-          {/* Cryptocurrency Selection */}
-          <div className="space-y-2">
-            <Label htmlFor="coinId" className="flex items-center gap-2">
-              <Globe className="h-4 w-4 text-blue-600" />
-              Cryptocurrency
-              <Badge variant="outline" className="text-xs">
-                1000+ Coins Available
-              </Badge>
-            </Label>
-            <CoinSelector
-              value={selectedCoinId}
-              onValueChange={handleCoinSelect}
-              placeholder="Search any cryptocurrency (e.g., Bitcoin, Ethereum, Solana)"
-            />
-            {errors.coinId && (
-              <p className="text-sm text-red-600">{errors.coinId.message}</p>
-            )}
-            
-            {selectedCoin && (
-              <div className={`mt-2 p-3 rounded-lg border ${
-                isBitcoin 
-                  ? 'bg-orange-50 border-orange-200'
-                  : hasGlassNodeSupport 
-                    ? 'bg-green-50 border-green-200' 
-                    : 'bg-yellow-50 border-yellow-200'
-              }`}>
-                <div className="flex items-center gap-2 text-sm">
-                  {isBitcoin ? (
-                    <Bitcoin className="h-4 w-4 text-orange-600" />
-                  ) : hasGlassNodeSupport ? (
-                    <Shield className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <AlertCircle className="h-4 w-4 text-yellow-600" />
-                  )}
-                  <span className="font-medium">{selectedCoin.name} ({selectedCoin.symbol})</span>
-                  <Badge variant="outline" className={`text-xs ${
-                    isBitcoin 
-                      ? 'bg-orange-100 text-orange-800'
-                      : hasGlassNodeSupport 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {isBitcoin ? 'Full Cointime + S&P 500 Benchmark' : hasGlassNodeSupport ? 'Glassnode + Bitcoin Benchmark' : 'Basic Analysis + Bitcoin Benchmark'}
-                  </Badge>
-                  {isStakeable && (
-                    <Badge variant="outline" className="bg-purple-100 text-purple-800 text-xs">
-                      STAKEABLE
-                    </Badge>
-                  )}
-                </div>
-                <p className={`text-xs mt-1 ${
-                  isBitcoin 
-                    ? 'text-orange-700'
-                    : hasGlassNodeSupport ? 'text-green-700' : 'text-yellow-700'
-                }`}>
-                  {isBitcoin 
-                    ? 'Bitcoin analysis includes AVIV ratio, Active Supply, Vaulted Supply, and S&P 500 benchmark'
-                    : hasGlassNodeSupport 
-                      ? 'Comprehensive Glassnode metrics available with Bitcoin as benchmark'
-                      : 'Analysis based on price data only with Bitcoin as benchmark'
-                  }
-                  {isStakeable && ' • Staking rewards can be included in cash flows'}
-                </p>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <TrendingUp className="w-5 h-5 mr-2" />
+            Hybrid Crypto Investment Analyzer
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Coin Selection */}
+            <div className="space-y-2">
+              <Label htmlFor="coinSymbol">Cryptocurrency *</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="coinSearch"
+                  placeholder="Search for a cryptocurrency..."
+                  value={coinSearch}
+                  onChange={(e) => setCoinSearch(e.target.value)}
+                  className="pl-10"
+                />
               </div>
-            )}
-          </div>
+              
+              {coinSearch && filteredCoins.length > 0 && (
+                <div className="border rounded-md max-h-40 overflow-y-auto">
+                  {filteredCoins.slice(0, 10).map((coin) => (
+                    <div
+                      key={coin.id}
+                      className="p-2 hover:bg-muted cursor-pointer flex items-center justify-between"
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, coinSymbol: coin.symbol }));
+                        setCoinSearch('');
+                      }}
+                    >
+                      <div className="flex items-center">
+                        <span className="font-medium">{coin.symbol.toUpperCase()}</span>
+                        <span className="ml-2 text-sm text-muted-foreground">{coin.name}</span>
+                      </div>
+                      {isStakeable(coin.symbol) && (
+                        <Badge variant="secondary" className="text-xs">Stakeable</Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
 
-          <Separator />
+              <div className="flex items-center mt-2">
+                <span className="text-sm text-muted-foreground mr-2">Selected:</span>
+                <Badge variant="outline" className="uppercase">
+                  {formData.coinSymbol || 'None'}
+                </Badge>
+                {formData.coinSymbol && isStakeable(formData.coinSymbol) && (
+                  <Badge variant="secondary" className="ml-2 text-xs">Stakeable</Badge>
+                )}
+              </div>
+            </div>
 
-          {/* Investment Parameters */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Investment Amount */}
             <div className="space-y-2">
-              <Label htmlFor="investmentAmount">Initial Investment (C₀)</Label>
+              <Label htmlFor="initialInvestment">Initial Investment Amount ($)</Label>
               <Input
-                id="investmentAmount"
+                id="initialInvestment"
                 type="number"
+                min="100"
+                max="1000000"
                 step="100"
-                {...register('investmentAmount', { valueAsNumber: true })}
-                placeholder="10000"
+                value={formData.initialInvestment}
+                onChange={(e) => handleInputChange('initialInvestment', parseInt(e.target.value) || 0)}
               />
-              {errors.investmentAmount && (
-                <p className="text-sm text-red-600">{errors.investmentAmount.message}</p>
-              )}
-              <p className="text-xs text-gray-600">Minimum: $100 • Maximum: $1,000,000</p>
             </div>
 
-            {/* Projection Periods */}
+            {/* Projection Years */}
             <div className="space-y-2">
-              <Label htmlFor="projectionPeriods">Projection Period (n years)</Label>
-              <Input
-                id="projectionPeriods"
-                type="number"
-                min="1"
-                max="10"
-                {...register('projectionPeriods', { valueAsNumber: true })}
-                placeholder="5"
-              />
-              {errors.projectionPeriods && (
-                <p className="text-sm text-red-600">{errors.projectionPeriods.message}</p>
-              )}
-              <p className="text-xs text-gray-600">1-10 years for NPV calculations</p>
-            </div>
-          </div>
-
-          {/* Advanced Parameters */}
-          <div className="space-y-4">
-            <h4 className="font-medium text-gray-900">Advanced Parameters</h4>
-            
-            {/* Risk-Free Rate Slider */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="riskFreeRate">Risk-Free Rate (%)</Label>
-                <span className="text-sm font-medium text-blue-600">
-                  {watchedValues.riskFreeRate}%
-                </span>
-              </div>
+              <Label htmlFor="projectionYears">
+                Projection Period: {formData.projectionYears} years
+              </Label>
               <Slider
-                value={[watchedValues.riskFreeRate]}
-                onValueChange={(values) => setValue('riskFreeRate', values[0])}
-                min={0.5}
-                max={8}
-                step={0.1}
+                id="projectionYears"
+                min={1}
+                max={10}
+                step={1}
+                value={[formData.projectionYears]}
+                onValueChange={(value) => handleInputChange('projectionYears', value[0])}
                 className="w-full"
               />
-              <p className="text-xs text-gray-600">
-                Used for discount rate calculation • Typical range: 2-4%
-              </p>
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>1 year</span>
+                <span>10 years</span>
+              </div>
             </div>
 
-            {/* Staking Yield (conditional) */}
-            {isStakeable && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="stakingYield" className="flex items-center gap-2">
-                    <Zap className="h-4 w-4 text-purple-600" />
-                    Staking Yield (%)
-                  </Label>
-                  <span className="text-sm font-medium text-purple-600">
-                    {watchedValues.stakingYield}%
-                  </span>
-                </div>
+            {/* Staking Yield - Only show for stakeable coins */}
+            {isStakeable(formData.coinSymbol) && (
+              <div className="space-y-2">
+                <Label htmlFor="stakingYield">
+                  Staking Yield: {formData.stakingYield}%
+                </Label>
                 <Slider
-                  value={[watchedValues.stakingYield]}
-                  onValueChange={(values) => setValue('stakingYield', values[0])}
+                  id="stakingYield"
                   min={0}
                   max={20}
                   step={0.5}
+                  value={[formData.stakingYield]}
+                  onValueChange={(value) => handleInputChange('stakingYield', value[0])}
                   className="w-full"
                 />
-                <p className="text-xs text-gray-600">
-                  Annual staking rewards • Added to cash flows if provided
-                </p>
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>0%</span>
+                  <span>20%</span>
+                </div>
               </div>
             )}
-          </div>
 
-          <Separator />
-
-          {/* Analysis Preview */}
-          <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <h4 className="font-medium text-blue-900 mb-3 flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Analysis Preview
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-800">
-              <div className="space-y-2">
-                <p>• <strong>Investment:</strong> ${watchedValues.investmentAmount?.toLocaleString() || '10,000'}</p>
-                <p>• <strong>Time Horizon:</strong> {watchedValues.projectionPeriods || 5} years</p>
-                <p>• <strong>Risk-Free Rate:</strong> {watchedValues.riskFreeRate || 3}%</p>
-                <p>• <strong>Cryptocurrency:</strong> {selectedCoin?.name || 'None selected'}</p>
-              </div>
-              <div className="space-y-2">
-                <p>• <strong>Data Source:</strong> {isBitcoin ? 'Glassnode + S&P 500' : hasGlassNodeSupport ? 'Glassnode + Bitcoin' : 'CoinMarketCap + Bitcoin'}</p>
-                <p>• <strong>Analysis Type:</strong> {isBitcoin ? 'Full Cointime' : 'Standard Financial'}</p>
-                {isStakeable && (
-                  <p>• <strong>Staking Income:</strong> ${stakingIncome.toLocaleString()}/year</p>
-                )}
-                <p>• <strong>Expected Cash Flow:</strong> ${totalAnnualCashFlow.toLocaleString()}/year</p>
+            {/* Risk-free Rate */}
+            <div className="space-y-2">
+              <Label htmlFor="riskFreeRate">
+                Risk-free Rate: {formData.riskFreeRate}%
+              </Label>
+              <Slider
+                id="riskFreeRate"
+                min={2}
+                max={6}
+                step={0.1}
+                value={[formData.riskFreeRate]}
+                onValueChange={(value) => handleInputChange('riskFreeRate', value[0])}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>2%</span>
+                <span>6%</span>
               </div>
             </div>
-          </div>
 
-          {/* Methodology Notice */}
-          <div className="p-3 bg-gray-50 rounded-lg border">
-            <div className="flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 text-gray-600 mt-0.5" />
-              <div className="text-xs text-gray-600">
-                <p className="font-medium">Enhanced NPV Methodology:</p>
-                <p>• Projected prices calculated using real historical CAGR from Glassnode</p>
-                <p>• Cash flows: Base flow (20% of investment) + optional staking rewards</p>
-                <p>• Discount rate: Risk-free rate + Beta × Market premium</p>
-                <p>• Bitcoin benchmark: S&P 500 • Altcoin benchmark: Bitcoin</p>
-                <p>• MVRV Z-Score adjustments for market overvaluation risk</p>
-                <p>• Stress testing with historical drawdown scenarios</p>
-              </div>
-            </div>
-          </div>
+            {/* Submit Button */}
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={loading || !formData.coinSymbol}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Analyzing...
+                </>
+              ) : (
+                'Analyze Investment'
+              )}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
-          {/* Submit Button */}
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={loading || !selectedCoin}
-          >
-            {loading ? 'Calculating NPV with Real Data...' : 'Run Enhanced NPV Analysis'}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+      {/* Results */}
+      {result && (
+        <HybridAnalysisResults 
+          result={result} 
+          formData={formData}
+          bitcoinContext={result.bitcoinContext}
+        />
+      )}
+    </div>
   );
 };
