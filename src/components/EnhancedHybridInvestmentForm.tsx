@@ -1,325 +1,334 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Slider } from '@/components/ui/slider';
-import { Badge } from '@/components/ui/badge';
-import { Loader2, Search, TrendingUp } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { advancedInvestmentCalculationService } from '@/services/advancedInvestmentCalculationService';
+import React, { useState } from 'react';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Slider } from "@/components/ui/slider"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { Info } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
 import { HybridAnalysisResults } from './HybridAnalysisResults';
+import { z } from "zod"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
+import { Label } from "@/components/ui/label"
+import { enhancedInvestmentCalculationService } from '@/services/enhancedInvestmentCalculationService';
+import { bitcoinGlassNodeService } from '@/services/bitcoinGlassNodeService';
 
-interface FormData {
-  coinSymbol: string;
-  initialInvestment: number;
-  projectionYears: number;
-  stakingYield: number;
-  riskFreeRate: number;
+interface AnalysisResult {
+  npv: number;
+  irr: number;
+  roi: number;
+  cagr: number;
+  beta: number;
+  discountRate: number;
+  projectedPrices: number[];
+  cashFlows: number[];
+  stressTestedNPV: number;
+  marketPremium: number;
+  monthlyChanges: number[];
+  isStakeable: boolean;
+  benchmark: string;
+  volatility?: number; // Real Glassnode volatility
+  avivRatio?: number; // Real Bitcoin AVIV ratio
+  standardDeviation?: number; // Calculated from historical prices
+  dataQuality?: {
+    volatilityFromAPI: boolean;
+    avivFromAPI: boolean;
+    priceDataPoints: number;
+  };
+  riskAdjustments: {
+    mvrvAdjustment: number;
+    liquidityAdjustment: number;
+    drawdownRisk: number;
+  };
+  priceHistory: Array<{ date: string; price: number }>;
 }
 
-interface CoinOption {
-  id: string;
-  symbol: string;
-  name: string;
-  current_price?: number;
-  price_change_24h?: number;
-  logo_url?: string;
-}
+const formSchema = z.object({
+  coinSymbol: z.string().min(1, {
+    message: "Coin symbol must be selected.",
+  }),
+  initialInvestment: z.number().min(1, {
+    message: "Initial investment must be at least $1.",
+  }),
+  projectionYears: z.number().min(1, {
+    message: "Projection years must be at least 1.",
+  }),
+  stakingYield: z.number(),
+  riskFreeRate: z.number(),
+})
 
-export const EnhancedHybridInvestmentForm: React.FC = () => {
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
-  const [coinSearch, setCoinSearch] = useState('');
-  const [availableCoins, setAvailableCoins] = useState<CoinOption[]>([]);
-
-  // Stakeable coins list
-  const stakeableCoins = ['eth', 'ada', 'sol', 'dot', 'atom', 'avax', 'near', 'algo', 'matic', 'one'];
-
-  const [formData, setFormData] = useState<FormData>({
-    coinSymbol: 'btc',
+export const EnhancedHybridInvestmentForm = () => {
+  const [formData, setFormData] = useState({
+    coinSymbol: 'BTC',
     initialInvestment: 10000,
     projectionYears: 5,
-    stakingYield: 0,
-    riskFreeRate: 3
+    stakingYield: 5,
+    riskFreeRate: 2,
   });
+  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [bitcoinContext, setBitcoinContext] = useState<any>(null);
+  const { toast } = useToast()
 
-  // Check if selected coin is stakeable
-  const isStakeable = (symbol: string) => {
-    return stakeableCoins.includes(symbol.toLowerCase());
-  };
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      coinSymbol: formData.coinSymbol,
+      initialInvestment: formData.initialInvestment,
+      projectionYears: formData.projectionYears,
+      stakingYield: formData.stakingYield,
+      riskFreeRate: formData.riskFreeRate,
+    },
+  })
 
-  // Load popular coins on component mount
-  useEffect(() => {
-    loadPopularCoins();
-  }, []);
-
-  // Reset staking yield when coin changes to non-stakeable
-  useEffect(() => {
-    if (!isStakeable(formData.coinSymbol)) {
-      setFormData(prev => ({ ...prev, stakingYield: 0 }));
-    }
-  }, [formData.coinSymbol]);
-
-  const loadPopularCoins = async () => {
-    try {
-      // Popular crypto coins with their symbols
-      const popularCoins = [
-        { id: 'bitcoin', symbol: 'btc', name: 'Bitcoin' },
-        { id: 'ethereum', symbol: 'eth', name: 'Ethereum' },
-        { id: 'cardano', symbol: 'ada', name: 'Cardano' },
-        { id: 'solana', symbol: 'sol', name: 'Solana' },
-        { id: 'polkadot', symbol: 'dot', name: 'Polkadot' },
-        { id: 'cosmos', symbol: 'atom', name: 'Cosmos' },
-        { id: 'avalanche-2', symbol: 'avax', name: 'Avalanche' },
-        { id: 'near', symbol: 'near', name: 'NEAR Protocol' },
-        { id: 'algorand', symbol: 'algo', name: 'Algorand' },
-        { id: 'polygon', symbol: 'matic', name: 'Polygon' },
-        { id: 'chainlink', symbol: 'link', name: 'Chainlink' },
-        { id: 'uniswap', symbol: 'uni', name: 'Uniswap' },
-        { id: 'litecoin', symbol: 'ltc', name: 'Litecoin' },
-        { id: 'bitcoin-cash', symbol: 'bch', name: 'Bitcoin Cash' }
-      ];
-
-      setAvailableCoins(popularCoins);
-    } catch (error) {
-      console.error('Failed to load coins:', error);
-      toast({
-        title: "Warning",
-        description: "Failed to load coin list. You can still enter symbols manually.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleInputChange = (field: keyof FormData, value: string | number) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
+  function updateFormData(values: z.infer<typeof formSchema>) {
+    setFormData(values);
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.coinSymbol) {
-      toast({
-        title: "Error",
-        description: "Please select a cryptocurrency",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setLoading(true);
+    setError(null);
     setResult(null);
 
     try {
-      const analysisResult = await advancedInvestmentCalculationService.calculateAdvancedInvestmentAnalysis({
-        coinId: formData.coinSymbol,
+      // Use the enhanced service that now bypasses database completely
+      const analysisResult = await enhancedInvestmentCalculationService.calculateInvestmentAnalysis({
+        coinId: formData.coinSymbol.toLowerCase(),
         investmentAmount: formData.initialInvestment,
         investmentHorizon: formData.projectionYears,
         totalPortfolio: formData.initialInvestment
       });
 
-      // For altcoins, fetch Bitcoin context
-      let bitcoinContext = null;
+      setResult(analysisResult);
+
+      // Fetch Bitcoin market context if not BTC
       if (formData.coinSymbol.toLowerCase() !== 'btc') {
-        // Mock Bitcoin context - in real implementation, this would come from cointime analysis
-        bitcoinContext = {
+        const bitcoinData = await bitcoinGlassNodeService.getBitcoinCointimeData();
+        setBitcoinContext({
           cointime: {
-            aviv_ratio: 2.5,
-            market_state: 'accumulation',
-            confidence: 75
+            aviv_ratio: bitcoinData.cointimeEconomics.avivRatio,
+            market_state: 'accumulation', // Placeholder
+            confidence: 75 // Placeholder
           }
-        };
+        });
+      } else {
+        setBitcoinContext(null);
       }
 
-      setResult({ ...analysisResult, bitcoinContext });
-
-      toast({
-        title: "Analysis Complete",
-        description: `NPV calculation completed for ${formData.coinSymbol.toUpperCase()}`,
-      });
-    } catch (error) {
-      console.error('Analysis failed:', error);
+    } catch (err) {
+      console.error('❌ Analysis failed:', err);
+      setError(err instanceof Error ? err.message : 'Analysis failed. Please try again.');
       toast({
         title: "Analysis Failed",
-        description: error instanceof Error ? error.message : "Failed to complete analysis",
-        variant: "destructive"
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredCoins = availableCoins.filter(coin =>
-    coin.symbol.toLowerCase().includes(coinSearch.toLowerCase()) ||
-    coin.name.toLowerCase().includes(coinSearch.toLowerCase())
-  );
-
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <TrendingUp className="w-5 h-5 mr-2" />
-            Hybrid Crypto Investment Analyzer
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Coin Selection */}
-            <div className="space-y-2">
-              <Label htmlFor="coinSymbol">Cryptocurrency *</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="coinSearch"
-                  placeholder="Search for a cryptocurrency..."
-                  value={coinSearch}
-                  onChange={(e) => setCoinSearch(e.target.value)}
-                  className="pl-10"
+    <div className="container mx-auto py-10">
+      <h1 className="text-3xl font-bold text-center mb-8">
+        Enhanced Hybrid Investment Analysis
+      </h1>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Investment Parameters</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(updateFormData)} className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="coinSymbol"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Coin Symbol</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a coin" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="BTC">BTC</SelectItem>
+                          <SelectItem value="ETH">ETH</SelectItem>
+                          <SelectItem value="SOL">SOL</SelectItem>
+                          <SelectItem value="ADA">ADA</SelectItem>
+                          <SelectItem value="LTC">LTC</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Select the cryptocurrency for analysis.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-              
-              {coinSearch && filteredCoins.length > 0 && (
-                <div className="border rounded-md max-h-40 overflow-y-auto">
-                  {filteredCoins.slice(0, 10).map((coin) => (
-                    <div
-                      key={coin.id}
-                      className="p-2 hover:bg-muted cursor-pointer flex items-center justify-between"
-                      onClick={() => {
-                        setFormData(prev => ({ ...prev, coinSymbol: coin.symbol }));
-                        setCoinSearch('');
-                      }}
-                    >
-                      <div className="flex items-center">
-                        <span className="font-medium">{coin.symbol.toUpperCase()}</span>
-                        <span className="ml-2 text-sm text-muted-foreground">{coin.name}</span>
-                      </div>
-                      {isStakeable(coin.symbol) && (
-                        <Badge variant="secondary" className="text-xs">Stakeable</Badge>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
 
-              <div className="flex items-center mt-2">
-                <span className="text-sm text-muted-foreground mr-2">Selected:</span>
-                <Badge variant="outline" className="uppercase">
-                  {formData.coinSymbol || 'None'}
-                </Badge>
-                {formData.coinSymbol && isStakeable(formData.coinSymbol) && (
-                  <Badge variant="secondary" className="ml-2 text-xs">Stakeable</Badge>
-                )}
-              </div>
-            </div>
+                <FormField
+                  control={form.control}
+                  name="initialInvestment"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Initial Investment ($)</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="10000" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        Enter the amount you plan to invest.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            {/* Investment Amount */}
+                <FormField
+                  control={form.control}
+                  name="projectionYears"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Projection Years</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="5" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        Enter the number of years for the investment projection.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="stakingYield"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Staking Yield (%)
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-4 w-4 ml-1 inline-block" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Annual staking rewards as a percentage.
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="5" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        If the coin is stakeable, enter the annual yield.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="riskFreeRate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Risk-Free Rate (%)
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-4 w-4 ml-1 inline-block" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              The return on a risk-free investment, like a
+                              government bond.
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="2" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        Enter the current risk-free rate.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <Button type="submit" className="w-full">
+                  Update Parameters
+                </Button>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Run Analysis</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="initialInvestment">Initial Investment Amount ($)</Label>
+              <Label htmlFor="initialInvestment">Initial Investment</Label>
               <Input
                 id="initialInvestment"
-                type="number"
-                min="100"
-                max="1000000"
-                step="100"
-                value={formData.initialInvestment}
-                onChange={(e) => handleInputChange('initialInvestment', parseInt(e.target.value) || 0)}
+                value={`$${formData.initialInvestment}`}
+                disabled
               />
             </div>
-
-            {/* Projection Years */}
             <div className="space-y-2">
-              <Label htmlFor="projectionYears">
-                Projection Period: {formData.projectionYears} years
-              </Label>
-              <Slider
+              <Label htmlFor="projectionYears">Projection Years</Label>
+              <Input
                 id="projectionYears"
-                min={1}
-                max={10}
-                step={1}
-                value={[formData.projectionYears]}
-                onValueChange={(value) => handleInputChange('projectionYears', value[0])}
-                className="w-full"
+                value={formData.projectionYears.toString()}
+                disabled
               />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>1 year</span>
-                <span>10 years</span>
-              </div>
             </div>
-
-            {/* Staking Yield - Only show for stakeable coins */}
-            {isStakeable(formData.coinSymbol) && (
-              <div className="space-y-2">
-                <Label htmlFor="stakingYield">
-                  Staking Yield: {formData.stakingYield}%
-                </Label>
-                <Slider
-                  id="stakingYield"
-                  min={0}
-                  max={20}
-                  step={0.5}
-                  value={[formData.stakingYield]}
-                  onValueChange={(value) => handleInputChange('stakingYield', value[0])}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>0%</span>
-                  <span>20%</span>
-                </div>
-              </div>
-            )}
-
-            {/* Risk-free Rate */}
-            <div className="space-y-2">
-              <Label htmlFor="riskFreeRate">
-                Risk-free Rate: {formData.riskFreeRate}%
-              </Label>
-              <Slider
-                id="riskFreeRate"
-                min={2}
-                max={6}
-                step={0.1}
-                value={[formData.riskFreeRate]}
-                onValueChange={(value) => handleInputChange('riskFreeRate', value[0])}
-                className="w-full"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>2%</span>
-                <span>6%</span>
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <Button 
-              type="submit" 
-              className="w-full" 
-              disabled={loading || !formData.coinSymbol}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                'Analyze Investment'
-              )}
+            <Button onClick={handleSubmit} disabled={loading}>
+              {loading ? "Analyzing..." : "Analyze Investment"}
             </Button>
-          </form>
-        </CardContent>
-      </Card>
+            {error && <p className="text-red-500">{error}</p>}
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* Results */}
       {result && (
-        <HybridAnalysisResults 
-          result={result} 
-          formData={formData}
-          bitcoinContext={result.bitcoinContext}
-        />
+        <div className="mt-10">
+          <h2 className="text-2xl font-bold text-center mb-6">
+            Analysis Results
+          </h2>
+          <HybridAnalysisResults
+            result={result}
+            formData={formData}
+            bitcoinContext={bitcoinContext}
+          />
+        </div>
       )}
     </div>
   );
