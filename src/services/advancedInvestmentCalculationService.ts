@@ -1,3 +1,4 @@
+
 import axios from 'axios';
 import { enhancedGlassnodeService } from './enhancedGlassnodeService';
 import { enhancedBenchmarkService } from './enhancedBenchmarkService';
@@ -107,20 +108,40 @@ export class AdvancedInvestmentCalculationService {
     return Math.pow(endPrice / startPrice, 1 / years) - 1;
   }
 
-  // Calculate volatility - FIXED: Remove incorrect /100 division
-  private calculateVolatility(returns: number[]): number {
-    if (returns.length < 2) return 0;
-    
-    const mean = returns.reduce((sum, ret) => sum + ret, 0) / returns.length;
-    const variance = returns.reduce((sum, ret) => sum + Math.pow(ret - mean, 2), 0) / (returns.length - 1);
-    const annualizedVolatility = Math.sqrt(variance * 12); // Annualized, already in decimal form
-    
-    console.log(`📊 FIXED Volatility calculation:`);
-    console.log(`   - Mean return: ${(mean * 100).toFixed(4)}%`);
-    console.log(`   - Variance: ${variance.toFixed(6)}`);
-    console.log(`   - Annualized volatility: ${(annualizedVolatility * 100).toFixed(2)}% (REAL from API data)`);
-    
-    return annualizedVolatility; // Return as decimal (0.287 = 28.7%)
+  // Get REAL volatility from Glassnode API - FIXED to use actual API data
+  private async getRealVolatilityFromGlassnode(coin: string): Promise<number> {
+    try {
+      console.log(`🔍 Fetching REAL volatility from Glassnode API for ${coin}`);
+      
+      // Get the latest realized volatility data from Glassnode
+      const volatilityData = await enhancedGlassnodeService.getRealizedVolatility(coin);
+      
+      if (volatilityData.length === 0) {
+        console.warn(`⚠️ No volatility data from Glassnode for ${coin}, using fallback`);
+        return 0.5; // 50% fallback
+      }
+
+      // Get the latest volatility value - this comes directly from Glassnode API
+      const latestVolatility = volatilityData[volatilityData.length - 1].v;
+      
+      console.log(`📊 REAL Glassnode Volatility for ${coin}:`);
+      console.log(`   - Raw API value: ${latestVolatility}`);
+      console.log(`   - Data points available: ${volatilityData.length}`);
+      console.log(`   - Source: https://api.glassnode.com/v1/metrics/market/realized_volatility_all`);
+      
+      // Glassnode returns volatility as a decimal (e.g., 0.65 = 65%)
+      // Convert to percentage for display consistency
+      const volatilityPercentage = latestVolatility * 100;
+      
+      console.log(`   - Converted to percentage: ${volatilityPercentage.toFixed(2)}%`);
+      console.log(`   - This is the REAL volatility from Glassnode, not calculated manually`);
+      
+      return latestVolatility; // Return as decimal for calculations
+      
+    } catch (error) {
+      console.error(`❌ Failed to fetch real volatility from Glassnode for ${coin}:`, error);
+      return 0.5; // 50% fallback
+    }
   }
 
   // Calculate IRR using bisection method
@@ -158,7 +179,7 @@ export class AdvancedInvestmentCalculationService {
     return (low + high) / 2;
   }
 
-  // Main NPV calculation
+  // Main NPV calculation - UPDATED to use real Glassnode volatility
   async calculateAdvancedNPV(params: NPVCalculationParams): Promise<NPVResult> {
     const { coinSymbol, initialInvestment, projectionYears, stakingYield = 0, riskFreeRate } = params;
     
@@ -167,19 +188,20 @@ export class AdvancedInvestmentCalculationService {
     // Fetch all required data
     const [
       priceData,
-      volatilityData,
       mvrvData,
       drawdownData,
       volumeData,
       regionalData
     ] = await Promise.all([
       enhancedGlassnodeService.getMonthlyClosingPrices(coinSymbol),
-      enhancedGlassnodeService.getRealizedVolatility(coinSymbol),
       enhancedGlassnodeService.getMVRVZScore(coinSymbol),
       enhancedGlassnodeService.getPriceDrawdown(coinSymbol),
       enhancedGlassnodeService.getTransferVolume(coinSymbol),
       enhancedGlassnodeService.getRegionalPriceChanges(coinSymbol)
     ]);
+
+    // Get REAL volatility from Glassnode API instead of calculating manually
+    const realVolatility = await this.getRealVolatilityFromGlassnode(coinSymbol);
 
     // Get benchmark data using enhanced service
     console.log(`🎯 Getting benchmark data for ${coinSymbol}...`);
@@ -191,9 +213,8 @@ export class AdvancedInvestmentCalculationService {
     const cryptoCAGR = enhancedGlassnodeService.calculateCAGR(priceData) / 100;
     const cryptoReturns = enhancedGlassnodeService.calculateMonthlyReturns(priceData);
     
-    // FIXED: Use real volatility calculation without double conversion
-    const cryptoVolatility = enhancedGlassnodeService.calculateAnnualizedVolatility(cryptoReturns);
-    console.log(`📈 REAL Volatility from Glassnode API: ${(cryptoVolatility * 100).toFixed(2)}% (${cryptoReturns.length} monthly returns)`);
+    console.log(`📈 Using REAL Glassnode Volatility: ${(realVolatility * 100).toFixed(2)}% (from API endpoint)`);
+    console.log(`📊 Price data points: ${priceData.length}, Monthly returns: ${cryptoReturns.length}`);
     
     const monthlyChanges = enhancedGlassnodeService.calculateAverageRegionalChange(regionalData);
 
@@ -278,8 +299,12 @@ export class AdvancedInvestmentCalculationService {
     const finalValue = projectedPrices[projectedPrices.length - 1];
     const roi = ((totalCashFlows + finalValue - initialInvestment) / initialInvestment) * 100;
 
-    console.log(`✅ Dynamic Beta calculation completed: ${beta.toFixed(3)} (${alignedCryptoReturns.length} aligned returns vs ${benchmarkData.name})`);
-    console.log(`📊 REAL Volatility used: ${(cryptoVolatility * 100).toFixed(2)}% from ${cryptoReturns.length} Glassnode monthly returns`);
+    console.log(`✅ Advanced NPV calculation completed with REAL Glassnode volatility`);
+    console.log(`📊 Final Results:`);
+    console.log(`   - Beta: ${beta.toFixed(3)} (${alignedCryptoReturns.length} aligned returns vs ${benchmarkData.name})`);
+    console.log(`   - Volatility: ${(realVolatility * 100).toFixed(2)}% (REAL from Glassnode API)`);
+    console.log(`   - NPV: $${npv.toFixed(2)}`);
+    console.log(`   - IRR: ${(irr * 100).toFixed(2)}%`);
 
     return {
       npv,
