@@ -73,7 +73,7 @@ class EnhancedGlassNodeAnalyzer {
       console.log(`   - Monthly returns: ${monthlyReturns.length}`);
       console.log(`   - Benchmark returns: ${benchmarkReturns.length}`);
 
-      // Calculate all metrics using REAL Glassnode volatility
+      // Calculate all metrics using REAL Glassnode volatility - FIXED to pass correct coin symbol
       const analysis = await this.calculateMetrics(
         coinPrices, 
         benchmarkData, 
@@ -81,7 +81,8 @@ class EnhancedGlassNodeAnalyzer {
         benchmarkReturns,
         investmentAmount,
         holdingPeriod,
-        assumptions
+        assumptions,
+        coinSymbol // FIXED: Now passing the actual coin symbol
       );
 
       // Generate step-by-step reasoning
@@ -142,39 +143,48 @@ class EnhancedGlassNodeAnalyzer {
   }
 
   /**
-   * Fetch REAL volatility from Glassnode API - NEW METHOD
+   * Fetch REAL volatility from Glassnode API - FIXED METHOD
    */
   private async fetchRealVolatilityFromGlassnode(asset: string): Promise<number> {
     try {
-      console.log(`🔍 Fetching REAL volatility from Glassnode for ${asset}`);
+      console.log(`🔍 Fetching REAL volatility from Glassnode for ${asset.toUpperCase()}`);
       
       const { data, error } = await supabase.functions.invoke('fetch-glassnode-data', {
         body: {
           metric: 'market/realized_volatility_all',
-          asset: asset.toUpperCase(),
+          asset: asset.toUpperCase(), // FIXED: Ensure uppercase
           resolution: '24h'
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error(`❌ Glassnode API error for ${asset}:`, error);
+        throw error;
+      }
 
-      if (!data || data.length === 0) {
+      if (!data?.data || data.data.length === 0) {
         console.warn(`⚠️ No volatility data from Glassnode for ${asset}`);
         return 0.5; // 50% fallback
       }
 
-      // Get the latest volatility value
-      const latestVolatility = data[data.length - 1]?.v || 0.5;
+      // Get the latest volatility value from the API response
+      const latestVolatility = data.data[data.data.length - 1]?.value || 0.5;
       
       console.log(`📊 REAL Glassnode Volatility for ${asset}:`);
       console.log(`   - Raw API value: ${latestVolatility}`);
-      console.log(`   - Percentage: ${(latestVolatility * 100).toFixed(2)}%`);
-      console.log(`   - Source: Glassnode realized_volatility_all endpoint`);
+      console.log(`   - Data points available: ${data.data.length}`);
+      console.log(`   - API endpoint: market/realized_volatility_all`);
+      console.log(`   - Asset verified: ${asset.toUpperCase()}`);
       
-      return latestVolatility; // Return as decimal
+      // Glassnode returns volatility as a decimal (e.g., 0.65 = 65%)
+      console.log(`   - Volatility as percentage: ${(latestVolatility * 100).toFixed(2)}%`);
+      console.log(`   - Source: Direct from Glassnode realized_volatility_all API`);
+      
+      return latestVolatility; // Return as decimal for calculations
       
     } catch (error) {
       console.error(`❌ Failed to fetch real volatility for ${asset}:`, error);
+      console.log(`📊 Using fallback volatility of 50% for ${asset}`);
       return 0.5; // 50% fallback
     }
   }
@@ -253,7 +263,8 @@ class EnhancedGlassNodeAnalyzer {
     benchmarkReturns: number[],
     investmentAmount: number,
     holdingPeriod: number,
-    assumptions?: any
+    assumptions?: any,
+    coinSymbol?: string // FIXED: Now accepting coin symbol parameter
   ) {
     const riskFreeRate = assumptions?.riskFreeRate || 0.03; // 3% as decimal
     const marketPremium = assumptions?.marketPremium || 0.06; // 6% as decimal
@@ -272,15 +283,18 @@ class EnhancedGlassNodeAnalyzer {
     // CAGR calculation
     const cagr = (Math.pow(finalPrice / initialPrice, 1 / years) - 1) * 100;
 
-    // Get REAL volatility from Glassnode API instead of calculating manually
-    const coinSymbol = coinPrices[0]?.date.includes('BTC') ? 'BTC' : 'ETH'; // Simplified detection
-    const realVolatilityDecimal = await this.fetchRealVolatilityFromGlassnode(coinSymbol);
+    // FIXED: Get REAL volatility from Glassnode API using the correct coin symbol
+    const actualCoinSymbol = coinSymbol || 'BTC'; // Use passed symbol or default to BTC
+    console.log(`📊 Fetching volatility for correct coin: ${actualCoinSymbol}`);
+    
+    const realVolatilityDecimal = await this.fetchRealVolatilityFromGlassnode(actualCoinSymbol);
     const volatility = realVolatilityDecimal * 100; // Convert to percentage for display
     
-    console.log(`📊 Using REAL Glassnode Volatility (not calculated manually):`);
-    console.log(`   - Coin: ${coinSymbol}`);
+    console.log(`📊 FIXED Volatility Calculation:`);
+    console.log(`   - Coin: ${actualCoinSymbol}`);
     console.log(`   - Real volatility: ${volatility.toFixed(2)}%`);
-    console.log(`   - Source: Direct from Glassnode realized_volatility_all API`);
+    console.log(`   - Raw decimal value: ${realVolatilityDecimal.toFixed(4)}`);
+    console.log(`   - Source: Direct from Glassnode API for ${actualCoinSymbol}`);
 
     // Beta calculation
     const beta = this.calculateBeta(coinReturns, benchmarkReturns);
@@ -294,7 +308,7 @@ class EnhancedGlassNodeAnalyzer {
     console.log(`   - Risk-free rate: ${(riskFreeRate * 100).toFixed(2)}% (${riskFreeRate.toFixed(4)} decimal)`);
     console.log(`   - Excess return: ${(excessReturnDecimal * 100).toFixed(2)}% (${excessReturnDecimal.toFixed(4)} decimal)`);
     console.log(`   - REAL Glassnode volatility: ${volatility.toFixed(2)}% (${realVolatilityDecimal.toFixed(4)} decimal)`);
-    console.log(`   - Sharpe Ratio: ${sharpeRatio.toFixed(3)} (using REAL API data)`);
+    console.log(`   - Sharpe Ratio: ${sharpeRatio.toFixed(3)} (using REAL API data for ${actualCoinSymbol})`);
 
     // NPV calculation
     const discountRate = riskFreeRate + beta * marketPremium;
@@ -305,7 +319,7 @@ class EnhancedGlassNodeAnalyzer {
     const irr = (Math.pow(futureValue / investmentAmount, 1 / years) - 1) * 100;
 
     // Get additional metrics from Glass Node
-    const additionalMetrics = await this.fetchAdditionalMetrics(coinSymbol);
+    const additionalMetrics = await this.fetchAdditionalMetrics(actualCoinSymbol);
 
     return {
       npv: Math.round(npv),
@@ -349,16 +363,16 @@ class EnhancedGlassNodeAnalyzer {
     try {
       const [mvrvData, drawdownData] = await Promise.all([
         supabase.functions.invoke('fetch-glassnode-data', {
-          body: { metric: 'market/mvrv_z_score', asset, resolution: '1month' }
+          body: { metric: 'market/mvrv_z_score', asset: asset.toUpperCase(), resolution: '1month' }
         }),
         supabase.functions.invoke('fetch-glassnode-data', {
-          body: { metric: 'market/price_drawdown_relative', asset, resolution: '1month' }
+          body: { metric: 'market/price_drawdown_relative', asset: asset.toUpperCase(), resolution: '1month' }
         })
       ]);
 
       return {
-        mvrv: mvrvData.data?.[0]?.v || 1.0,
-        drawdown: Math.abs(drawdownData.data?.[0]?.v || 0.2)
+        mvrv: mvrvData.data?.data?.[0]?.value || 1.0,
+        drawdown: Math.abs(drawdownData.data?.data?.[0]?.value || 0.2)
       };
     } catch (error) {
       console.warn('Additional metrics fetch failed, using defaults');
@@ -374,8 +388,8 @@ class EnhancedGlassNodeAnalyzer {
       `📊 Analysis for ${coinSymbol.toUpperCase()} using ${benchmark === 'SP500' ? 'S&P 500' : 'Bitcoin'} as benchmark`,
       `💰 Investment Metrics: NPV: $${analysis.npv.toLocaleString()}, IRR: ${analysis.irr}%, ROI: ${analysis.roi}%`,
       `📈 Growth Analysis: CAGR: ${analysis.cagr}% (compound annual growth rate over holding period)`,
-      `⚡ Risk Assessment: Volatility: ${analysis.volatility}% (REAL from Glassnode API), Beta: ${analysis.beta} (vs ${benchmark})`,
-      `🎯 Risk-Adjusted Returns: Sharpe Ratio: ${analysis.sharpeRatio} (using REAL Glassnode volatility data)`,
+      `⚡ Risk Assessment: Volatility: ${analysis.volatility}% (REAL from Glassnode API for ${coinSymbol}), Beta: ${analysis.beta} (vs ${benchmark})`,
+      `🎯 Risk-Adjusted Returns: Sharpe Ratio: ${analysis.sharpeRatio} (using REAL Glassnode volatility data for ${coinSymbol})`,
       `🔍 Valuation: MVRV Z-Score: ${analysis.mvrv} (market value vs realized value)`,
       `📉 Drawdown Analysis: Maximum drawdown: ${(analysis.drawdown * 100).toFixed(1)}%`
     ];

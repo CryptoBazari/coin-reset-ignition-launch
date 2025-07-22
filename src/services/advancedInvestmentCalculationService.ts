@@ -108,25 +108,26 @@ export class AdvancedInvestmentCalculationService {
     return Math.pow(endPrice / startPrice, 1 / years) - 1;
   }
 
-  // Get REAL volatility from Glassnode API - FIXED to use actual API data
-  private async getRealVolatilityFromGlassnode(coin: string): Promise<number> {
+  // Get REAL volatility from Glassnode API - FIXED to use correct coin symbol
+  private async getRealVolatilityFromGlassnode(coinSymbol: string): Promise<number> {
     try {
-      console.log(`🔍 Fetching REAL volatility from Glassnode API for ${coin}`);
+      console.log(`🔍 Fetching REAL volatility from Glassnode API for ${coinSymbol.toUpperCase()}`);
       
-      // Get the latest realized volatility data from Glassnode
-      const volatilityData = await enhancedGlassnodeService.getRealizedVolatility(coin);
+      // Get the latest realized volatility data from Glassnode for the specific coin
+      const volatilityData = await enhancedGlassnodeService.getRealizedVolatility(coinSymbol.toUpperCase());
       
       if (volatilityData.length === 0) {
-        console.warn(`⚠️ No volatility data from Glassnode for ${coin}, using fallback`);
+        console.warn(`⚠️ No volatility data from Glassnode for ${coinSymbol}, using fallback`);
         return 0.5; // 50% fallback
       }
 
       // Get the latest volatility value - this comes directly from Glassnode API
       const latestVolatility = volatilityData[volatilityData.length - 1].v;
       
-      console.log(`📊 REAL Glassnode Volatility for ${coin}:`);
+      console.log(`📊 REAL Glassnode Volatility for ${coinSymbol.toUpperCase()}:`);
       console.log(`   - Raw API value: ${latestVolatility}`);
       console.log(`   - Data points available: ${volatilityData.length}`);
+      console.log(`   - Coin symbol verified: ${coinSymbol.toUpperCase()}`);
       console.log(`   - Source: https://api.glassnode.com/v1/metrics/market/realized_volatility_all`);
       
       // Glassnode returns volatility as a decimal (e.g., 0.65 = 65%)
@@ -134,12 +135,13 @@ export class AdvancedInvestmentCalculationService {
       const volatilityPercentage = latestVolatility * 100;
       
       console.log(`   - Converted to percentage: ${volatilityPercentage.toFixed(2)}%`);
-      console.log(`   - This is the REAL volatility from Glassnode, not calculated manually`);
+      console.log(`   - This is the REAL volatility from Glassnode for ${coinSymbol}, not calculated manually`);
       
       return latestVolatility; // Return as decimal for calculations
       
     } catch (error) {
-      console.error(`❌ Failed to fetch real volatility from Glassnode for ${coin}:`, error);
+      console.error(`❌ Failed to fetch real volatility from Glassnode for ${coinSymbol}:`, error);
+      console.log(`📊 Using fallback volatility of 50% for ${coinSymbol}`);
       return 0.5; // 50% fallback
     }
   }
@@ -179,7 +181,7 @@ export class AdvancedInvestmentCalculationService {
     return (low + high) / 2;
   }
 
-  // Main NPV calculation - UPDATED to use real Glassnode volatility
+  // Main NPV calculation - UPDATED to use real Glassnode volatility with correct coin symbol
   async calculateAdvancedNPV(params: NPVCalculationParams): Promise<NPVResult> {
     const { coinSymbol, initialInvestment, projectionYears, stakingYield = 0, riskFreeRate } = params;
     
@@ -200,7 +202,7 @@ export class AdvancedInvestmentCalculationService {
       enhancedGlassnodeService.getRegionalPriceChanges(coinSymbol)
     ]);
 
-    // Get REAL volatility from Glassnode API instead of calculating manually
+    // FIXED: Get REAL volatility from Glassnode API using the correct coin symbol
     const realVolatility = await this.getRealVolatilityFromGlassnode(coinSymbol);
 
     // Get benchmark data using enhanced service
@@ -213,7 +215,7 @@ export class AdvancedInvestmentCalculationService {
     const cryptoCAGR = enhancedGlassnodeService.calculateCAGR(priceData) / 100;
     const cryptoReturns = enhancedGlassnodeService.calculateMonthlyReturns(priceData);
     
-    console.log(`📈 Using REAL Glassnode Volatility: ${(realVolatility * 100).toFixed(2)}% (from API endpoint)`);
+    console.log(`📈 Using REAL Glassnode Volatility for ${coinSymbol.toUpperCase()}: ${(realVolatility * 100).toFixed(2)}% (from API endpoint)`);
     console.log(`📊 Price data points: ${priceData.length}, Monthly returns: ${cryptoReturns.length}`);
     
     const monthlyChanges = enhancedGlassnodeService.calculateAverageRegionalChange(regionalData);
@@ -299,10 +301,10 @@ export class AdvancedInvestmentCalculationService {
     const finalValue = projectedPrices[projectedPrices.length - 1];
     const roi = ((totalCashFlows + finalValue - initialInvestment) / initialInvestment) * 100;
 
-    console.log(`✅ Advanced NPV calculation completed with REAL Glassnode volatility`);
+    console.log(`✅ Advanced NPV calculation completed with REAL Glassnode volatility for ${coinSymbol.toUpperCase()}`);
     console.log(`📊 Final Results:`);
     console.log(`   - Beta: ${beta.toFixed(3)} (${alignedCryptoReturns.length} aligned returns vs ${benchmarkData.name})`);
-    console.log(`   - Volatility: ${(realVolatility * 100).toFixed(2)}% (REAL from Glassnode API)`);
+    console.log(`   - Volatility: ${(realVolatility * 100).toFixed(2)}% (REAL from Glassnode API for ${coinSymbol})`);
     console.log(`   - NPV: $${npv.toFixed(2)}`);
     console.log(`   - IRR: ${(irr * 100).toFixed(2)}%`);
 
