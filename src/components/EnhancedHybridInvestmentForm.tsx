@@ -99,7 +99,13 @@ export const EnhancedHybridInvestmentForm = () => {
   })
 
   function updateFormData(values: z.infer<typeof formSchema>) {
-    setFormData(values);
+    setFormData({
+      coinSymbol: values.coinSymbol || 'BTC',
+      initialInvestment: values.initialInvestment || 10000,
+      projectionYears: values.projectionYears || 5,
+      stakingYield: values.stakingYield || 5,
+      riskFreeRate: values.riskFreeRate || 2,
+    });
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
