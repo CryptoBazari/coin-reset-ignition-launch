@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Shield, Globe, AlertCircle, TrendingUp, Activity, Bitcoin, Coins } from 'lucide-react';
 import type { DirectAnalysisResult } from '@/services/directApiAnalysisService';
+import { CalculationDetailsCard } from '@/components/analysis/CalculationDetailsCard';
 
 interface HybridAnalysisResultsProps {
   result: DirectAnalysisResult;
@@ -234,6 +235,14 @@ export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({ re
         </CardContent>
       </Card>
 
+      {/* Detailed Calculation Breakdown */}
+      {result.calculationDetails && (
+        <CalculationDetailsCard 
+          calculationDetails={result.calculationDetails}
+          symbol={result.symbol}
+        />
+      )}
+
       {/* Investment Recommendation */}
       <Card>
         <CardHeader>
@@ -308,6 +317,9 @@ export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({ re
               )}
               {!isBitcoin && (
                 <p>• Altcoins use standard financial metrics (NPV, CAGR, IRR, ROI, Beta)</p>
+              )}
+              {result.calculationDetails && (
+                <p>• Detailed calculation breakdowns available above</p>
               )}
             </div>
           </div>

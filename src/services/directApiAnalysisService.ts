@@ -5,6 +5,7 @@ import { symbolMappingService } from '@/services/symbolMappingService';
 import { bitcoinAnalysisService } from '@/services/bitcoinAnalysisService';
 import { realDataFinancialCalculations } from '@/services/realDataFinancialCalculations';
 import { bitcoinMarketAnalyzer } from '@/services/bitcoinMarketAnalyzer';
+import { CalculationDetails } from '@/types/calculationDetails';
 
 export interface DirectAnalysisResult {
   coinId: string;
@@ -29,6 +30,9 @@ export interface DirectAnalysisResult {
     beta: number;
     sharpeRatio: number;
   };
+  
+  // Detailed calculation breakdowns
+  calculationDetails?: CalculationDetails;
   
   // Bitcoin-specific cointime metrics (only for Bitcoin)
   cointimeMetrics?: {
