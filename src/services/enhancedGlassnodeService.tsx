@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { supabase } from '@/integrations/supabase/client';
 
 // Glassnode API configuration
 const GLASSNODE_API_KEY = '303Me3fcc4YHDxStUrj1utzEye9';
@@ -37,8 +36,8 @@ export class EnhancedGlassnodeService {
     return (Date.now() - cachedData.timestamp) < CACHE_DURATION;
   }
 
-  // Save data to cache
-  private async saveToCache(endpoint: string, coin: string, data: GlassNodeDataPoint[]): Promise<void> {
+  // Save data to localStorage cache
+  private saveToCache(endpoint: string, coin: string, data: GlassNodeDataPoint[]): void {
     try {
       const cacheData: CachedData = {
         data,
@@ -47,36 +46,19 @@ export class EnhancedGlassnodeService {
         coin
       };
 
-      const { error } = await supabase
-        .from('glassnode_cache')
-        .upsert({
-          cache_key: `${endpoint}_${coin}`,
-          data: cacheData,
-          created_at: new Date().toISOString()
-        });
-
-      if (error) {
-        console.warn('Failed to save to cache:', error);
-      }
+      localStorage.setItem(`glassnode_${endpoint}_${coin}`, JSON.stringify(cacheData));
     } catch (error) {
       console.warn('Cache save error:', error);
     }
   }
 
-  // Get data from cache
-  private async getFromCache(endpoint: string, coin: string): Promise<GlassNodeDataPoint[] | null> {
+  // Get data from localStorage cache
+  private getFromCache(endpoint: string, coin: string): GlassNodeDataPoint[] | null {
     try {
-      const { data, error } = await supabase
-        .from('glassnode_cache')
-        .select('data')
-        .eq('cache_key', `${endpoint}_${coin}`)
-        .single();
+      const cached = localStorage.getItem(`glassnode_${endpoint}_${coin}`);
+      if (!cached) return null;
 
-      if (error || !data) {
-        return null;
-      }
-
-      const cachedData = data.data as CachedData;
+      const cachedData = JSON.parse(cached) as CachedData;
       if (this.isCacheValid(cachedData)) {
         console.log(`📦 Using cached data for ${endpoint}/${coin}`);
         return cachedData.data;
@@ -111,7 +93,7 @@ export class EnhancedGlassnodeService {
       }
 
       // Save to cache
-      await this.saveToCache(endpoint, coin, response.data);
+      this.saveToCache(endpoint, coin, response.data);
       
       return response.data;
     } catch (error) {
@@ -136,7 +118,7 @@ export class EnhancedGlassnodeService {
   // Get data with cache fallback
   private async getData(endpoint: string, coin: string): Promise<GlassNodeDataPoint[]> {
     // Try cache first
-    const cachedData = await this.getFromCache(endpoint, coin);
+    const cachedData = this.getFromCache(endpoint, coin);
     if (cachedData) {
       return cachedData;
     }
