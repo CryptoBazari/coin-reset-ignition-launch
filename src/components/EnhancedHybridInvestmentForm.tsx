@@ -7,7 +7,7 @@ import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Search, TrendingUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { advancedInvestmentService } from '@/services/advancedInvestmentCalculationService';
+import { advancedInvestmentCalculationService } from '@/services/advancedInvestmentCalculationService';
 import { HybridAnalysisResults } from './HybridAnalysisResults';
 
 interface FormData {
@@ -116,12 +116,11 @@ export const EnhancedHybridInvestmentForm: React.FC = () => {
     setResult(null);
 
     try {
-      const analysisResult = await advancedInvestmentService.calculateAdvancedNPV({
-        coinSymbol: formData.coinSymbol,
-        initialInvestment: formData.initialInvestment,
-        projectionYears: formData.projectionYears,
-        stakingYield: isStakeable(formData.coinSymbol) ? formData.stakingYield : undefined,
-        riskFreeRate: formData.riskFreeRate
+      const analysisResult = await advancedInvestmentCalculationService.calculateAdvancedInvestmentAnalysis({
+        coinId: formData.coinSymbol,
+        investmentAmount: formData.initialInvestment,
+        investmentHorizon: formData.projectionYears,
+        totalPortfolio: formData.initialInvestment
       });
 
       // For altcoins, fetch Bitcoin context

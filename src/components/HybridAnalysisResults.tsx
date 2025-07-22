@@ -229,7 +229,7 @@ export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({
             : 0,
           riskFactor: result.beta > 1.5 ? 4 : result.beta > 1.2 ? 3 : 2,
           betaConfidence: 'high',
-          dataQuality: result.dataQuality?.volatilityFromAPI ? 'real' : 'calculated'
+          dataQuality: result.dataQuality?.volatilityFromAPI ? 'api' : 'calculated'
         }}
         coinBasket={formData.coinSymbol.toUpperCase()}
       />
