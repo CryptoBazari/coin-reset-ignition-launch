@@ -1,13 +1,7 @@
 
 import axios from 'axios';
 import { enhancedGlassnodeService } from './enhancedGlassnodeService';
-
-interface BenchmarkData {
-  prices: Array<{ date: string; close: number }>;
-  cagr: number;
-  volatility: number;
-  monthlyReturns: number[];
-}
+import { enhancedBenchmarkService } from './enhancedBenchmarkService';
 
 interface NPVCalculationParams {
   coinSymbol: string;
@@ -50,6 +44,7 @@ export class AdvancedInvestmentCalculationService {
   // Calculate covariance between asset returns and market returns
   private calculateCovariance(assetReturns: number[], marketReturns: number[]): number {
     if (assetReturns.length !== marketReturns.length || assetReturns.length === 0) {
+      console.warn(`Covariance calculation: mismatched lengths - asset: ${assetReturns.length}, market: ${marketReturns.length}`);
       return 0;
     }
 
@@ -61,6 +56,7 @@ export class AdvancedInvestmentCalculationService {
       return sum + (assetReturn - assetMean) * (marketReturns[i] - marketMean);
     }, 0) / (n - 1);
     
+    console.log(`Covariance calculation: n=${n}, assetMean=${assetMean.toFixed(4)}, marketMean=${marketMean.toFixed(4)}, covariance=${covariance.toFixed(6)}`);
     return covariance;
   }
 
@@ -69,13 +65,15 @@ export class AdvancedInvestmentCalculationService {
     if (returns.length === 0) return 0;
     
     const mean = returns.reduce((sum, r) => sum + r, 0) / returns.length;
-    return returns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / (returns.length - 1);
+    const variance = returns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / (returns.length - 1);
+    console.log(`Variance calculation: n=${returns.length}, mean=${mean.toFixed(4)}, variance=${variance.toFixed(6)}`);
+    return variance;
   }
 
   // Calculate proper Beta using covariance/variance formula
   private calculateProperBeta(assetReturns: number[], marketReturns: number[]): number {
     if (assetReturns.length !== marketReturns.length || assetReturns.length < 24) {
-      console.warn('Insufficient aligned data for Beta calculation, using default 1.0');
+      console.warn(`Insufficient aligned data for Beta calculation: asset=${assetReturns.length}, market=${marketReturns.length}`);
       return 1.0;
     }
     
@@ -88,79 +86,9 @@ export class AdvancedInvestmentCalculationService {
     }
     
     const beta = covariance / marketVariance;
-    console.log(`Beta calculation: covariance=${covariance.toFixed(6)}, marketVariance=${marketVariance.toFixed(6)}, beta=${beta.toFixed(3)}`);
+    console.log(`✅ Beta calculation: covariance=${covariance.toFixed(6)}, marketVariance=${marketVariance.toFixed(6)}, beta=${beta.toFixed(3)}`);
     
     return beta;
-  }
-
-  // Get benchmark data based on coin
-  private async getBenchmarkData(coinSymbol: string): Promise<BenchmarkData> {
-    const coin = coinSymbol.toLowerCase();
-    
-    if (coin === 'btc') {
-      // Use S&P 500 for Bitcoin
-      return this.getSP500BenchmarkData();
-    } else {
-      // Use Bitcoin for altcoins
-      return this.getBitcoinBenchmarkData();
-    }
-  }
-
-  // Fetch S&P 500 data
-  private async getSP500BenchmarkData(): Promise<BenchmarkData> {
-    try {
-      const fiveYearsAgo = Math.floor((Date.now() - (5 * 365 * 24 * 60 * 60 * 1000)) / 1000);
-      const currentTime = Math.floor(Date.now() / 1000);
-      
-      const response = await axios.get(
-        `https://query1.finance.yahoo.com/v7/finance/download/^GSPC?period1=${fiveYearsAgo}&period2=${currentTime}&interval=1mo&events=history&includeAdjustedClose=true`
-      );
-
-      const lines = response.data.split('\n').slice(1).filter((line: string) => line.trim());
-      const prices = lines.map((line: string) => {
-        const [date, , , , close] = line.split(',');
-        return { date, close: parseFloat(close) };
-      }).filter((item: any) => !isNaN(item.close));
-
-      const monthlyReturns = this.calculateMonthlyReturns(prices.map(p => p.close));
-      const cagr = this.calculateCAGR(prices[0].close, prices[prices.length - 1].close, 5);
-      const volatility = this.calculateVolatility(monthlyReturns);
-
-      return { prices, cagr, volatility, monthlyReturns };
-    } catch (error) {
-      console.warn('Failed to fetch S&P 500 data, using defaults:', error);
-      return {
-        prices: [],
-        cagr: 0.08, // 8% default
-        volatility: 0.15, // 15% default
-        monthlyReturns: []
-      };
-    }
-  }
-
-  // Fetch Bitcoin benchmark data
-  private async getBitcoinBenchmarkData(): Promise<BenchmarkData> {
-    try {
-      const priceData = await enhancedGlassnodeService.getMonthlyClosingPrices('btc');
-      const prices = priceData.map(point => ({
-        date: new Date(point.t * 1000).toISOString().split('T')[0],
-        close: point.v
-      }));
-
-      const monthlyReturns = enhancedGlassnodeService.calculateMonthlyReturns(priceData);
-      const cagr = enhancedGlassnodeService.calculateCAGR(priceData) / 100;
-      const volatility = enhancedGlassnodeService.calculateAnnualizedVolatility(monthlyReturns) / 100;
-
-      return { prices, cagr, volatility, monthlyReturns };
-    } catch (error) {
-      console.warn('Failed to fetch Bitcoin benchmark data, using defaults:', error);
-      return {
-        prices: [],
-        cagr: 0.08,
-        volatility: 0.15,
-        monthlyReturns: []
-      };
-    }
   }
 
   // Calculate monthly returns from prices
@@ -237,17 +165,20 @@ export class AdvancedInvestmentCalculationService {
       mvrvData,
       drawdownData,
       volumeData,
-      regionalData,
-      benchmarkData
+      regionalData
     ] = await Promise.all([
       enhancedGlassnodeService.getMonthlyClosingPrices(coinSymbol),
       enhancedGlassnodeService.getRealizedVolatility(coinSymbol),
       enhancedGlassnodeService.getMVRVZScore(coinSymbol),
       enhancedGlassnodeService.getPriceDrawdown(coinSymbol),
       enhancedGlassnodeService.getTransferVolume(coinSymbol),
-      enhancedGlassnodeService.getRegionalPriceChanges(coinSymbol),
-      this.getBenchmarkData(coinSymbol)
+      enhancedGlassnodeService.getRegionalPriceChanges(coinSymbol)
     ]);
+
+    // Get benchmark data using enhanced service
+    console.log(`🎯 Getting benchmark data for ${coinSymbol}...`);
+    const benchmarkData = await enhancedBenchmarkService.getBenchmarkForCoin(coinSymbol);
+    console.log(`📊 Benchmark: ${benchmarkData.name}, CAGR: ${benchmarkData.cagr36m.toFixed(2)}%, Monthly returns: ${benchmarkData.monthlyReturns.length}`);
 
     // Calculate base metrics
     const currentPrice = priceData[priceData.length - 1]?.v || 0;
@@ -257,14 +188,21 @@ export class AdvancedInvestmentCalculationService {
     const monthlyChanges = enhancedGlassnodeService.calculateAverageRegionalChange(regionalData);
 
     // Calculate Beta using proper covariance/variance formula
-    console.log(`📊 Calculating Beta for ${coinSymbol} vs ${coinSymbol.toLowerCase() === 'btc' ? 'S&P 500' : 'Bitcoin'}`);
+    console.log(`📊 Calculating Beta for ${coinSymbol} vs ${benchmarkData.name}`);
     console.log(`   - Asset returns: ${cryptoReturns.length} data points`);
     console.log(`   - Market returns: ${benchmarkData.monthlyReturns.length} data points`);
     
-    const beta = this.calculateProperBeta(cryptoReturns, benchmarkData.monthlyReturns);
+    // Ensure data alignment - take the minimum length and align from the end
+    const minLength = Math.min(cryptoReturns.length, benchmarkData.monthlyReturns.length);
+    const alignedCryptoReturns = cryptoReturns.slice(-minLength);
+    const alignedMarketReturns = benchmarkData.monthlyReturns.slice(-minLength);
+    
+    console.log(`   - Aligned data length: ${minLength} months`);
+    
+    const beta = this.calculateProperBeta(alignedCryptoReturns, alignedMarketReturns);
 
     // Calculate market premium and discount rate
-    const marketPremium = benchmarkData.cagr - (riskFreeRate / 100);
+    const marketPremium = (benchmarkData.cagr36m / 100) - (riskFreeRate / 100);
     let discountRate = (riskFreeRate / 100) + beta * marketPremium;
 
     // Risk adjustments
@@ -330,7 +268,7 @@ export class AdvancedInvestmentCalculationService {
     const finalValue = projectedPrices[projectedPrices.length - 1];
     const roi = ((totalCashFlows + finalValue - initialInvestment) / initialInvestment) * 100;
 
-    console.log(`✅ Beta calculation completed: ${beta.toFixed(3)} (${cryptoReturns.length} asset returns vs ${benchmarkData.monthlyReturns.length} market returns)`);
+    console.log(`✅ Dynamic Beta calculation completed: ${beta.toFixed(3)} (${alignedCryptoReturns.length} aligned returns vs ${benchmarkData.name})`);
 
     return {
       npv,
@@ -345,7 +283,7 @@ export class AdvancedInvestmentCalculationService {
       marketPremium: marketPremium * 100,
       monthlyChanges,
       isStakeable: this.isStakeable(coinSymbol),
-      benchmark: coinSymbol.toLowerCase() === 'btc' ? 'S&P 500' : 'Bitcoin',
+      benchmark: benchmarkData.name,
       riskAdjustments: {
         mvrvAdjustment: mvrvAdjustment * 100,
         liquidityAdjustment: liquidityAdjustment * 100,

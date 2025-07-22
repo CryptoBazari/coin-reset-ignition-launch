@@ -1,3 +1,4 @@
+
 // =============================================================================
 // PHASE 3: BETA CALCULATION SERVICE - MONTHLY DATA
 // Professional beta calculation using monthly returns for stability
@@ -5,6 +6,8 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { calculateStandardDeviation } from '@/utils/financialCalculations';
+import { enhancedBenchmarkService } from './enhancedBenchmarkService';
+import { enhancedGlassnodeService } from './enhancedGlassnodeService';
 
 export interface BetaResult {
   beta: number;
@@ -14,6 +17,7 @@ export interface BetaResult {
   correlation?: number;
   rSquared?: number;
   dataFrequency?: 'monthly' | 'daily';
+  benchmarkUsed?: string;
 }
 
 export interface PriceData {
@@ -37,9 +41,12 @@ export class BetaCalculationService {
    */
   async getBetaForCoin(coinId: string): Promise<BetaResult> {
     try {
+      console.log(`🎯 Calculating Beta for ${coinId.toUpperCase()}`);
+      
       // 1. Check database cache first
       const cachedBeta = await this.getCachedBeta(coinId);
       if (cachedBeta && this.isCacheValid(cachedBeta.lastCalculated)) {
+        console.log(`📦 Using cached Beta for ${coinId}: ${cachedBeta.beta.toFixed(3)}`);
         return {
           beta: cachedBeta.beta,
           confidence: cachedBeta.confidence as 'low' | 'medium' | 'high',
@@ -52,7 +59,7 @@ export class BetaCalculationService {
       }
 
       // 2. Try to calculate from available monthly price data
-      const calculatedBeta = await this.calculateMonthlyBetaFromPriceData(coinId);
+      const calculatedBeta = await this.calculateBetaFromEnhancedServices(coinId);
       if (calculatedBeta) {
         // Cache the calculated result
         await this.cacheBetaResult(coinId, calculatedBeta);
@@ -63,70 +70,59 @@ export class BetaCalculationService {
       return this.getEstimatedBeta(coinId);
 
     } catch (error) {
-      console.error(`Error getting monthly beta for ${coinId}:`, error);
+      console.error(`Error getting Beta for ${coinId}:`, error);
       return this.getEstimatedBeta(coinId);
     }
   }
 
   /**
-   * Calculate beta from monthly price data using regression analysis
+   * Calculate beta using enhanced services for both crypto and benchmark data
    */
-  private async calculateMonthlyBetaFromPriceData(coinId: string): Promise<BetaResult | null> {
+  private async calculateBetaFromEnhancedServices(coinId: string): Promise<BetaResult | null> {
     try {
-      // Get coin data
-      const { data: coinData } = await supabase
-        .from('coins')
-        .select('basket, price_history')
-        .eq('coin_id', coinId)
-        .single();
-
-      if (!coinData?.price_history) {
-        return null;
-      }
-
-      // Get daily price history and convert to monthly
-      const { data: dailyPrices } = await supabase
-        .from('price_history_36m')
-        .select('price_date, price_usd')
-        .eq('coin_id', coinId)
-        .order('price_date', { ascending: true });
-
-      if (!dailyPrices || dailyPrices.length < 365) {
-        return null;
-      }
-
-      // Aggregate to monthly prices
-      const monthlyPrices = this.aggregateToMonthlyPrices(dailyPrices);
+      console.log(`📊 Calculating Beta from enhanced services for ${coinId}`);
       
-      if (monthlyPrices.length < 24) {
-        console.log(`Insufficient monthly data for ${coinId}: ${monthlyPrices.length} months`);
+      // Get coin symbol for Glassnode
+      const coinSymbol = this.getCoinSymbol(coinId);
+      
+      // Get crypto monthly returns from Glassnode
+      const cryptoMonthlyPrices = await enhancedGlassnodeService.getMonthlyClosingPrices(coinSymbol);
+      if (!cryptoMonthlyPrices || cryptoMonthlyPrices.length < 24) {
+        console.log(`Insufficient crypto data for ${coinId}: ${cryptoMonthlyPrices?.length || 0} months`);
         return null;
       }
 
-      // Calculate monthly returns for the coin
-      const coinMonthlyReturns = this.calculateMonthlyReturns(monthlyPrices);
+      const cryptoMonthlyReturns = enhancedGlassnodeService.calculateMonthlyReturns(cryptoMonthlyPrices);
       
-      // Get Bitcoin monthly returns as market proxy
-      const bitcoinMonthlyReturns = await this.getBitcoinMonthlyReturns(monthlyPrices.length);
-      
-      if (!bitcoinMonthlyReturns || coinMonthlyReturns.length !== bitcoinMonthlyReturns.length) {
+      // Get benchmark data using enhanced service
+      const benchmarkData = await enhancedBenchmarkService.getBenchmarkForCoin(coinId);
+      if (!benchmarkData.monthlyReturns || benchmarkData.monthlyReturns.length < 24) {
+        console.log(`Insufficient benchmark data for ${coinId}: ${benchmarkData.monthlyReturns?.length || 0} months`);
         return null;
       }
 
-      // Calculate beta using monthly regression
-      const beta = this.calculateBetaRegression(coinMonthlyReturns, bitcoinMonthlyReturns);
-      const correlation = this.calculateCorrelation(coinMonthlyReturns, bitcoinMonthlyReturns);
+      // Align data to same time period
+      const minLength = Math.min(cryptoMonthlyReturns.length, benchmarkData.monthlyReturns.length);
+      const alignedCryptoReturns = cryptoMonthlyReturns.slice(-minLength);
+      const alignedBenchmarkReturns = benchmarkData.monthlyReturns.slice(-minLength);
+
+      console.log(`📈 Data alignment: ${minLength} months, crypto: ${alignedCryptoReturns.length}, benchmark: ${alignedBenchmarkReturns.length}`);
+      console.log(`🎯 Benchmark: ${benchmarkData.name}`);
+
+      // Calculate beta using regression
+      const beta = this.calculateBetaRegression(alignedCryptoReturns, alignedBenchmarkReturns);
+      const correlation = this.calculateCorrelation(alignedCryptoReturns, alignedBenchmarkReturns);
       const rSquared = Math.pow(correlation, 2);
 
-      // Determine confidence based on monthly R-squared and data quality
+      // Determine confidence based on R-squared and data quality
       let confidence: 'low' | 'medium' | 'high' = 'low';
-      if (rSquared > 0.6 && monthlyPrices.length > 36) {
+      if (rSquared > 0.6 && minLength > 36) {
         confidence = 'high';
-      } else if (rSquared > 0.4 && monthlyPrices.length > 24) {
+      } else if (rSquared > 0.4 && minLength > 24) {
         confidence = 'medium';
       }
 
-      console.log(`Monthly beta calculated for ${coinId}: ${beta.toFixed(3)} (R²: ${rSquared.toFixed(3)}, ${monthlyPrices.length} months)`);
+      console.log(`✅ Dynamic Beta calculated for ${coinId}: ${beta.toFixed(3)} (R²: ${rSquared.toFixed(3)}, ${minLength} months, ${confidence} confidence)`);
 
       return {
         beta,
@@ -135,64 +131,14 @@ export class BetaCalculationService {
         lastCalculated: new Date().toISOString(),
         correlation,
         rSquared,
-        dataFrequency: 'monthly'
+        dataFrequency: 'monthly',
+        benchmarkUsed: benchmarkData.name
       };
 
     } catch (error) {
-      console.error('Error calculating monthly beta from price data:', error);
+      console.error('Error calculating Beta from enhanced services:', error);
       return null;
     }
-  }
-
-  /**
-   * Aggregate daily prices to monthly (end-of-month prices)
-   */
-  private aggregateToMonthlyPrices(
-    dailyPrices: Array<{price_date: string, price_usd: number}>
-  ): Array<{date: string, price: number}> {
-    const monthlyPrices: Array<{date: string, price: number}> = [];
-    const pricesByMonth = new Map<string, Array<{price_date: string, price_usd: number}>>();
-    
-    // Group prices by month
-    for (const priceData of dailyPrices) {
-      const date = new Date(priceData.price_date);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      
-      if (!pricesByMonth.has(monthKey)) {
-        pricesByMonth.set(monthKey, []);
-      }
-      pricesByMonth.get(monthKey)!.push(priceData);
-    }
-    
-    // Get end-of-month price for each month
-    for (const [monthKey, monthPrices] of pricesByMonth) {
-      // Sort by date and take the last price of the month
-      monthPrices.sort((a, b) => new Date(a.price_date).getTime() - new Date(b.price_date).getTime());
-      const endOfMonthPrice = monthPrices[monthPrices.length - 1];
-      
-      monthlyPrices.push({
-        date: monthKey + '-01',
-        price: endOfMonthPrice.price_usd
-      });
-    }
-    
-    return monthlyPrices.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }
-
-  /**
-   * Calculate monthly returns from price data
-   */
-  private calculateMonthlyReturns(priceData: Array<{date: string, price: number}>): number[] {
-    const returns: number[] = [];
-    for (let i = 1; i < priceData.length; i++) {
-      const prevPrice = priceData[i - 1].price;
-      const currentPrice = priceData[i].price;
-      
-      if (prevPrice > 0) {
-        returns.push((currentPrice - prevPrice) / prevPrice);
-      }
-    }
-    return returns;
   }
 
   /**
@@ -220,7 +166,10 @@ export class BetaCalculationService {
     covariance /= (n - 1);
     marketVariance /= (n - 1);
     
-    return marketVariance !== 0 ? covariance / marketVariance : 1.0;
+    const beta = marketVariance !== 0 ? covariance / marketVariance : 1.0;
+    console.log(`🔢 Beta regression: cov=${covariance.toFixed(6)}, var=${marketVariance.toFixed(6)}, beta=${beta.toFixed(3)}`);
+    
+    return beta;
   }
 
   /**
@@ -246,34 +195,23 @@ export class BetaCalculationService {
   }
 
   /**
-   * Get Bitcoin monthly returns for comparison
+   * Get coin symbol for Glassnode API
    */
-  private async getBitcoinMonthlyReturns(length: number): Promise<number[] | null> {
-    try {
-      const { data: btcDailyPrices } = await supabase
-        .from('price_history_36m')
-        .select('price_date, price_usd')
-        .eq('coin_id', 'bitcoin')
-        .order('price_date', { ascending: true });
-
-      if (!btcDailyPrices || btcDailyPrices.length < length * 30) {
-        return null;
-      }
-
-      // Convert to monthly prices
-      const btcMonthlyPrices = this.aggregateToMonthlyPrices(btcDailyPrices);
-      
-      if (btcMonthlyPrices.length < length) {
-        return null;
-      }
-
-      // Take the most recent months matching the requested length
-      const relevantPrices = btcMonthlyPrices.slice(-length);
-      return this.calculateMonthlyReturns(relevantPrices);
-    } catch (error) {
-      console.error('Error fetching Bitcoin monthly returns:', error);
-      return null;
-    }
+  private getCoinSymbol(coinId: string): string {
+    const symbolMap: { [key: string]: string } = {
+      'bitcoin': 'btc',
+      'ethereum': 'eth',
+      'solana': 'sol',
+      'cardano': 'ada',
+      'litecoin': 'ltc',
+      'btc': 'btc',
+      'eth': 'eth',
+      'sol': 'sol',
+      'ada': 'ada',
+      'ltc': 'ltc'
+    };
+    
+    return symbolMap[coinId.toLowerCase()] || 'btc';
   }
 
   private async getCachedBeta(coinId: string) {
@@ -307,8 +245,10 @@ export class BetaCalculationService {
           beta_data_source: betaResult.source
         })
         .eq('coin_id', coinId);
+        
+      console.log(`💾 Cached Beta result for ${coinId}: ${betaResult.beta.toFixed(3)}`);
     } catch (error) {
-      console.error('Error caching monthly beta result:', error);
+      console.error('Error caching Beta result:', error);
     }
   }
 
@@ -325,27 +265,22 @@ export class BetaCalculationService {
   private getEstimatedBeta(coinId: string): BetaResult {
     // Professional beta estimates based on monthly analysis
     const betaEstimates: Record<string, number> = {
-      'BTC': 1.0,
-      'ETH': 1.4,
-      'SOL': 1.6,
-      'ADA': 1.3,
-      'DOT': 1.3,
-      'LINK': 1.4,
-      'AVAX': 1.6,
-      'MATIC': 1.5,
-      'ATOM': 1.4,
-      'ALGO': 1.2,
-      'XRP': 1.3,
-      'LTC': 1.1,
-      'BCH': 1.2,
-      'XLM': 1.4,
-      'NEAR': 1.5,
-      'APT': 1.7,
+      'bitcoin': 1.0,
+      'btc': 1.0,
+      'ethereum': 1.4,
+      'eth': 1.4,
+      'solana': 1.6,
+      'sol': 1.6,
+      'cardano': 1.3,
+      'ada': 1.3,
+      'litecoin': 1.1,
+      'ltc': 1.1,
     };
 
-    const beta = betaEstimates[coinId];
+    const beta = betaEstimates[coinId.toLowerCase()];
     
     if (beta) {
+      console.log(`📊 Using estimated Beta for ${coinId}: ${beta.toFixed(1)}`);
       return {
         beta,
         confidence: 'medium',
@@ -355,6 +290,7 @@ export class BetaCalculationService {
       };
     }
 
+    console.log(`⚠️ Using default Beta for ${coinId}: 1.5`);
     return {
       beta: 1.5,
       confidence: 'low',
@@ -372,14 +308,16 @@ export class BetaCalculationService {
 
       if (!coins) return;
 
+      console.log(`🔄 Updating Betas for ${coins.length} coins...`);
+      
       const updatePromises = coins.map(coin => 
         this.getBetaForCoin(coin.coin_id)
       );
 
       await Promise.all(updatePromises);
-      console.log(`Updated monthly betas for ${coins.length} coins`);
+      console.log(`✅ Updated Betas for ${coins.length} coins`);
     } catch (error) {
-      console.error('Error updating all monthly betas:', error);
+      console.error('Error updating all Betas:', error);
     }
   }
 }
