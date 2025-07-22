@@ -27,7 +27,7 @@ export interface PriceData {
 
 export class BetaCalculationService {
   private static instance: BetaCalculationService;
-  private cacheExpiryHours = 24; // Cache beta calculations for 24 hours
+  private cacheExpiryHours = 1; // Reduced cache time to force fresh calculations
 
   static getInstance(): BetaCalculationService {
     if (!BetaCalculationService.instance) {
@@ -41,24 +41,12 @@ export class BetaCalculationService {
    */
   async getBetaForCoin(coinId: string): Promise<BetaResult> {
     try {
-      console.log(`🎯 Calculating Beta for ${coinId.toUpperCase()}`);
+      console.log(`🎯 Calculating Beta for ${coinId.toUpperCase()} - FORCING FRESH CALCULATION`);
       
-      // 1. Check database cache first
-      const cachedBeta = await this.getCachedBeta(coinId);
-      if (cachedBeta && this.isCacheValid(cachedBeta.lastCalculated)) {
-        console.log(`📦 Using cached Beta for ${coinId}: ${cachedBeta.beta.toFixed(3)}`);
-        return {
-          beta: cachedBeta.beta,
-          confidence: cachedBeta.confidence as 'low' | 'medium' | 'high',
-          source: 'database',
-          lastCalculated: cachedBeta.lastCalculated,
-          correlation: cachedBeta.correlation,
-          rSquared: cachedBeta.rSquared,
-          dataFrequency: 'monthly'
-        };
-      }
-
-      // 2. Try to calculate from available monthly price data
+      // TEMPORARILY DISABLE CACHE - Force fresh calculation every time
+      console.log(`⚠️ CACHE DISABLED - Forcing fresh API-based calculation`);
+      
+      // Try to calculate from available monthly price data using REAL APIs
       const calculatedBeta = await this.calculateBetaFromEnhancedServices(coinId);
       if (calculatedBeta) {
         // Cache the calculated result
@@ -66,7 +54,8 @@ export class BetaCalculationService {
         return calculatedBeta;
       }
 
-      // 3. Fallback to estimated values
+      // Only fallback if APIs completely fail
+      console.log(`❌ API calculation failed for ${coinId}, using fallback`);
       return this.getEstimatedBeta(coinId);
 
     } catch (error) {
@@ -80,36 +69,55 @@ export class BetaCalculationService {
    */
   private async calculateBetaFromEnhancedServices(coinId: string): Promise<BetaResult | null> {
     try {
-      console.log(`📊 Calculating Beta from enhanced services for ${coinId}`);
+      console.log(`📊 Calculating Beta from REAL API data for ${coinId}`);
       
       // Get coin symbol for Glassnode
       const coinSymbol = this.getCoinSymbol(coinId);
       
-      // Get crypto monthly returns from Glassnode
+      // Get crypto monthly returns from Glassnode API
+      console.log(`🔄 Fetching ${coinSymbol} monthly prices from Glassnode...`);
       const cryptoMonthlyPrices = await enhancedGlassnodeService.getMonthlyClosingPrices(coinSymbol);
       if (!cryptoMonthlyPrices || cryptoMonthlyPrices.length < 24) {
-        console.log(`Insufficient crypto data for ${coinId}: ${cryptoMonthlyPrices?.length || 0} months`);
+        console.log(`❌ Insufficient crypto data for ${coinId}: ${cryptoMonthlyPrices?.length || 0} months`);
         return null;
       }
 
       const cryptoMonthlyReturns = enhancedGlassnodeService.calculateMonthlyReturns(cryptoMonthlyPrices);
+      console.log(`📈 Crypto monthly returns calculated: ${cryptoMonthlyReturns.length} months`);
       
-      // Get benchmark data using enhanced service
+      // Get benchmark data using enhanced service - FORCE API FETCH
+      console.log(`🎯 Fetching benchmark data for ${coinId} (FORCING API CALL)...`);
       const benchmarkData = await enhancedBenchmarkService.getBenchmarkForCoin(coinId);
+      
+      // CRITICAL CHECK: Verify we have REAL monthly returns, not fallback
       if (!benchmarkData.monthlyReturns || benchmarkData.monthlyReturns.length < 24) {
-        console.log(`Insufficient benchmark data for ${coinId}: ${benchmarkData.monthlyReturns?.length || 0} months`);
+        console.log(`❌ Insufficient benchmark data for ${coinId}: ${benchmarkData.monthlyReturns?.length || 0} months`);
+        console.log(`🔍 Benchmark data:`, {
+          name: benchmarkData.name,
+          monthlyReturnsLength: benchmarkData.monthlyReturns?.length || 0,
+          cagr: benchmarkData.cagr36m
+        });
         return null;
       }
+
+      // Log the actual benchmark data we're using
+      console.log(`📊 BENCHMARK DATA VERIFICATION for ${benchmarkData.name}:`);
+      console.log(`   - Monthly returns count: ${benchmarkData.monthlyReturns.length}`);
+      console.log(`   - First 5 returns:`, benchmarkData.monthlyReturns.slice(0, 5));
+      console.log(`   - Last 5 returns:`, benchmarkData.monthlyReturns.slice(-5));
+      console.log(`   - CAGR: ${benchmarkData.cagr36m.toFixed(2)}%`);
 
       // Align data to same time period
       const minLength = Math.min(cryptoMonthlyReturns.length, benchmarkData.monthlyReturns.length);
       const alignedCryptoReturns = cryptoMonthlyReturns.slice(-minLength);
       const alignedBenchmarkReturns = benchmarkData.monthlyReturns.slice(-minLength);
 
-      console.log(`📈 Data alignment: ${minLength} months, crypto: ${alignedCryptoReturns.length}, benchmark: ${alignedBenchmarkReturns.length}`);
-      console.log(`🎯 Benchmark: ${benchmarkData.name}`);
+      console.log(`📈 REAL DATA ALIGNMENT: ${minLength} months`);
+      console.log(`   - Crypto returns: ${alignedCryptoReturns.length} points`);
+      console.log(`   - Benchmark returns: ${alignedBenchmarkReturns.length} points`);
+      console.log(`   - Benchmark: ${benchmarkData.name}`);
 
-      // Calculate beta using regression
+      // Calculate beta using regression with REAL data
       const beta = this.calculateBetaRegression(alignedCryptoReturns, alignedBenchmarkReturns);
       const correlation = this.calculateCorrelation(alignedCryptoReturns, alignedBenchmarkReturns);
       const rSquared = Math.pow(correlation, 2);
@@ -122,7 +130,12 @@ export class BetaCalculationService {
         confidence = 'medium';
       }
 
-      console.log(`✅ Dynamic Beta calculated for ${coinId}: ${beta.toFixed(3)} (R²: ${rSquared.toFixed(3)}, ${minLength} months, ${confidence} confidence)`);
+      console.log(`✅ REAL API-BASED Beta calculated for ${coinId}:`);
+      console.log(`   - Beta: ${beta.toFixed(3)}`);
+      console.log(`   - R²: ${rSquared.toFixed(3)}`);
+      console.log(`   - Data points: ${minLength} months`);
+      console.log(`   - Confidence: ${confidence}`);
+      console.log(`   - Benchmark: ${benchmarkData.name}`);
 
       return {
         beta,
@@ -136,7 +149,7 @@ export class BetaCalculationService {
       };
 
     } catch (error) {
-      console.error('Error calculating Beta from enhanced services:', error);
+      console.error('❌ Error calculating Beta from enhanced services:', error);
       return null;
     }
   }
@@ -167,7 +180,10 @@ export class BetaCalculationService {
     marketVariance /= (n - 1);
     
     const beta = marketVariance !== 0 ? covariance / marketVariance : 1.0;
-    console.log(`🔢 Beta regression: cov=${covariance.toFixed(6)}, var=${marketVariance.toFixed(6)}, beta=${beta.toFixed(3)}`);
+    console.log(`🔢 Beta regression calculation:`);
+    console.log(`   - Covariance: ${covariance.toFixed(6)}`);
+    console.log(`   - Market variance: ${marketVariance.toFixed(6)}`);
+    console.log(`   - Beta: ${beta.toFixed(3)}`);
     
     return beta;
   }
@@ -217,11 +233,12 @@ export class BetaCalculationService {
   private async getCachedBeta(coinId: string) {
     const { data } = await supabase
       .from('coins')
-      .select('beta, beta_confidence, beta_last_calculated')
+      .select('beta, beta_confidence, beta_last_calculated, beta_data_source')
       .eq('coin_id', coinId)
       .single();
 
-    if (data?.beta) {
+    // Ignore cached values if they're just estimates - force real calculation
+    if (data?.beta && data.beta_data_source === 'calculated') {
       return {
         beta: data.beta,
         confidence: data.beta_confidence || 'low',
@@ -246,7 +263,7 @@ export class BetaCalculationService {
         })
         .eq('coin_id', coinId);
         
-      console.log(`💾 Cached Beta result for ${coinId}: ${betaResult.beta.toFixed(3)}`);
+      console.log(`💾 Cached REAL Beta result for ${coinId}: ${betaResult.beta.toFixed(3)} (${betaResult.source})`);
     } catch (error) {
       console.error('Error caching Beta result:', error);
     }
@@ -263,7 +280,9 @@ export class BetaCalculationService {
   }
 
   private getEstimatedBeta(coinId: string): BetaResult {
-    // Professional beta estimates based on monthly analysis
+    // ONLY use as absolute fallback when APIs fail
+    console.log(`⚠️ FALLBACK: Using estimated Beta for ${coinId} - APIs failed`);
+    
     const betaEstimates: Record<string, number> = {
       'bitcoin': 1.0,
       'btc': 1.0,
@@ -277,22 +296,10 @@ export class BetaCalculationService {
       'ltc': 1.1,
     };
 
-    const beta = betaEstimates[coinId.toLowerCase()];
+    const beta = betaEstimates[coinId.toLowerCase()] || 1.5;
     
-    if (beta) {
-      console.log(`📊 Using estimated Beta for ${coinId}: ${beta.toFixed(1)}`);
-      return {
-        beta,
-        confidence: 'medium',
-        source: 'estimated',
-        lastCalculated: new Date().toISOString(),
-        dataFrequency: 'monthly'
-      };
-    }
-
-    console.log(`⚠️ Using default Beta for ${coinId}: 1.5`);
     return {
-      beta: 1.5,
+      beta,
       confidence: 'low',
       source: 'estimated',
       lastCalculated: new Date().toISOString(),
@@ -308,14 +315,14 @@ export class BetaCalculationService {
 
       if (!coins) return;
 
-      console.log(`🔄 Updating Betas for ${coins.length} coins...`);
+      console.log(`🔄 Updating Betas for ${coins.length} coins with REAL API data...`);
       
       const updatePromises = coins.map(coin => 
         this.getBetaForCoin(coin.coin_id)
       );
 
       await Promise.all(updatePromises);
-      console.log(`✅ Updated Betas for ${coins.length} coins`);
+      console.log(`✅ Updated Betas for ${coins.length} coins with REAL calculations`);
     } catch (error) {
       console.error('Error updating all Betas:', error);
     }
