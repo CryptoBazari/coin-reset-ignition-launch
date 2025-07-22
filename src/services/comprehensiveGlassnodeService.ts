@@ -480,7 +480,7 @@ class ComprehensiveGlassnodeService {
           npv: results.calculations.npv,
           cagr: results.calculations.adjustedCagr,
           beta: results.calculations.beta,
-          recommendation: results.calculations.npv > 0 ? 'buy' : 'sell',
+          recommendation: results.calculations.npv > 0 ? 'Buy' : 'Do Not Buy',
           conditions: `NPV Analysis using Glassnode data. Confidence: ${results.metadata.confidenceScore}%`,
           risks: results.metadata.liquidityWarning ? 'Low liquidity warning' : null
         });

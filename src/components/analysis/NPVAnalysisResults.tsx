@@ -166,7 +166,7 @@ export function NPVAnalysisResults({ results }: NPVAnalysisResultsProps) {
                 <Tooltip formatter={(value) => [`${value}%`, 'Monthly Change']} />
                 <Bar 
                   dataKey="change" 
-                  fill={(dataKey) => dataKey > 0 ? '#22c55e' : '#ef4444'}
+                  fill="#3b82f6"
                   radius={[2, 2, 0, 0]}
                 />
               </BarChart>
