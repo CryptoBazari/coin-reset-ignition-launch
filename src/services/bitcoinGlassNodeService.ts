@@ -308,6 +308,19 @@ class BitcoinGlassNodeService {
     });
   }
 
+  async getBitcoinCointimeData(): Promise<any> {
+    const bitcoinData = await this.getBitcoinRealData();
+    return {
+      cointimeEconomics: {
+        avivRatio: bitcoinData.avivRatio,
+        realizedVolatility: bitcoinData.realizedVolatility,
+        mvrvZScore: bitcoinData.mvrvZScore,
+        priceDrawdown: bitcoinData.priceDrawdown,
+        netRealizedPL: bitcoinData.netRealizedPL
+      }
+    };
+  }
+
   clearCache(): void {
     this.cache.clear();
   }
