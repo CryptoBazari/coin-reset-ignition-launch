@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -10,7 +11,7 @@ interface GlassNodeResponse {
   v: number; // value
 }
 
-// Fixed endpoint configurations with correct resolution parameters
+// FIXED endpoint configurations - including AVIV
 const ENDPOINT_CONFIGS = {
   'market/price_usd_close': { resolutions: ['24h'], defaultRes: '24h' },
   'market/price_usd_ohlc': { resolutions: ['24h'], defaultRes: '24h' },
@@ -28,11 +29,11 @@ const ENDPOINT_CONFIGS = {
   'supply/liquid_sum': { resolutions: ['24h'], defaultRes: '24h' },
   'supply/illiquid_sum': { resolutions: ['24h'], defaultRes: '24h' },
   'indicators/cdd': { resolutions: ['24h'], defaultRes: '24h' },
-  'indicators/aviv': { resolutions: ['24h'], defaultRes: '24h' },
+  'indicators/aviv': { resolutions: ['24h'], defaultRes: '24h' }, // ADDED AVIV ENDPOINT
   'indicators/coin_blocks_destroyed': { resolutions: ['24h'], defaultRes: '24h' }
 };
 
-// Comprehensive list of supported metrics for different assets
+// FIXED supported metrics - including AVIV for Bitcoin
 const SUPPORTED_METRICS = {
   'BTC': [
     'market/price_usd_close',
@@ -51,7 +52,7 @@ const SUPPORTED_METRICS = {
     'supply/liquid_sum',
     'supply/illiquid_sum',
     'indicators/cdd',
-    'indicators/aviv',
+    'indicators/aviv', // AVIV IS AVAILABLE FOR BITCOIN
     'indicators/coin_blocks_destroyed'
   ],
   'ETH': [
@@ -86,9 +87,6 @@ const SUPPORTED_METRICS = {
   ]
 };
 
-/**
- * Sample data to monthly intervals with proper date alignment
- */
 function sampleDataToMonthly(data: any[]): any[] {
   if (!data || data.length === 0) return [];
 
@@ -105,7 +103,6 @@ function sampleDataToMonthly(data: any[]): any[] {
     }
   });
 
-  // Convert to array and sort by date
   const monthlyData = Array.from(monthlyGroups.values())
     .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
@@ -125,7 +122,7 @@ Deno.serve(async (req) => {
     const glassNodeApiKey = Deno.env.get('GLASSNODE_API_KEY');
     
     if (!glassNodeApiKey) {
-      console.error('Glass Node API key not found');
+      console.error('❌ Glass Node API key not found');
       return new Response(
         JSON.stringify({ error: 'Glass Node API key not configured' }),
         { 
@@ -138,15 +135,16 @@ Deno.serve(async (req) => {
     // Check if metric is supported for this asset
     const supportedForAsset = SUPPORTED_METRICS[asset as keyof typeof SUPPORTED_METRICS];
     if (supportedForAsset && !supportedForAsset.includes(metric)) {
-      console.log(`Metric ${metric} not supported for ${asset}, returning empty data`);
+      console.log(`❌ Metric ${metric} not supported for ${asset}`);
       return new Response(
         JSON.stringify({ 
-          data: [], 
+          error: `Metric ${metric} not available for ${asset}`,
           metric, 
-          asset, 
-          warning: `Metric ${metric} not available for ${asset}` 
+          asset,
+          supported_metrics: supportedForAsset
         }),
         { 
+          status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
@@ -156,11 +154,11 @@ Deno.serve(async (req) => {
     const endpointConfig = ENDPOINT_CONFIGS[metric as keyof typeof ENDPOINT_CONFIGS];
     const correctResolution = endpointConfig ? endpointConfig.defaultRes : '24h';
     
-    // Build query parameters with correct resolution
+    // Build query parameters
     const params = new URLSearchParams({
       a: asset || 'BTC',
       api_key: glassNodeApiKey,
-      i: correctResolution // Use endpoint-specific resolution
+      i: correctResolution
     });
 
     // Add time range if provided
@@ -174,13 +172,14 @@ Deno.serve(async (req) => {
 
     const glassNodeUrl = `https://api.glassnode.com/v1/metrics/${metric}?${params}`;
     
-    console.log(`Fetching Glass Node data for metric: ${metric}, asset: ${asset}, resolution: ${correctResolution}`);
+    console.log(`🔄 Fetching Glass Node data: ${metric} for ${asset} (resolution: ${correctResolution})`);
+    console.log(`🌐 URL: ${glassNodeUrl.replace(glassNodeApiKey, 'API_KEY_HIDDEN')}`);
     
     const response = await fetch(glassNodeUrl);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Glass Node API error: ${response.status} - ${errorText}`);
+      console.error(`❌ Glass Node API error: ${response.status} - ${errorText}`);
       
       if (response.status === 401) {
         return new Response(
@@ -199,37 +198,36 @@ Deno.serve(async (req) => {
           }
         );
       } else if (response.status === 404) {
-        console.log(`Metric ${metric} not found for ${asset}, returning empty data`);
+        console.log(`❌ Metric ${metric} not found for ${asset}`);
         return new Response(
           JSON.stringify({ 
-            data: [], 
+            error: `Metric not available: ${metric} for ${asset}`,
             metric, 
-            asset, 
-            warning: `Metric not available: ${metric}` 
+            asset,
+            status: 404
           }),
           { 
+            status: 404,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
           }
         );
       }
       
-      // Return empty data instead of throwing error to allow other endpoints to work
-      console.log(`Glass Node API error for ${metric}, returning empty data`);
       return new Response(
         JSON.stringify({ 
-          data: [], 
+          error: `Glass Node API error: ${response.status} - ${errorText}`,
           metric, 
-          asset, 
-          warning: `Data unavailable for ${metric}: ${errorText}` 
+          asset
         }),
         { 
+          status: response.status,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
     }
 
     const data: GlassNodeResponse[] = await response.json();
-    console.log(`Successfully fetched ${data.length} Glass Node data points for ${metric}`);
+    console.log(`✅ Successfully fetched ${data.length} Glass Node data points for ${metric}/${asset}`);
 
     // Transform the data with proper monthly sampling
     let processedData = data.map(point => ({
@@ -243,6 +241,22 @@ Deno.serve(async (req) => {
       processedData = sampleDataToMonthly(processedData);
     }
 
+    // Log specific metrics for debugging
+    if (metric === 'indicators/aviv') {
+      console.log(`📊 AVIV Ratio Data for ${asset}:`);
+      console.log(`   - Latest value: ${processedData[processedData.length - 1]?.value}`);
+      console.log(`   - Data points: ${processedData.length}`);
+      console.log(`   - Time range: ${processedData[0]?.timestamp} to ${processedData[processedData.length - 1]?.timestamp}`);
+    }
+
+    if (metric === 'market/realized_volatility_all') {
+      const latestVol = processedData[processedData.length - 1]?.value;
+      console.log(`📊 Realized Volatility Data for ${asset}:`);
+      console.log(`   - Latest value (raw): ${latestVol}`);
+      console.log(`   - As percentage: ${(latestVol * 100).toFixed(2)}%`);
+      console.log(`   - Data points: ${processedData.length}`);
+    }
+
     return new Response(
       JSON.stringify({ data: processedData, metric, asset }),
       { 
@@ -251,7 +265,7 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error in fetch-glassnode-data function:', error);
+    console.error('❌ Error in fetch-glassnode-data function:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
