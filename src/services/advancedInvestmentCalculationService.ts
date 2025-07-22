@@ -1,335 +1,216 @@
 
-import axios from 'axios';
+import { supabase } from '@/integrations/supabase/client';
+import { realDataCalculationService, RealDataCalculationResult } from './realDataCalculationService';
+import { bitcoinGlassNodeService } from './bitcoinGlassNodeService';
 import { enhancedGlassnodeService } from './enhancedGlassnodeService';
-import { enhancedBenchmarkService } from './enhancedBenchmarkService';
+import type { InvestmentInputs } from '@/types/investment';
 
-interface NPVCalculationParams {
-  coinSymbol: string;
-  initialInvestment: number;
-  projectionYears: number;
-  stakingYield?: number;
-  riskFreeRate: number;
-}
-
-interface NPVResult {
-  npv: number;
-  irr: number;
-  roi: number;
-  cagr: number;
-  beta: number;
-  discountRate: number;
-  projectedPrices: number[];
-  cashFlows: number[];
-  stressTestedNPV: number;
-  marketPremium: number;
-  monthlyChanges: number[];
-  isStakeable: boolean;
-  benchmark: string;
-  riskAdjustments: {
-    mvrvAdjustment: number;
-    liquidityAdjustment: number;
-    drawdownRisk: number;
+interface EnhancedInvestmentResult extends RealDataCalculationResult {
+  volatility: number; // Real Glassnode volatility as percentage
+  avivRatio: number; // Real Bitcoin AVIV ratio
+  standardDeviation: number; // Calculated from historical prices
+  dataQuality: {
+    volatilityFromAPI: boolean;
+    avivFromAPI: boolean;
+    priceDataPoints: number;
   };
-  priceHistory: Array<{ date: string; price: number }>;
 }
 
-export class AdvancedInvestmentCalculationService {
-  private stakeableCoins = ['eth', 'ada', 'sol', 'dot', 'atom', 'avax', 'near', 'algo'];
-
-  // Check if coin is stakeable
-  private isStakeable(coinSymbol: string): boolean {
-    return this.stakeableCoins.includes(coinSymbol.toLowerCase());
-  }
-
-  // Calculate covariance between asset returns and market returns
-  private calculateCovariance(assetReturns: number[], marketReturns: number[]): number {
-    if (assetReturns.length !== marketReturns.length || assetReturns.length === 0) {
-      console.warn(`Covariance calculation: mismatched lengths - asset: ${assetReturns.length}, market: ${marketReturns.length}`);
-      return 0;
-    }
-
-    const n = assetReturns.length;
-    const assetMean = assetReturns.reduce((sum, r) => sum + r, 0) / n;
-    const marketMean = marketReturns.reduce((sum, r) => sum + r, 0) / n;
+/**
+ * Advanced Investment Calculation Service
+ * Uses real Glassnode API data for volatility and AVIV calculations
+ */
+class AdvancedInvestmentCalculationService {
+  
+  /**
+   * Calculate investment analysis with real Glassnode volatility and AVIV data
+   */
+  async calculateAdvancedInvestmentAnalysis(inputs: InvestmentInputs): Promise<EnhancedInvestmentResult> {
+    console.log('🔄 Starting ADVANCED investment analysis with REAL Glassnode data...');
+    console.log(`📊 Coin: ${inputs.coinId}, Amount: $${inputs.investmentAmount}`);
     
-    const covariance = assetReturns.reduce((sum, assetReturn, i) => {
-      return sum + (assetReturn - assetMean) * (marketReturns[i] - marketMean);
-    }, 0) / (n - 1);
-    
-    console.log(`Covariance calculation: n=${n}, assetMean=${assetMean.toFixed(4)}, marketMean=${marketMean.toFixed(4)}, covariance=${covariance.toFixed(6)}`);
-    return covariance;
-  }
-
-  // Calculate variance of market returns
-  private calculateVariance(returns: number[]): number {
-    if (returns.length === 0) return 0;
-    
-    const mean = returns.reduce((sum, r) => sum + r, 0) / returns.length;
-    const variance = returns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / (returns.length - 1);
-    console.log(`Variance calculation: n=${returns.length}, mean=${mean.toFixed(4)}, variance=${variance.toFixed(6)}`);
-    return variance;
-  }
-
-  // Calculate proper Beta using covariance/variance formula
-  private calculateProperBeta(assetReturns: number[], marketReturns: number[]): number {
-    if (assetReturns.length !== marketReturns.length || assetReturns.length < 24) {
-      console.warn(`Insufficient aligned data for Beta calculation: asset=${assetReturns.length}, market=${marketReturns.length}`);
-      return 1.0;
-    }
-    
-    const covariance = this.calculateCovariance(assetReturns, marketReturns);
-    const marketVariance = this.calculateVariance(marketReturns);
-    
-    if (marketVariance === 0) {
-      console.warn('Market variance is zero, using default Beta 1.0');
-      return 1.0;
-    }
-    
-    const beta = covariance / marketVariance;
-    console.log(`✅ Beta calculation: covariance=${covariance.toFixed(6)}, marketVariance=${marketVariance.toFixed(6)}, beta=${beta.toFixed(3)}`);
-    
-    return beta;
-  }
-
-  // Calculate monthly returns from prices
-  private calculateMonthlyReturns(prices: number[]): number[] {
-    const returns: number[] = [];
-    for (let i = 1; i < prices.length; i++) {
-      if (prices[i - 1] > 0) {
-        returns.push((prices[i] - prices[i - 1]) / prices[i - 1]);
-      }
-    }
-    return returns;
-  }
-
-  // Calculate CAGR
-  private calculateCAGR(startPrice: number, endPrice: number, years: number): number {
-    if (startPrice <= 0 || endPrice <= 0 || years <= 0) return 0;
-    return Math.pow(endPrice / startPrice, 1 / years) - 1;
-  }
-
-  // Get REAL volatility from Glassnode API - FIXED to use correct coin symbol
-  private async getRealVolatilityFromGlassnode(coinSymbol: string): Promise<number> {
     try {
-      console.log(`🔍 Fetching REAL volatility from Glassnode API for ${coinSymbol.toUpperCase()}`);
-      
-      // Get the latest realized volatility data from Glassnode for the specific coin
-      const volatilityData = await enhancedGlassnodeService.getRealizedVolatility(coinSymbol.toUpperCase());
-      
-      if (volatilityData.length === 0) {
-        console.warn(`⚠️ No volatility data from Glassnode for ${coinSymbol}, using fallback`);
-        return 0.5; // 50% fallback
-      }
+      // Get the base real data calculation
+      const realResult = await realDataCalculationService.calculateRealInvestmentAnalysis(
+        inputs.coinId,
+        inputs.investmentAmount,
+        inputs.investmentHorizon
+      );
 
-      // Get the latest volatility value - this comes directly from Glassnode API
-      const latestVolatility = volatilityData[volatilityData.length - 1].v;
+      // Get real Bitcoin AVIV ratio
+      console.log('📊 Fetching REAL Bitcoin AVIV ratio from Glassnode API...');
+      const bitcoinData = await bitcoinGlassNodeService.getBitcoinRealData();
       
-      console.log(`📊 REAL Glassnode Volatility for ${coinSymbol.toUpperCase()}:`);
-      console.log(`   - Raw API value: ${latestVolatility}`);
-      console.log(`   - Data points available: ${volatilityData.length}`);
-      console.log(`   - Coin symbol verified: ${coinSymbol.toUpperCase()}`);
-      console.log(`   - Source: https://api.glassnode.com/v1/metrics/market/realized_volatility_all`);
+      // Get real volatility for the selected coin
+      console.log(`📊 Fetching REAL volatility for ${inputs.coinId} from Glassnode API...`);
+      const coinSymbol = this.getCoinSymbol(inputs.coinId);
+      const realVolatilityResult = await this.fetchRealVolatilityFromGlassnode(coinSymbol);
       
-      // Glassnode returns volatility as a decimal (e.g., 0.65 = 65%)
-      // Convert to percentage for display consistency
-      const volatilityPercentage = latestVolatility * 100;
-      
-      console.log(`   - Converted to percentage: ${volatilityPercentage.toFixed(2)}%`);
-      console.log(`   - This is the REAL volatility from Glassnode for ${coinSymbol}, not calculated manually`);
-      
-      return latestVolatility; // Return as decimal for calculations
+      // Get historical prices and calculate standard deviation
+      console.log(`📊 Calculating standard deviation from historical prices for ${coinSymbol}...`);
+      const standardDeviationResult = await this.calculateStandardDeviationFromPrices(coinSymbol);
+
+      // Log the real data being used
+      console.log('✅ REAL Glassnode Data Retrieved:');
+      console.log(`   - Bitcoin AVIV Ratio: ${bitcoinData.avivRatio.toFixed(3)} (${bitcoinData.dataQuality.avivFromAPI ? 'REAL API' : 'FALLBACK'})`);
+      console.log(`   - ${coinSymbol} Volatility: ${realVolatilityResult.value.toFixed(2)}% (${realVolatilityResult.fromAPI ? 'REAL API' : 'FALLBACK'})`);
+      console.log(`   - ${coinSymbol} Std Dev: ${standardDeviationResult.value.toFixed(2)}% (${standardDeviationResult.dataPoints} price points)`);
+
+      const enhancedResult: EnhancedInvestmentResult = {
+        ...realResult,
+        volatility: realVolatilityResult.value, // Real Glassnode volatility as percentage
+        avivRatio: bitcoinData.avivRatio, // Real Bitcoin AVIV ratio
+        standardDeviation: standardDeviationResult.value, // Calculated from real prices
+        dataQuality: {
+          volatilityFromAPI: realVolatilityResult.fromAPI,
+          avivFromAPI: bitcoinData.dataQuality.avivFromAPI,
+          priceDataPoints: standardDeviationResult.dataPoints
+        }
+      };
+
+      console.log('✅ ADVANCED investment analysis completed with real Glassnode data');
+      return enhancedResult;
       
     } catch (error) {
-      console.error(`❌ Failed to fetch real volatility from Glassnode for ${coinSymbol}:`, error);
-      console.log(`📊 Using fallback volatility of 50% for ${coinSymbol}`);
-      return 0.5; // 50% fallback
+      console.error('❌ Advanced investment calculation failed:', error);
+      throw error;
     }
   }
 
-  // Calculate IRR using bisection method
-  private calculateIRR(cashFlows: number[], initialGuess = 0.1): number {
-    const maxIterations = 1000;
-    const tolerance = 1e-6;
-    let low = -0.99;
-    let high = 10.0;
+  /**
+   * Fetch real volatility from Glassnode API for the selected coin
+   */
+  private async fetchRealVolatilityFromGlassnode(coinSymbol: string): Promise<{ value: number; fromAPI: boolean }> {
+    try {
+      console.log(`🔍 Fetching REAL volatility from Glassnode API for ${coinSymbol}...`);
+      
+      const { data, error } = await supabase.functions.invoke('fetch-glassnode-data', {
+        body: {
+          metric: 'market/realized_volatility_all',
+          asset: coinSymbol,
+          resolution: '24h'
+        }
+      });
 
-    const npvAtRate = (rate: number): number => {
-      return cashFlows.reduce((npv, cf, index) => {
-        return npv + cf / Math.pow(1 + rate, index);
-      }, 0);
-    };
-
-    for (let i = 0; i < maxIterations; i++) {
-      const mid = (low + high) / 2;
-      const npv = npvAtRate(mid);
-
-      if (Math.abs(npv) < tolerance) {
-        return mid;
+      if (error) {
+        console.error(`❌ Glassnode API error for ${coinSymbol}:`, error);
+        throw error;
       }
 
-      if (npv > 0) {
-        low = mid;
-      } else {
-        high = mid;
+      if (!data?.data || data.data.length === 0) {
+        console.warn(`⚠️ No volatility data from Glassnode for ${coinSymbol}`);
+        throw new Error(`No volatility data available for ${coinSymbol}`);
       }
 
-      if (Math.abs(high - low) < tolerance) {
-        break;
+      const latestPoint = data.data[data.data.length - 1];
+      const rawVolatility = latestPoint?.value || latestPoint?.v;
+      
+      if (typeof rawVolatility !== 'number' || rawVolatility < 0) {
+        throw new Error(`Invalid volatility value: ${rawVolatility}`);
       }
+      
+      // Convert to percentage (Glassnode returns as decimal)
+      const volatilityPercent = rawVolatility * 100;
+      
+      console.log(`📊 REAL ${coinSymbol} Volatility from Glassnode:`);
+      console.log(`   - Raw API value: ${rawVolatility.toFixed(4)}`);
+      console.log(`   - As percentage: ${volatilityPercent.toFixed(2)}%`);
+      console.log(`   - Data points: ${data.data.length}`);
+      
+      return { value: volatilityPercent, fromAPI: true };
+      
+    } catch (error) {
+      console.error(`❌ Failed to fetch real volatility for ${coinSymbol}:`, error);
+      
+      // Return reasonable fallback
+      const fallbackVolatility = coinSymbol === 'BTC' ? 65 : 85;
+      console.log(`📊 Using fallback volatility for ${coinSymbol}: ${fallbackVolatility}%`);
+      
+      return { value: fallbackVolatility, fromAPI: false };
     }
-
-    return (low + high) / 2;
   }
 
-  // Main NPV calculation - UPDATED to use real Glassnode volatility with correct coin symbol
-  async calculateAdvancedNPV(params: NPVCalculationParams): Promise<NPVResult> {
-    const { coinSymbol, initialInvestment, projectionYears, stakingYield = 0, riskFreeRate } = params;
-    
-    console.log(`🔄 Starting advanced NPV calculation for ${coinSymbol.toUpperCase()}`);
-
-    // Fetch all required data
-    const [
-      priceData,
-      mvrvData,
-      drawdownData,
-      volumeData,
-      regionalData
-    ] = await Promise.all([
-      enhancedGlassnodeService.getMonthlyClosingPrices(coinSymbol),
-      enhancedGlassnodeService.getMVRVZScore(coinSymbol),
-      enhancedGlassnodeService.getPriceDrawdown(coinSymbol),
-      enhancedGlassnodeService.getTransferVolume(coinSymbol),
-      enhancedGlassnodeService.getRegionalPriceChanges(coinSymbol)
-    ]);
-
-    // FIXED: Get REAL volatility from Glassnode API using the correct coin symbol
-    const realVolatility = await this.getRealVolatilityFromGlassnode(coinSymbol);
-
-    // Get benchmark data using enhanced service
-    console.log(`🎯 Getting benchmark data for ${coinSymbol}...`);
-    const benchmarkData = await enhancedBenchmarkService.getBenchmarkForCoin(coinSymbol);
-    console.log(`📊 Benchmark: ${benchmarkData.name}, CAGR: ${benchmarkData.cagr36m.toFixed(2)}%, Monthly returns: ${benchmarkData.monthlyReturns.length}`);
-
-    // Calculate base metrics using REAL API data
-    const currentPrice = priceData[priceData.length - 1]?.v || 0;
-    const cryptoCAGR = enhancedGlassnodeService.calculateCAGR(priceData) / 100;
-    const cryptoReturns = enhancedGlassnodeService.calculateMonthlyReturns(priceData);
-    
-    console.log(`📈 Using REAL Glassnode Volatility for ${coinSymbol.toUpperCase()}: ${(realVolatility * 100).toFixed(2)}% (from API endpoint)`);
-    console.log(`📊 Price data points: ${priceData.length}, Monthly returns: ${cryptoReturns.length}`);
-    
-    const monthlyChanges = enhancedGlassnodeService.calculateAverageRegionalChange(regionalData);
-
-    // Calculate Beta using proper covariance/variance formula
-    console.log(`📊 Calculating Beta for ${coinSymbol} vs ${benchmarkData.name}`);
-    console.log(`   - Asset returns: ${cryptoReturns.length} data points`);
-    console.log(`   - Market returns: ${benchmarkData.monthlyReturns.length} data points`);
-    
-    // Ensure data alignment - take the minimum length and align from the end
-    const minLength = Math.min(cryptoReturns.length, benchmarkData.monthlyReturns.length);
-    const alignedCryptoReturns = cryptoReturns.slice(-minLength);
-    const alignedMarketReturns = benchmarkData.monthlyReturns.slice(-minLength);
-    
-    console.log(`   - Aligned data length: ${minLength} months`);
-    
-    const beta = this.calculateProperBeta(alignedCryptoReturns, alignedMarketReturns);
-
-    // Calculate market premium and discount rate
-    const marketPremium = (benchmarkData.cagr36m / 100) - (riskFreeRate / 100);
-    let discountRate = (riskFreeRate / 100) + beta * marketPremium;
-
-    // Risk adjustments
-    const latestMVRV = mvrvData[mvrvData.length - 1]?.v || 0;
-    const mvrvAdjustment = latestMVRV > 7 ? 0.02 : latestMVRV > 4 ? 0.01 : 0;
-    discountRate += mvrvAdjustment;
-
-    const maxDrawdown = enhancedGlassnodeService.calculateMaxDrawdown(priceData) / 100;
-    const avgVolume = volumeData.reduce((sum, point) => sum + point.v, 0) / volumeData.length;
-    const liquidityAdjustment = avgVolume < 1000 ? 0.1 : 0; // 10% reduction for low liquidity
-
-    // Format price history data
-    const priceHistory = priceData.map(point => ({
-      date: new Date(point.t * 1000).toISOString().split('T')[0],
-      price: point.v
-    }));
-
-    // Generate projected prices and cash flows
-    const projectedPrices: number[] = [];
-    const cashFlows: number[] = [-initialInvestment]; // Initial investment (negative)
-
-    for (let year = 1; year <= projectionYears; year++) {
-      const projectedPrice = currentPrice * Math.pow(1 + cryptoCAGR, year);
-      projectedPrices.push(projectedPrice);
-
-      // Calculate cash flow for this year
-      const baseFlow = initialInvestment * 0.2; // 20% of initial investment
-      const priceAppreciation = baseFlow * (projectedPrice / currentPrice);
+  /**
+   * Calculate standard deviation from historical prices using Glassnode price_usd_close endpoint
+   */
+  private async calculateStandardDeviationFromPrices(coinSymbol: string): Promise<{ value: number; dataPoints: number }> {
+    try {
+      console.log(`🔍 Fetching historical prices for ${coinSymbol} to calculate standard deviation...`);
       
-      let yearlyFlow = priceAppreciation;
-      
-      // Add staking yield if applicable
-      if (this.isStakeable(coinSymbol) && stakingYield > 0) {
-        yearlyFlow += initialInvestment * (stakingYield / 100);
+      const { data, error } = await supabase.functions.invoke('fetch-glassnode-data', {
+        body: {
+          metric: 'market/price_usd_close',
+          asset: coinSymbol,
+          resolution: '24h',
+          // Get last 30 days of data
+          since: Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000)
+        }
+      });
+
+      if (error || !data?.data || data.data.length < 2) {
+        console.warn(`⚠️ Insufficient price data for ${coinSymbol}, using fallback calculation`);
+        return { value: coinSymbol === 'BTC' ? 65 : 85, dataPoints: 0 };
       }
 
-      // Apply liquidity adjustment
-      yearlyFlow *= (1 - liquidityAdjustment);
+      const prices = data.data.map((point: any) => point.value || point.v);
+      
+      // Calculate daily returns
+      const returns = [];
+      for (let i = 1; i < prices.length; i++) {
+        if (prices[i - 1] > 0) {
+          returns.push((prices[i] - prices[i - 1]) / prices[i - 1]);
+        }
+      }
 
-      cashFlows.push(yearlyFlow);
+      if (returns.length < 2) {
+        return { value: coinSymbol === 'BTC' ? 65 : 85, dataPoints: 0 };
+      }
+
+      // Calculate standard deviation
+      const mean = returns.reduce((sum, ret) => sum + ret, 0) / returns.length;
+      const variance = returns.reduce((sum, ret) => sum + Math.pow(ret - mean, 2), 0) / (returns.length - 1);
+      const dailyStdDev = Math.sqrt(variance);
+      
+      // Annualize (sqrt of 365 for daily data)
+      const annualizedStdDev = dailyStdDev * Math.sqrt(365) * 100;
+      
+      console.log(`📊 Calculated Standard Deviation for ${coinSymbol}:`);
+      console.log(`   - Price data points: ${prices.length}`);
+      console.log(`   - Return data points: ${returns.length}`);
+      console.log(`   - Daily std dev: ${(dailyStdDev * 100).toFixed(4)}%`);
+      console.log(`   - Annualized std dev: ${annualizedStdDev.toFixed(2)}%`);
+      
+      return { 
+        value: Math.min(200, Math.max(20, annualizedStdDev)), // Reasonable bounds
+        dataPoints: prices.length 
+      };
+      
+    } catch (error) {
+      console.error(`❌ Failed to calculate standard deviation for ${coinSymbol}:`, error);
+      return { value: coinSymbol === 'BTC' ? 65 : 85, dataPoints: 0 };
     }
+  }
 
-    // Calculate NPV
-    const npv = cashFlows.reduce((total, flow, index) => {
-      return total + flow / Math.pow(1 + discountRate, index);
-    }, 0);
-
-    // Calculate stress-tested NPV with drawdown
-    const stressedCashFlows = cashFlows.map((flow, index) => {
-      if (index === 0) return flow; // Don't adjust initial investment
-      return flow * (1 - maxDrawdown);
-    });
-
-    const stressTestedNPV = stressedCashFlows.reduce((total, flow, index) => {
-      return total + flow / Math.pow(1 + discountRate, index);
-    }, 0);
-
-    // Calculate IRR
-    const irr = this.calculateIRR(cashFlows);
-
-    // Calculate ROI
-    const totalCashFlows = cashFlows.slice(1).reduce((sum, flow) => sum + flow, 0);
-    const finalValue = projectedPrices[projectedPrices.length - 1];
-    const roi = ((totalCashFlows + finalValue - initialInvestment) / initialInvestment) * 100;
-
-    console.log(`✅ Advanced NPV calculation completed with REAL Glassnode volatility for ${coinSymbol.toUpperCase()}`);
-    console.log(`📊 Final Results:`);
-    console.log(`   - Beta: ${beta.toFixed(3)} (${alignedCryptoReturns.length} aligned returns vs ${benchmarkData.name})`);
-    console.log(`   - Volatility: ${(realVolatility * 100).toFixed(2)}% (REAL from Glassnode API for ${coinSymbol})`);
-    console.log(`   - NPV: $${npv.toFixed(2)}`);
-    console.log(`   - IRR: ${(irr * 100).toFixed(2)}%`);
-
-    return {
-      npv,
-      irr: irr * 100, // Convert to percentage
-      roi,
-      cagr: cryptoCAGR * 100,
-      beta,
-      discountRate: discountRate * 100,
-      projectedPrices,
-      cashFlows,
-      stressTestedNPV,
-      marketPremium: marketPremium * 100,
-      monthlyChanges,
-      isStakeable: this.isStakeable(coinSymbol),
-      benchmark: benchmarkData.name,
-      riskAdjustments: {
-        mvrvAdjustment: mvrvAdjustment * 100,
-        liquidityAdjustment: liquidityAdjustment * 100,
-        drawdownRisk: maxDrawdown * 100
-      },
-      priceHistory: priceHistory.slice(-36) // Last 36 months
+  /**
+   * Map coin ID to symbol for Glassnode API
+   */
+  private getCoinSymbol(coinId: string): string {
+    const symbolMap: { [key: string]: string } = {
+      'bitcoin': 'BTC',
+      'ethereum': 'ETH',
+      'solana': 'SOL',
+      'cardano': 'ADA',
+      'litecoin': 'LTC',
+      'BTC': 'BTC',
+      'ETH': 'ETH',
+      'SOL': 'SOL',
+      'ADA': 'ADA',
+      'LTC': 'LTC'
     };
+    
+    return symbolMap[coinId] || 'BTC';
   }
 }
 
-export const advancedInvestmentService = new AdvancedInvestmentCalculationService();
+export const advancedInvestmentCalculationService = new AdvancedInvestmentCalculationService();
+export type { EnhancedInvestmentResult };
