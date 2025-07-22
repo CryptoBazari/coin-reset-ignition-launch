@@ -112,7 +112,7 @@ class ImprovedFinancialCalculations {
     const riskPremium = (volatility / 100) * 0.5; // Risk premium based on volatility
     const discountRate = riskFreeRate + riskPremium;
     
-    console.log(`💡 Using risk-adjusted discount rate: ${(discountRate * 100).toFixed(2}}%`);
+    console.log(`💡 Using risk-adjusted discount rate: ${(discountRate * 100).toFixed(2)}%`);
     
     const currentPrice = historicalData[historicalData.length - 1].price;
     const coinQuantity = investmentAmount / currentPrice;
