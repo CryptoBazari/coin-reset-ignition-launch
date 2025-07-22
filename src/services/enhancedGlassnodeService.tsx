@@ -1,8 +1,4 @@
-import axios from 'axios';
-
-// Glassnode API configuration
-const GLASSNODE_API_KEY = '303Me3fcc4YHDxStUrj1utzEye9';
-const GLASSNODE_BASE_URL = 'https://api.glassnode.com/v1/metrics';
+import { supabase } from '@/integrations/supabase/client';
 
 // Cache duration: 1 hour
 const CACHE_DURATION = 60 * 60 * 1000;
@@ -71,12 +67,10 @@ export class EnhancedGlassnodeService {
     }
   }
 
-  // Fetch data from Glassnode API
+  // Fetch data from Glassnode via edge function
   private async fetchFromGlassnode(endpoint: string, coin: string): Promise<GlassNodeDataPoint[]> {
-    const url = `${GLASSNODE_BASE_URL}/${endpoint}`;
     const params = {
       a: coin,
-      api_key: GLASSNODE_API_KEY,
       i: '1month',
       s: this.getFiveYearsAgoTimestamp(),
       c: 'usd',
@@ -86,31 +80,35 @@ export class EnhancedGlassnodeService {
     console.log(`🔄 Fetching from Glassnode: ${endpoint} for ${coin}`);
 
     try {
-      const response = await axios.get(url, { params });
-      
-      if (!response.data || !Array.isArray(response.data)) {
-        throw new Error('Invalid response format');
+      const { data, error } = await supabase.functions.invoke('fetch-glassnode-data', {
+        body: { 
+          metric: endpoint,
+          asset: coin,
+          resolution: '24h'
+        }
+      });
+
+      if (error) {
+        console.error(`❌ Edge function error for ${endpoint}/${coin}:`, error);
+        throw new Error(`Edge function failed: ${error.message}`);
       }
 
-      // Save to cache
-      this.saveToCache(endpoint, coin, response.data);
-      
-      return response.data;
-    } catch (error) {
-      console.error(`❌ Glassnode API error for ${endpoint}/${coin}:`, error);
-      
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status === 429) {
-          throw new Error('Rate limit exceeded. Please try again later.');
-        }
-        if (error.response?.status === 401) {
-          throw new Error('Invalid API key or access denied.');
-        }
-        if (error.response?.status === 404) {
-          throw new Error(`Data not available for ${coin} on endpoint ${endpoint}.`);
-        }
+      if (!data?.data || !Array.isArray(data.data)) {
+        throw new Error('Invalid response format from edge function');
       }
+
+      // Transform the data to match our interface
+      const transformedData: GlassNodeDataPoint[] = data.data.map(point => ({
+        t: point.unix_timestamp,
+        v: point.value
+      }));
+
+      // Save to cache
+      this.saveToCache(endpoint, coin, transformedData);
       
+      return transformedData;
+    } catch (error) {
+      console.error(`❌ Failed to fetch ${endpoint}/${coin}:`, error);
       throw new Error(`Failed to fetch data from Glassnode: ${error.message}`);
     }
   }
@@ -123,7 +121,7 @@ export class EnhancedGlassnodeService {
       return cachedData;
     }
 
-    // Fetch from API
+    // Fetch from API via edge function
     return this.fetchFromGlassnode(endpoint, coin);
   }
 
