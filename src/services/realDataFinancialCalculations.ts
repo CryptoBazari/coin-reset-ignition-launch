@@ -152,7 +152,7 @@ export class RealDataFinancialCalculations {
         dataPoints: priceHistory.length,
         dataSource: historicalResult.source === 'glassnode' ? 'glassnode' : 'real_historical',
         priceHistory: priceHistory.slice(-12).map(p => ({
-          date: p.month,
+          date: p.date,
           price: p.price
         }))
       },
