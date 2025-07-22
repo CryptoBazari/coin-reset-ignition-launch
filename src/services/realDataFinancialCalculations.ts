@@ -1,7 +1,7 @@
-
 import { fetchGlassNodeMetric, GLASS_NODE_METRICS } from './glassNodeService';
 import { bitcoinGlassNodeService } from './bitcoinGlassNodeService';
 import { fetchCoinPrices } from './coinMarketCapService';
+import { improvedFinancialCalculations } from './improvedFinancialCalculations';
 
 export interface RealFinancialMetrics {
   npv: number;
@@ -12,7 +12,8 @@ export interface RealFinancialMetrics {
   volatility: number;
   sharpeRatio: number;
   confidenceScore: number;
-  dataSource: 'glassnode' | 'coinmarketcap' | 'hybrid';
+  dataSource: 'glassnode' | 'coinmarketcap' | 'improved_historical';
+  monthsOfData?: number;
 }
 
 export class RealDataFinancialCalculations {
@@ -24,12 +25,46 @@ export class RealDataFinancialCalculations {
     timeHorizon: number,
     isGlassNodeSupported: boolean
   ): Promise<RealFinancialMetrics> {
-    console.log(`📊 Calculating real financial metrics for ${symbol}`);
+    console.log(`📊 Calculating REAL financial metrics for ${symbol} using improved methodology`);
     
-    if (isGlassNodeSupported) {
-      return this.calculateWithGlassNode(symbol, investmentAmount, timeHorizon);
-    } else {
-      return this.calculateWithCoinMarketCap(coinId, symbol, investmentAmount, timeHorizon);
+    try {
+      // Use improved calculations that fetch real historical data
+      const improvedMetrics = await improvedFinancialCalculations.calculateImprovedMetrics(
+        coinId,
+        symbol,
+        investmentAmount,
+        timeHorizon
+      );
+
+      console.log(`✅ Using improved historical data methodology for ${symbol}`);
+      console.log(`   - Months of data: ${improvedMetrics.monthsOfData}`);
+      console.log(`   - Data source: ${improvedMetrics.dataSource}`);
+      console.log(`   - CAGR: ${improvedMetrics.cagr.toFixed(2)}%`);
+      console.log(`   - Volatility: ${improvedMetrics.volatility.toFixed(2)}%`);
+      console.log(`   - NPV: $${improvedMetrics.npv.toLocaleString()}`);
+
+      return {
+        npv: improvedMetrics.npv,
+        cagr: improvedMetrics.cagr,
+        irr: improvedMetrics.irr,
+        roi: improvedMetrics.roi,
+        beta: improvedMetrics.beta,
+        volatility: improvedMetrics.volatility,
+        sharpeRatio: improvedMetrics.sharpeRatio,
+        confidenceScore: improvedMetrics.confidenceScore,
+        dataSource: 'improved_historical',
+        monthsOfData: improvedMetrics.monthsOfData
+      };
+
+    } catch (error) {
+      console.error(`❌ Improved calculation failed for ${symbol}, using fallback:`, error);
+      
+      // Fallback to existing methods
+      if (isGlassNodeSupported) {
+        return this.calculateWithGlassNode(symbol, investmentAmount, timeHorizon);
+      } else {
+        return this.calculateWithCoinMarketCap(coinId, symbol, investmentAmount, timeHorizon);
+      }
     }
   }
 
