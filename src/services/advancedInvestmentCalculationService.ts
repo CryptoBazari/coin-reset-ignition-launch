@@ -35,6 +35,7 @@ interface NPVResult {
     liquidityAdjustment: number;
     drawdownRisk: number;
   };
+  priceHistory: Array<{ date: string; price: number }>;
 }
 
 export class AdvancedInvestmentCalculationService {

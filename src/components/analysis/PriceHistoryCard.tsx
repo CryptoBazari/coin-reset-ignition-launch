@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Info } from 'lucide-react';
-import { Tooltip } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface PriceHistoryCardProps {
   priceHistory: Array<{ date: string; price: number }>;
@@ -35,9 +35,16 @@ export const PriceHistoryCard: React.FC<PriceHistoryCardProps> = ({ priceHistory
         <div className="flex items-center justify-between">
           <CardTitle className="text-xl flex items-center gap-2">
             Price History (36 Months)
-            <Tooltip content="Monthly closing prices for the last 36 months">
-              <Info className="h-4 w-4 text-muted-foreground" />
-            </Tooltip>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="h-4 w-4 text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Monthly closing prices for the last 36 months</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </CardTitle>
         </div>
       </CardHeader>

@@ -125,6 +125,15 @@ export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({
       {/* Risk Analysis Card */}
       <RiskAnalysisCard 
         metrics={{
+          npv: result.npv,
+          irr: result.irr,
+          cagr: result.cagr,
+          totalReturnCAGR: result.cagr,
+          roi: result.roi,
+          priceROI: result.roi,
+          stakingROI: 0,
+          riskAdjustedNPV: result.stressTestedNPV,
+          expectedReturn: result.cagr,
           beta: result.beta,
           standardDeviation: result.monthlyChanges.length > 0 
             ? Math.sqrt(result.monthlyChanges.reduce((acc, val) => acc + val * val, 0) / result.monthlyChanges.length) * Math.sqrt(12) * 100
