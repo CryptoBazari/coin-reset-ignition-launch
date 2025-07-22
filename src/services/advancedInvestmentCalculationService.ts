@@ -224,6 +224,12 @@ export class AdvancedInvestmentCalculationService {
     const avgVolume = volumeData.reduce((sum, point) => sum + point.v, 0) / volumeData.length;
     const liquidityAdjustment = avgVolume < 1000 ? 0.1 : 0; // 10% reduction for low liquidity
 
+    // Format price history data
+    const priceHistory = priceData.map(point => ({
+      date: new Date(point.t * 1000).toISOString().split('T')[0],
+      price: point.v
+    }));
+
     // Generate projected prices and cash flows
     const projectedPrices: number[] = [];
     const cashFlows: number[] = [-initialInvestment]; // Initial investment (negative)
@@ -290,7 +296,8 @@ export class AdvancedInvestmentCalculationService {
         mvrvAdjustment: mvrvAdjustment * 100,
         liquidityAdjustment: liquidityAdjustment * 100,
         drawdownRisk: maxDrawdown * 100
-      }
+      },
+      priceHistory: priceHistory.slice(-36) // Last 36 months
     };
   }
 }

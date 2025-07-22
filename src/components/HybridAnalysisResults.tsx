@@ -1,7 +1,11 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertTriangle, Info } from 'lucide-react';
+import { Tooltip } from '@/components/ui/tooltip';
+import { RiskAnalysisCard } from './analysis/RiskAnalysisCard';
+import { PriceHistoryCard } from './analysis/PriceHistoryCard';
 
 interface HybridAnalysisResultsProps {
   result: {
@@ -23,6 +27,7 @@ interface HybridAnalysisResultsProps {
       liquidityAdjustment: number;
       drawdownRisk: number;
     };
+    priceHistory: Array<{ date: string; price: number }>;
   };
   formData: {
     coinSymbol: string;
@@ -117,7 +122,27 @@ export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({
         </CardContent>
       </Card>
 
-      {/* Bitcoin Context for Altcoins */}
+      {/* Risk Analysis Card */}
+      <RiskAnalysisCard 
+        metrics={{
+          beta: result.beta,
+          standardDeviation: result.monthlyChanges.length > 0 
+            ? Math.sqrt(result.monthlyChanges.reduce((acc, val) => acc + val * val, 0) / result.monthlyChanges.length) * Math.sqrt(12) * 100
+            : 0,
+          sharpeRatio: (result.cagr - formData.riskFreeRate) / (result.monthlyChanges.length > 0 
+            ? Math.sqrt(result.monthlyChanges.reduce((acc, val) => acc + val * val, 0) / result.monthlyChanges.length) * Math.sqrt(12) * 100
+            : 1),
+          riskFactor: result.beta > 1.5 ? 4 : result.beta > 1.2 ? 3 : 2,
+          betaConfidence: 'high',
+          dataQuality: 'calculated'
+        }}
+        coinBasket={formData.coinSymbol.toUpperCase()}
+      />
+
+      {/* Price History Card */}
+      <PriceHistoryCard priceHistory={result.priceHistory} />
+
+      {/* Bitcoin Context Card */}
       {formData.coinSymbol.toLowerCase() !== 'btc' && bitcoinContext && (
         <Card>
           <CardHeader>
