@@ -9,13 +9,11 @@ import SubscriptionButton from '@/components/subscription/SubscriptionButton';
 import MarketOverview from '@/components/analysis/MarketOverview';
 import AssetLiveData from '@/components/analysis/AssetLiveData';
 import GlassNodeDashboard from '@/components/analysis/GlassNodeDashboard';
-import { HybridInvestmentForm } from '@/components/HybridInvestmentForm';
-import { HybridAnalysisResults } from '@/components/HybridAnalysisResults';
+import { EnhancedHybridInvestmentForm } from '@/components/EnhancedHybridInvestmentForm';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { useRealInvestmentAnalysis } from '@/hooks/useRealInvestmentAnalysis';
 import { useRealDataPopulation } from '@/hooks/useRealDataPopulation';
 import { enhancedGlassNodeAnalyzer } from '@/services/enhancedGlassNodeAnalyzer';
-import { directApiAnalysisService, DirectAnalysisResult } from '@/services/directApiAnalysisService';
 import { Lock, BarChart3, Globe, TrendingUp, Calculator, Activity, Shield, Zap } from 'lucide-react';
 import type { InvestmentInputs } from '@/types/investment';
 import type { CoinData } from '@/services/realTimeMarketService';
@@ -27,12 +25,10 @@ import { useGlassnodeDataInitialization } from '@/hooks/useGlassnodeDataInitiali
 const CryptoAnalysis = () => {
   const [realAnalysisResult, setRealAnalysisResult] = useState(null);
   const [comprehensiveResult, setComprehensiveResult] = useState<ComprehensiveAnalysisResult | null>(null);
-  const [hybridResult, setHybridResult] = useState<DirectAnalysisResult | null>(null);
   const [selectedCoin, setSelectedCoin] = useState<CoinData | null>(null);
   const [selectedCoinSymbol, setSelectedCoinSymbol] = useState<string>('BTC');
   const [dataStatus, setDataStatus] = useState<any>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
-  const [hybridLoading, setHybridLoading] = useState(false);
   const [dataInitialized, setDataInitialized] = useState(false);
   
   const { hasAccess, hasActiveSubscription, isAdmin, accessType, user } = useAdminAccess();
@@ -99,32 +95,6 @@ const CryptoAnalysis = () => {
     }
   };
 
-  const handleHybridAnalysis = async (data: {
-    coinId: string;
-    symbol: string;
-    investmentAmount: number;
-    timeHorizon: number;
-    hasGlassNodeData: boolean;
-  }) => {
-    setHybridLoading(true);
-    console.log('🚀 Starting hybrid analysis with real API data only');
-    console.log('📊 Analysis inputs:', data);
-    
-    try {
-      const result = await directApiAnalysisService.analyzeInvestment(
-        data.coinId,
-        data.symbol,
-        data.investmentAmount,
-        data.timeHorizon
-      );
-      console.log('✅ Hybrid analysis completed:', result);
-      setHybridResult(result);
-    } catch (error) {
-      console.error('❌ Hybrid analysis failed:', error);
-    } finally {
-      setHybridLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
@@ -237,21 +207,7 @@ const CryptoAnalysis = () => {
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <div>
-                          <HybridInvestmentForm 
-                            onSubmit={handleHybridAnalysis}
-                            loading={hybridLoading}
-                          />
-                        </div>
-                        <div>
-                          {hybridResult && (
-                            <HybridAnalysisResults 
-                              result={hybridResult}
-                            />
-                          )}
-                        </div>
-                      </div>
+                      <EnhancedHybridInvestmentForm />
                     </CardContent>
                   </Card>
                 </div>
