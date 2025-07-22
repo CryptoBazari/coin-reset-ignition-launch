@@ -1,4 +1,3 @@
-
 import axios from 'axios';
 import { enhancedGlassnodeService } from './enhancedGlassnodeService';
 import { enhancedBenchmarkService } from './enhancedBenchmarkService';
@@ -108,13 +107,20 @@ export class AdvancedInvestmentCalculationService {
     return Math.pow(endPrice / startPrice, 1 / years) - 1;
   }
 
-  // Calculate volatility
+  // Calculate volatility - FIXED: Remove incorrect /100 division
   private calculateVolatility(returns: number[]): number {
     if (returns.length < 2) return 0;
     
     const mean = returns.reduce((sum, ret) => sum + ret, 0) / returns.length;
     const variance = returns.reduce((sum, ret) => sum + Math.pow(ret - mean, 2), 0) / (returns.length - 1);
-    return Math.sqrt(variance * 12); // Annualized
+    const annualizedVolatility = Math.sqrt(variance * 12); // Annualized, already in decimal form
+    
+    console.log(`📊 FIXED Volatility calculation:`);
+    console.log(`   - Mean return: ${(mean * 100).toFixed(4)}%`);
+    console.log(`   - Variance: ${variance.toFixed(6)}`);
+    console.log(`   - Annualized volatility: ${(annualizedVolatility * 100).toFixed(2)}% (REAL from API data)`);
+    
+    return annualizedVolatility; // Return as decimal (0.287 = 28.7%)
   }
 
   // Calculate IRR using bisection method
@@ -180,11 +186,15 @@ export class AdvancedInvestmentCalculationService {
     const benchmarkData = await enhancedBenchmarkService.getBenchmarkForCoin(coinSymbol);
     console.log(`📊 Benchmark: ${benchmarkData.name}, CAGR: ${benchmarkData.cagr36m.toFixed(2)}%, Monthly returns: ${benchmarkData.monthlyReturns.length}`);
 
-    // Calculate base metrics
+    // Calculate base metrics using REAL API data
     const currentPrice = priceData[priceData.length - 1]?.v || 0;
     const cryptoCAGR = enhancedGlassnodeService.calculateCAGR(priceData) / 100;
     const cryptoReturns = enhancedGlassnodeService.calculateMonthlyReturns(priceData);
-    const cryptoVolatility = enhancedGlassnodeService.calculateAnnualizedVolatility(cryptoReturns) / 100;
+    
+    // FIXED: Use real volatility calculation without double conversion
+    const cryptoVolatility = enhancedGlassnodeService.calculateAnnualizedVolatility(cryptoReturns);
+    console.log(`📈 REAL Volatility from Glassnode API: ${(cryptoVolatility * 100).toFixed(2)}% (${cryptoReturns.length} monthly returns)`);
+    
     const monthlyChanges = enhancedGlassnodeService.calculateAverageRegionalChange(regionalData);
 
     // Calculate Beta using proper covariance/variance formula
@@ -269,6 +279,7 @@ export class AdvancedInvestmentCalculationService {
     const roi = ((totalCashFlows + finalValue - initialInvestment) / initialInvestment) * 100;
 
     console.log(`✅ Dynamic Beta calculation completed: ${beta.toFixed(3)} (${alignedCryptoReturns.length} aligned returns vs ${benchmarkData.name})`);
+    console.log(`📊 REAL Volatility used: ${(cryptoVolatility * 100).toFixed(2)}% from ${cryptoReturns.length} Glassnode monthly returns`);
 
     return {
       npv,

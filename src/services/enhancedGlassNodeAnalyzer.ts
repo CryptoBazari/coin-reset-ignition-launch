@@ -67,6 +67,11 @@ class EnhancedGlassNodeAnalyzer {
       const monthlyReturns = this.calculateMonthlyReturns(coinPrices);
       const benchmarkReturns = this.calculateMonthlyReturns(benchmarkData);
 
+      console.log(`📊 REAL API Data Summary for ${coinSymbol}:`);
+      console.log(`   - Price data points: ${coinPrices.length}`);
+      console.log(`   - Monthly returns: ${monthlyReturns.length}`);
+      console.log(`   - Benchmark returns: ${benchmarkReturns.length}`);
+
       // Calculate all metrics
       const analysis = await this.calculateMetrics(
         coinPrices, 
@@ -200,7 +205,7 @@ class EnhancedGlassNodeAnalyzer {
   }
 
   /**
-   * Calculate all financial metrics
+   * Calculate all financial metrics with FIXED volatility and Sharpe ratio
    */
   private async calculateMetrics(
     coinPrices: Array<{ date: string; price: number }>,
@@ -211,8 +216,8 @@ class EnhancedGlassNodeAnalyzer {
     holdingPeriod: number,
     assumptions?: any
   ) {
-    const riskFreeRate = assumptions?.riskFreeRate || 0.03; // 3%
-    const marketPremium = assumptions?.marketPremium || 0.06; // 6%
+    const riskFreeRate = assumptions?.riskFreeRate || 0.03; // 3% as decimal
+    const marketPremium = assumptions?.marketPremium || 0.06; // 6% as decimal
     
     if (coinPrices.length < 2) {
       throw new Error('Insufficient price data for analysis');
@@ -228,17 +233,31 @@ class EnhancedGlassNodeAnalyzer {
     // CAGR calculation
     const cagr = (Math.pow(finalPrice / initialPrice, 1 / years) - 1) * 100;
 
-    // Volatility calculation (annualized)
+    // FIXED: Volatility calculation with proper logging
     const meanReturn = coinReturns.reduce((sum, ret) => sum + ret, 0) / coinReturns.length;
     const variance = coinReturns.reduce((sum, ret) => sum + Math.pow(ret - meanReturn, 2), 0) / coinReturns.length;
-    const volatility = Math.sqrt(variance * 12); // Annualized
+    const volatilityDecimal = Math.sqrt(variance * 12); // Annualized volatility as decimal
+    const volatility = volatilityDecimal * 100; // Convert to percentage for display
+    
+    console.log(`📊 FIXED Volatility calculation from REAL API data:`);
+    console.log(`   - Monthly returns used: ${coinReturns.length}`);
+    console.log(`   - Mean monthly return: ${(meanReturn * 100).toFixed(4)}%`);
+    console.log(`   - Monthly variance: ${variance.toFixed(6)}`);
+    console.log(`   - Annualized volatility: ${volatility.toFixed(2)}% (REAL from Glass Node)`);
 
     // Beta calculation
     const beta = this.calculateBeta(coinReturns, benchmarkReturns);
 
-    // Sharpe Ratio
-    const excessReturn = (cagr / 100) - riskFreeRate;
-    const sharpeRatio = volatility > 0 ? excessReturn / (volatility / 100) : 0;
+    // FIXED: Sharpe Ratio calculation with proper units
+    const excessReturnDecimal = (cagr / 100) - riskFreeRate; // Both as decimals
+    const sharpeRatio = volatilityDecimal > 0 ? excessReturnDecimal / volatilityDecimal : 0;
+    
+    console.log(`📈 FIXED Sharpe Ratio calculation:`);
+    console.log(`   - CAGR: ${cagr.toFixed(2)}% (${(cagr/100).toFixed(4)} decimal)`);
+    console.log(`   - Risk-free rate: ${(riskFreeRate * 100).toFixed(2)}% (${riskFreeRate.toFixed(4)} decimal)`);
+    console.log(`   - Excess return: ${(excessReturnDecimal * 100).toFixed(2)}% (${excessReturnDecimal.toFixed(4)} decimal)`);
+    console.log(`   - Volatility: ${volatility.toFixed(2)}% (${volatilityDecimal.toFixed(4)} decimal)`);
+    console.log(`   - Sharpe Ratio: ${sharpeRatio.toFixed(3)} (REAL calculation)`);
 
     // NPV calculation
     const discountRate = riskFreeRate + beta * marketPremium;
@@ -257,8 +276,8 @@ class EnhancedGlassNodeAnalyzer {
       roi: Math.round(roi * 100) / 100,
       cagr: Math.round(cagr * 100) / 100,
       beta: Math.round(beta * 100) / 100,
-      volatility: Math.round(volatility * 100) / 100,
-      sharpeRatio: Math.round(sharpeRatio * 100) / 100,
+      volatility: Math.round(volatility * 100) / 100, // Store as percentage
+      sharpeRatio: Math.round(sharpeRatio * 1000) / 1000, // Store with 3 decimal places
       mvrv: additionalMetrics.mvrv,
       drawdown: additionalMetrics.drawdown
     };
