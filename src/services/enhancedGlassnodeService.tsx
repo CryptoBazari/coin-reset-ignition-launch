@@ -69,14 +69,6 @@ export class EnhancedGlassnodeService {
 
   // Fetch data from Glassnode via edge function
   private async fetchFromGlassnode(endpoint: string, coin: string): Promise<GlassNodeDataPoint[]> {
-    const params = {
-      a: coin,
-      i: '1month',
-      s: this.getFiveYearsAgoTimestamp(),
-      c: 'usd',
-      f: 'json'
-    };
-
     console.log(`🔄 Fetching from Glassnode: ${endpoint} for ${coin}`);
 
     try {
@@ -84,7 +76,7 @@ export class EnhancedGlassnodeService {
         body: { 
           metric: endpoint,
           asset: coin,
-          resolution: '24h'
+          resolution: '1month' // Changed from '24h' to '1month' for monthly data
         }
       });
 
@@ -106,6 +98,7 @@ export class EnhancedGlassnodeService {
       // Save to cache
       this.saveToCache(endpoint, coin, transformedData);
       
+      console.log(`✅ Fetched ${transformedData.length} monthly data points for ${endpoint}/${coin}`);
       return transformedData;
     } catch (error) {
       console.error(`❌ Failed to fetch ${endpoint}/${coin}:`, error);
