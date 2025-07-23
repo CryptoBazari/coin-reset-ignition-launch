@@ -16,13 +16,16 @@ import { useRealInvestmentAnalysis } from '@/hooks/useRealInvestmentAnalysis';
 import { useRealDataPopulation } from '@/hooks/useRealDataPopulation';
 import { enhancedGlassNodeAnalyzer } from '@/services/enhancedGlassNodeAnalyzer';
 import { directApiAnalysisService, DirectAnalysisResult } from '@/services/directApiAnalysisService';
-import { Lock, BarChart3, Globe, TrendingUp, Calculator, Activity, Shield, Zap } from 'lucide-react';
+import { Lock, BarChart3, Globe, TrendingUp, Calculator, Activity, Shield, Zap, Download } from 'lucide-react';
 import type { InvestmentInputs } from '@/types/investment';
 import type { CoinData } from '@/services/realTimeMarketService';
 import { ComprehensiveInvestmentForm } from '@/components/ComprehensiveInvestmentForm';
 import { ComprehensiveAnalysisResults } from '@/components/ComprehensiveAnalysisResults';
 import { comprehensiveGlassNodeAnalyzer, AnalysisInputs, ComprehensiveAnalysisResult } from '@/services/comprehensiveGlassNodeAnalyzer';
 import { useGlassnodeDataInitialization } from '@/hooks/useGlassnodeDataInitialization';
+import { priceHistoryExportService } from '@/services/priceHistoryExportService';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 const CryptoAnalysis = () => {
   const [realAnalysisResult, setRealAnalysisResult] = useState(null);
@@ -34,10 +37,12 @@ const CryptoAnalysis = () => {
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [hybridLoading, setHybridLoading] = useState(false);
   const [dataInitialized, setDataInitialized] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
   
   const { hasAccess, hasActiveSubscription, isAdmin, accessType, user } = useAdminAccess();
   const { analyzeInvestment, loading, error } = useRealInvestmentAnalysis();
   const { checkDataStatus } = useRealDataPopulation();
+  const { toast } = useToast();
   const { 
     loading: initLoading, 
     initializeAllData, 
@@ -126,6 +131,32 @@ const CryptoAnalysis = () => {
     }
   };
 
+  const handleExportBTCHistory = async () => {
+    setExportLoading(true);
+    try {
+      toast({
+        title: "Export Started",
+        description: "Fetching BTC price history...",
+      });
+
+      await priceHistoryExportService.exportBTCHistoricalData();
+      
+      toast({
+        title: "Export Completed",
+        description: "BTC 36-month price history downloaded successfully",
+      });
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast({
+        title: "Export Failed",
+        description: error instanceof Error ? error.message : "Failed to export data",
+        variant: "destructive",
+      });
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       <Navbar />
@@ -136,9 +167,23 @@ const CryptoAnalysis = () => {
         </div>
 
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Hybrid Crypto Investment Analyzer
-          </h1>
+          <div className="flex items-center justify-center gap-4 mb-4">
+            <h1 className="text-4xl font-bold text-gray-900">
+              Hybrid Crypto Investment Analyzer
+            </h1>
+            {selectedCoinSymbol === 'BTC' && hasAccess && (
+              <Button
+                onClick={handleExportBTCHistory}
+                disabled={exportLoading}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                {exportLoading ? 'Exporting...' : 'Export BTC Data'}
+              </Button>
+            )}
+          </div>
           <p className="text-xl text-gray-600 max-w-4xl mx-auto">
             <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm font-semibold mr-2">
               REAL API DATA ONLY
