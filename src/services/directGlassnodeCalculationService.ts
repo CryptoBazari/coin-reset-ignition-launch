@@ -165,37 +165,45 @@ class DirectGlassnodeCalculationService {
     try {
       // Constrain to 3-6 years as per specification
       const constrainedYears = Math.max(3, Math.min(6, yearsBack));
-      console.log(`🔗 Fetching ${constrainedYears} years of price history for ${asset}...`);
       
-      const startDate = new Date();
-      startDate.setFullYear(startDate.getFullYear() - constrainedYears);
-      const sinceDate = startDate.toISOString();
-      const untilDate = new Date().toISOString();
+      // Calculate timestamps for the constrained period (Unix timestamps in seconds)
+      const endTimestamp = Math.floor(Date.now() / 1000);
+      const startTimestamp = endTimestamp - (constrainedYears * 365.25 * 24 * 3600);
+      
+      console.log(`🔗 Fetching ${constrainedYears} years of price history for ${asset} (${new Date(startTimestamp * 1000).toLocaleDateString()} to ${new Date(endTimestamp * 1000).toLocaleDateString()})`);
       
       const { data, error } = await supabase.functions.invoke('fetch-glassnode-data', {
         body: {
           metric: 'market/price_usd_close',
           asset: asset,
-          since: sinceDate,
-          until: untilDate
+          since: startTimestamp,
+          until: endTimestamp,
+          resolution: '1d'
         }
       });
 
-      if (error || !data?.data || !Array.isArray(data.data)) {
-        console.warn(`⚠️ API failed for ${asset}, using fallback`);
-        return this.generateConstrainedFallbackHistory(constrainedYears);
+      if (error) {
+        console.error(`❌ Glassnode API error for ${asset}:`, error);
+        throw new Error(`Failed to fetch price data for ${asset}: ${error}`);
+      }
+
+      if (!data || !Array.isArray(data) || data.length === 0) {
+        console.error(`❌ No price data returned for ${asset}`);
+        throw new Error(`No price data available for ${asset}`);
       }
       
-      const priceHistory = data.data.map((item: any) => ({
-        date: new Date(item.unix_timestamp * 1000).toISOString().split('T')[0],
-        price: item.value
-      })).filter(item => !isNaN(item.price) && item.price > 0);
-      
-      // Sort chronologically
-      priceHistory.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      // Convert to required format and sort by timestamp
+      const priceHistory = data
+        .map((point: any) => ({
+          date: new Date(point.t * 1000).toISOString().split('T')[0],
+          price: point.v || 0,
+          timestamp: point.t
+        }))
+        .filter(point => point.price > 0)
+        .sort((a, b) => a.timestamp - b.timestamp);
       
       if (priceHistory.length < 2) {
-        return this.generateConstrainedFallbackHistory(constrainedYears);
+        throw new Error(`Insufficient valid price data for ${asset}`);
       }
       
       // Calculate precise actual years
@@ -204,22 +212,28 @@ class DirectGlassnodeCalculationService {
       const actualYears = (lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
       
       // Data quality validation: must be at least 3 years with sufficient data points
-      const minimumDataPoints = 365 * 3 * 0.8; // Allow for weekends/holidays
-      const isReliable = actualYears >= 3.0 && priceHistory.length >= minimumDataPoints;
+      const expectedDataPoints = actualYears * 365.25; // Expected daily data points
+      const dataCompleteness = priceHistory.length / expectedDataPoints;
+      const isReliable = actualYears >= 3.0 && dataCompleteness >= 0.8; // At least 80% data coverage
+      
+      console.log(`📊 Fetched ${priceHistory.length} data points spanning ${actualYears.toFixed(2)} years for ${asset} (completeness: ${(dataCompleteness * 100).toFixed(1)}%, reliable: ${isReliable})`);
       
       if (!isReliable) {
-        console.warn(`⚠️ Data quality warning for ${asset}: ${actualYears.toFixed(2)} years, ${priceHistory.length} points - FLAGGED AS UNRELIABLE`);
+        console.warn(`⚠️ Data quality warning for ${asset}: Only ${actualYears.toFixed(2)} years with ${(dataCompleteness * 100).toFixed(1)}% completeness - FLAGGED AS UNRELIABLE`);
       }
       
+      // Remove timestamp from final output
+      const cleanedHistory = priceHistory.map(({ timestamp, ...point }) => point);
+      
       return {
-        priceHistory,
+        priceHistory: cleanedHistory,
         actualYears,
         isReliable
       };
       
     } catch (error) {
       console.error(`❌ Failed to fetch price history for ${asset}:`, error);
-      return this.generateConstrainedFallbackHistory(yearsBack);
+      throw error; // Don't use fallback data for beta calculation
     }
   }
   
@@ -301,60 +315,178 @@ class DirectGlassnodeCalculationService {
   }
   
   /**
-   * Calculate Beta using real correlation formula
+   * Calculate Beta using exact specification: β = Covariance(Asset Returns, Benchmark Returns) / Variance(Benchmark Returns)
    */
   private calculateRealBeta(assetPrices: Array<{date: string, price: number}>, marketPrices: Array<{date: string, price: number}>): number {
-    if (assetPrices.length < 2 || marketPrices.length < 2) {
-      return 1.2; // Default fallback
+    console.log('🎯 Calculating Beta per exact specification...');
+    
+    if (assetPrices.length < 36 || marketPrices.length < 36) {
+      console.warn('⚠️ Insufficient data for reliable Beta calculation (need at least 36 monthly observations)');
+      throw new Error('Insufficient historical data for Beta calculation');
     }
     
-    console.log('🎯 Calculating real Beta using correlation...');
+    // Step 1: Convert daily data to monthly end-of-month data for more stable beta
+    const assetMonthlyData = this.convertToMonthlyData(assetPrices);
+    const marketMonthlyData = this.convertToMonthlyData(marketPrices);
     
-    // Calculate daily returns for asset and market
-    const assetReturns = this.calculateDailyReturns(assetPrices.map(p => p.price));
-    const marketReturns = this.calculateDailyReturns(marketPrices.map(p => p.price));
+    console.log(`📊 Monthly data: Asset=${assetMonthlyData.length} months, Market=${marketMonthlyData.length} months`);
     
-    // Align data (use shorter series)
-    const minLength = Math.min(assetReturns.length, marketReturns.length);
-    const alignedAssetReturns = assetReturns.slice(0, minLength);
-    const alignedMarketReturns = marketReturns.slice(0, minLength);
+    // Step 2: Align data by exact dates (critical for beta accuracy)
+    const alignedData = this.alignMonthlyDataByDate(assetMonthlyData, marketMonthlyData);
     
-    if (alignedAssetReturns.length < 30) {
-      console.warn('⚠️ Insufficient data for Beta calculation');
-      return 1.2;
+    if (alignedData.asset.length < 36) {
+      console.warn(`⚠️ Insufficient aligned data: ${alignedData.asset.length} months (need 36+ for reliable beta)`);
+      throw new Error('Insufficient aligned monthly data for reliable Beta calculation');
     }
     
-    // Calculate covariance and variance
-    const assetMean = alignedAssetReturns.reduce((sum, r) => sum + r, 0) / alignedAssetReturns.length;
-    const marketMean = alignedMarketReturns.reduce((sum, r) => sum + r, 0) / alignedMarketReturns.length;
+    console.log(`📊 Aligned monthly data: ${alignedData.asset.length} observations spanning ${(alignedData.asset.length / 12).toFixed(1)} years`);
     
+    // Step 3: Calculate monthly returns using R_t = (P_t - P_{t-1}) / P_{t-1}
+    const assetReturns = this.calculateMonthlyReturns(alignedData.asset);
+    const marketReturns = this.calculateMonthlyReturns(alignedData.market);
+    
+    console.log(`📈 Monthly returns calculated: Asset=${assetReturns.length}, Market=${marketReturns.length}`);
+    
+    // Step 4: Calculate means (overall averages across all periods)
+    const assetMean = assetReturns.reduce((sum, r) => sum + r, 0) / assetReturns.length;
+    const marketMean = marketReturns.reduce((sum, r) => sum + r, 0) / marketReturns.length;
+    
+    console.log(`📊 Mean returns: Asset=${(assetMean * 100).toFixed(2)}%, Market=${(marketMean * 100).toFixed(2)}%`);
+    
+    // Step 5: Calculate deviations (per period, using means)
+    const assetDeviations = assetReturns.map(r => r - assetMean);
+    const marketDeviations = marketReturns.map(r => r - marketMean);
+    
+    // Step 6: Calculate covariance (aggregated, using paired deviations)
     let covariance = 0;
-    let marketVariance = 0;
-    
-    for (let i = 0; i < alignedAssetReturns.length; i++) {
-      const assetDev = alignedAssetReturns[i] - assetMean;
-      const marketDev = alignedMarketReturns[i] - marketMean;
-      covariance += assetDev * marketDev;
-      marketVariance += marketDev * marketDev;
+    for (let i = 0; i < assetDeviations.length; i++) {
+      covariance += assetDeviations[i] * marketDeviations[i];
     }
+    covariance /= (assetDeviations.length - 1); // Sample covariance (n-1)
     
-    covariance /= (alignedAssetReturns.length - 1);
-    marketVariance /= (alignedMarketReturns.length - 1);
+    // Step 7: Calculate variance (aggregated, using benchmark deviations)
+    let marketVariance = 0;
+    for (let i = 0; i < marketDeviations.length; i++) {
+      marketVariance += marketDeviations[i] * marketDeviations[i];
+    }
+    marketVariance /= (marketDeviations.length - 1); // Sample variance (n-1)
     
     if (marketVariance === 0) {
-      console.warn('⚠️ Zero market variance');
-      return 1.2;
+      console.error('⚠️ Zero market variance - cannot calculate beta');
+      throw new Error('Zero market variance detected');
     }
     
-    // Beta = Covariance(Asset, Market) / Variance(Market)
+    // Step 8: Calculate Beta (final aggregation)
     const beta = covariance / marketVariance;
     
-    // Constrain beta to reasonable range
-    const constrainedBeta = Math.max(0.1, Math.min(3.0, beta));
+    console.log(`🎯 Beta calculation details:`);
+    console.log(`   Observations: ${assetReturns.length} monthly returns`);
+    console.log(`   Covariance: ${covariance.toFixed(8)}`);
+    console.log(`   Market Variance: ${marketVariance.toFixed(8)}`);
+    console.log(`   Raw Beta: ${beta.toFixed(6)}`);
     
-    console.log(`🎯 Beta calculation: Cov=${covariance.toFixed(6)}, Var=${marketVariance.toFixed(6)}, Beta=${constrainedBeta.toFixed(3)}`);
+    // Validate beta is reasonable (but don't artificially constrain as per specification)
+    if (beta < -2 || beta > 5) {
+      console.warn(`⚠️ Extreme beta value detected: ${beta.toFixed(3)} - check data quality`);
+    }
     
-    return constrainedBeta;
+    // Calculate correlation for validation
+    const assetStdDev = Math.sqrt(assetDeviations.reduce((sum, d) => sum + d * d, 0) / (assetDeviations.length - 1));
+    const marketStdDev = Math.sqrt(marketVariance);
+    const correlation = covariance / (assetStdDev * marketStdDev);
+    
+    console.log(`📊 Validation: Correlation=${correlation.toFixed(3)}, R-squared=${(correlation * correlation).toFixed(3)}`);
+    
+    return beta;
+  }
+  
+  /**
+   * Convert daily price data to monthly end-of-month prices
+   */
+  private convertToMonthlyData(dailyPrices: Array<{date: string, price: number}>): Array<{date: string, price: number}> {
+    const monthlyData: Array<{date: string, price: number}> = [];
+    let currentMonth = -1;
+    let currentYear = -1;
+    let lastPriceInMonth = 0;
+    let lastDateInMonth = '';
+    
+    for (const dataPoint of dailyPrices) {
+      const date = new Date(dataPoint.date);
+      const month = date.getMonth();
+      const year = date.getFullYear();
+      
+      if (month !== currentMonth || year !== currentYear) {
+        // New month - save the last price from previous month
+        if (currentMonth !== -1 && lastPriceInMonth > 0) {
+          monthlyData.push({
+            date: lastDateInMonth,
+            price: lastPriceInMonth
+          });
+        }
+        currentMonth = month;
+        currentYear = year;
+      }
+      
+      // Update the last price in this month
+      lastPriceInMonth = dataPoint.price;
+      lastDateInMonth = dataPoint.date;
+    }
+    
+    // Add the final month
+    if (lastPriceInMonth > 0) {
+      monthlyData.push({
+        date: lastDateInMonth,
+        price: lastPriceInMonth
+      });
+    }
+    
+    return monthlyData;
+  }
+  
+  /**
+   * Align monthly data by exact dates
+   */
+  private alignMonthlyDataByDate(assetData: Array<{date: string, price: number}>, marketData: Array<{date: string, price: number}>): {
+    asset: number[],
+    market: number[]
+  } {
+    const aligned = { asset: [] as number[], market: [] as number[] };
+    const marketMap = new Map<string, number>();
+    
+    // Create a map of market data by date for quick lookup
+    marketData.forEach(item => {
+      const monthKey = item.date.substring(0, 7); // YYYY-MM format
+      marketMap.set(monthKey, item.price);
+    });
+    
+    // Match asset data with corresponding market data
+    assetData.forEach(assetItem => {
+      const monthKey = assetItem.date.substring(0, 7);
+      const marketPrice = marketMap.get(monthKey);
+      
+      if (marketPrice !== undefined) {
+        aligned.asset.push(assetItem.price);
+        aligned.market.push(marketPrice);
+      }
+    });
+    
+    return aligned;
+  }
+  
+  /**
+   * Calculate monthly returns from monthly price data
+   */
+  private calculateMonthlyReturns(monthlyPrices: number[]): number[] {
+    const returns: number[] = [];
+    
+    for (let i = 1; i < monthlyPrices.length; i++) {
+      if (monthlyPrices[i - 1] > 0) {
+        const monthlyReturn = (monthlyPrices[i] - monthlyPrices[i - 1]) / monthlyPrices[i - 1];
+        returns.push(monthlyReturn);
+      }
+    }
+    
+    return returns;
   }
   
   /**
