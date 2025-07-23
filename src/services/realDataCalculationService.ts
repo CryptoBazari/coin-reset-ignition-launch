@@ -1,5 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { glassnodeBetaCalculationService } from './glassnodeBetaCalculationService';
+import { enhancedNPVCalculationService } from './enhancedNPVCalculationService';
 
 export interface RealDataCalculationResult {
   success: boolean;
@@ -91,13 +93,55 @@ class RealDataCalculationService {
         console.warn('Glass Node metrics error:', glassNodeError);
       }
 
-      // Calculate real financial metrics
-      const financialMetrics = this.calculateFinancialMetrics(
+      // Calculate real beta using Glassnode + FRED APIs
+      console.log('🔄 Calculating real beta with Glassnode + FRED...');
+      const betaResult = await glassnodeBetaCalculationService.calculateBeta(coinId);
+      console.log(`✅ Real beta calculated: ${betaResult.beta.toFixed(3)} (${betaResult.confidence} confidence)`);
+      
+      // Create enhanced coin data for NPV calculation
+      const enhancedCoinData = {
+        current_price: coinData.current_price,
+        cagr_36m: coinData.cagr_36m,
+        liveMetrics: {
+          avivRatio: coinData.aviv_ratio || 1.0,
+          activeSupply: coinData.active_supply || 50,
+          vaultedSupply: coinData.vaulted_supply || 50
+        },
+        onChainData: {
+          networkGrowth: 0 // Default value since network_growth doesn't exist in schema
+        },
+        priceHistory: {
+          volatility30d: coinData.volatility || 50
+        }
+      };
+      
+      // Calculate enhanced NPV with CAPM discount rate
+      console.log('🔄 Calculating enhanced NPV with CAPM discount rate...');
+      const npvResult = await enhancedNPVCalculationService.calculateEnhancedNPV(
+        investmentAmount,
+        enhancedCoinData as any,
+        investmentHorizon / 12, // Convert months to years
+        coinId
+      );
+      console.log(`✅ Enhanced NPV calculated: $${npvResult.npv.toFixed(2)} with CAPM discount rate ${(npvResult.discountRate * 100).toFixed(2)}%`);
+
+      // Calculate traditional financial metrics for comparison
+      const traditionalMetrics = this.calculateFinancialMetrics(
         coinData, 
         priceHistory || [], 
         investmentAmount, 
         investmentHorizon
       );
+
+      // Combine real beta with enhanced NPV
+      const financialMetrics = {
+        ...traditionalMetrics,
+        npv: npvResult.npv,
+        beta: betaResult.beta,
+        capmDiscountRate: npvResult.discountRate * 100,
+        betaConfidence: betaResult.confidence,
+        betaDataPoints: betaResult.dataPoints
+      };
 
       // Calculate Monte Carlo projection
       const monteCarloProjection = this.calculateMonteCarloProjection(
