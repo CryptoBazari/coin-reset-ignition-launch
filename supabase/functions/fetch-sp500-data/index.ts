@@ -1,122 +1,125 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+}
 
-serve(async (req) => {
-  // Handle CORS preflight requests
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const alphaVantageApiKey = Deno.env.get('ALPHA_VANTAGE_API_KEY');
+    const { startDate, endDate } = await req.json();
     
-    if (!alphaVantageApiKey) {
-      throw new Error('Alpha Vantage API key not configured');
+    // Try Alpha Vantage first if available
+    const alphaVantageKey = Deno.env.get('ALPHA_VANTAGE_API_KEY');
+    
+    if (alphaVantageKey) {
+      try {
+        console.log('Fetching S&P 500 data from Alpha Vantage');
+        
+        const alphaUrl = `https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY&symbol=SPY&apikey=${alphaVantageKey}`;
+        const alphaResponse = await fetch(alphaUrl);
+        
+        if (alphaResponse.ok) {
+          const alphaData = await alphaResponse.json();
+          
+          if (alphaData['Monthly Time Series']) {
+            const timeSeries = alphaData['Monthly Time Series'];
+            const data = [];
+            
+            const startTime = new Date(startDate).getTime();
+            const endTime = new Date(endDate).getTime();
+            
+            for (const [date, values] of Object.entries(timeSeries)) {
+              const dateTime = new Date(date).getTime();
+              if (dateTime >= startTime && dateTime <= endTime) {
+                data.push({
+                  date: date,
+                  price: parseFloat((values as any)['4. close']),
+                  timestamp: new Date(date).toISOString()
+                });
+              }
+            }
+            
+            // Sort by date ascending
+            data.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            
+            console.log(`Successfully fetched ${data.length} S&P 500 data points from Alpha Vantage`);
+            
+            return new Response(
+              JSON.stringify({ 
+                data: data,
+                source: 'Alpha Vantage (SPY ETF)',
+                symbol: 'S&P 500 via SPY'
+              }),
+              { 
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+              }
+            );
+          }
+        }
+      } catch (alphaError) {
+        console.warn('Alpha Vantage failed, trying fallback:', alphaError);
+      }
     }
-
-    console.log('📈 Fetching S&P 500 monthly data from Alpha Vantage...');
     
-    // Fetch monthly S&P 500 data using SPY ETF (36 months)
-    const response = await fetch(
-      `https://www.alphavantage.co/query?function=TIME_SERIES_MONTHLY&symbol=SPY&outputsize=compact&apikey=${alphaVantageApiKey}`
+    // Fallback to approximated S&P 500 data based on historical trends
+    console.log('Using approximated S&P 500 data based on historical patterns');
+    
+    const startTime = new Date(startDate).getTime();
+    const endTime = new Date(endDate).getTime();
+    const monthlyData = [];
+    
+    // Start with approximate S&P 500 value from start date
+    let currentPrice = 3200; // Reasonable starting point for recent years
+    const monthlyGrowthBase = 1.0067; // ~8.3% annual growth historical average
+    
+    // Add realistic volatility patterns
+    const volatilityFactors = [0.95, 1.02, 0.97, 1.04, 0.98, 1.03, 0.96, 1.05, 0.99, 1.01, 0.94, 1.06];
+    let monthIndex = 0;
+    
+    for (let timestamp = startTime; timestamp < endTime; timestamp += 30.44 * 24 * 60 * 60 * 1000) {
+      const volatilityFactor = volatilityFactors[monthIndex % volatilityFactors.length];
+      const randomFactor = 0.95 + Math.random() * 0.10; // ±5% random variation
+      
+      currentPrice *= monthlyGrowthBase * volatilityFactor * randomFactor;
+      
+      monthlyData.push({
+        date: new Date(timestamp).toISOString().split('T')[0],
+        price: Math.round(currentPrice * 100) / 100,
+        timestamp: new Date(timestamp).toISOString()
+      });
+      
+      monthIndex++;
+    }
+    
+    console.log(`Generated ${monthlyData.length} approximated S&P 500 data points`);
+    
+    return new Response(
+      JSON.stringify({ 
+        data: monthlyData,
+        source: 'Historical Pattern Approximation',
+        symbol: 'S&P 500 (Estimated)',
+        warning: 'Using approximated data - consider adding Alpha Vantage API key for real data'
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
     );
 
-    if (!response.ok) {
-      throw new Error(`Alpha Vantage API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    if (data['Error Message']) {
-      throw new Error(`Alpha Vantage error: ${data['Error Message']}`);
-    }
-
-    if (data['Note']) {
-      throw new Error('Alpha Vantage API rate limit exceeded');
-    }
-
-    if (!data['Monthly Time Series']) {
-      throw new Error('No S&P 500 monthly data available from Alpha Vantage');
-    }
-
-    // Process monthly data
-    const monthlyData = data['Monthly Time Series'];
-    const dates = Object.keys(monthlyData).sort().reverse(); // Most recent first
-    const prices = dates.slice(0, 36).map(date => ({
-      date,
-      close: parseFloat(monthlyData[date]['4. close'])
-    })).reverse(); // Oldest first for CAGR calculation
-
-    console.log(`✅ Fetched ${prices.length} months of S&P 500 data from Alpha Vantage`);
-
-    // Calculate monthly returns
-    const monthlyReturns = [];
-    for (let i = 1; i < prices.length; i++) {
-      const prevPrice = prices[i - 1].close;
-      const currentPrice = prices[i].close;
-      const monthlyReturn = (currentPrice - prevPrice) / prevPrice;
-      monthlyReturns.push(monthlyReturn);
-    }
-
-    // Calculate CAGR and volatility
-    const cagr = calculateCAGR(prices);
-    const volatility = calculateVolatility(monthlyReturns);
-
-    console.log(`📊 S&P 500 metrics: CAGR=${(cagr * 100).toFixed(2)}%, Volatility=${(volatility * 100).toFixed(2)}%, Returns=${monthlyReturns.length}`);
-
-    return new Response(JSON.stringify({ 
-      data: prices,
-      monthlyReturns: monthlyReturns,
-      cagr: cagr,
-      volatility: volatility
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-
   } catch (error) {
-    console.error('❌ Failed to fetch S&P 500 data:', error);
+    console.error('Error in fetch-sp500-data function:', error);
     
-    // Return fallback data with realistic S&P 500 monthly returns (3 years sample)
-    const fallbackMonthlyReturns = [
-      0.021, -0.034, 0.068, 0.012, -0.015, 0.039, 0.051, -0.022, 0.018, 0.031, -0.041, 0.028,
-      0.045, -0.018, 0.033, -0.062, 0.074, 0.019, -0.028, 0.056, 0.014, -0.037, 0.042, 0.067,
-      -0.031, 0.023, 0.048, -0.019, 0.035, -0.054, 0.069, 0.026, -0.013, 0.047, 0.032, -0.025
-    ];
-
-    return new Response(JSON.stringify({
-      error: error.message,
-      fallback: true,
-      data: [],
-      monthlyReturns: fallbackMonthlyReturns,
-      cagr: 0.085, // 8.5% historical average
-      volatility: 0.16 // 16% historical average
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
   }
 });
-
-// Helper functions
-function calculateCAGR(prices: Array<{date: string, close: number}>): number {
-  if (prices.length < 2) return 0.085; // Fallback to 8.5%
-  
-  const startPrice = prices[0].close;
-  const endPrice = prices[prices.length - 1].close;
-  const years = prices.length / 12; // Monthly data
-  
-  return Math.pow(endPrice / startPrice, 1 / years) - 1;
-}
-
-function calculateVolatility(returns: number[]): number {
-  if (returns.length < 2) return 0.16; // Fallback to 16%
-  
-  const mean = returns.reduce((sum, ret) => sum + ret, 0) / returns.length;
-  const variance = returns.reduce((sum, ret) => sum + Math.pow(ret - mean, 2), 0) / (returns.length - 1);
-  
-  return Math.sqrt(variance * 12); // Annualized from monthly
-}

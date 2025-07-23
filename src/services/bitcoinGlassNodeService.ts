@@ -1,29 +1,23 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface BitcoinGlassNodeData {
   avivRatio: number;
-  realizedVolatility: number;
-  mvrvZScore: number;
-  priceDrawdown: number;
-  netRealizedPL: number;
+  cointimeDestroyed: number;
+  liquidSupply: number;
   price: number;
+  cointimePrice: number;
+  cointimeRatio: number;
   lastUpdated: string;
-  dataQuality: {
-    avivFromAPI: boolean;
-    volatilityFromAPI: boolean;
-    mvrvFromAPI: boolean;
-    apiCallsSuccessful: number;
-    apiCallsFailed: number;
-  };
 }
 
 class BitcoinGlassNodeService {
   private cache = new Map<string, { data: any; timestamp: number }>();
   private cacheExpiry = 300000; // 5 minutes
 
-  async fetchBitcoinAvivRatio(): Promise<{ value: number; fromAPI: boolean }> {
+  async fetchBitcoinAvivRatio(): Promise<number> {
     try {
-      console.log('🔍 Fetching REAL Bitcoin AVIV ratio from Glass Node API');
+      console.log('🔍 Fetching Bitcoin AVIV ratio from Glass Node API');
       
       const { data, error } = await supabase.functions.invoke('fetch-glassnode-data', {
         body: { 
@@ -35,134 +29,77 @@ class BitcoinGlassNodeService {
 
       if (error) {
         console.error('❌ Failed to fetch Bitcoin AVIV ratio:', error);
-        throw new Error(`AVIV API call failed: ${error.message}`);
+        return 1.0; // Fallback value
       }
 
-      if (!data?.data || data.data.length === 0) {
-        console.error('❌ No AVIV data returned from API');
-        throw new Error('No AVIV data available from Glassnode');
-      }
-
-      const latestData = data.data[data.data.length - 1];
-      const avivRatio = latestData?.value || latestData?.v;
+      const latestData = data?.data?.[data.data.length - 1];
+      const avivRatio = latestData?.value || 1.0;
       
-      if (typeof avivRatio !== 'number' || avivRatio <= 0) {
-        throw new Error(`Invalid AVIV ratio received: ${avivRatio}`);
-      }
-      
-      console.log(`📊 REAL Bitcoin AVIV Ratio from API: ${avivRatio.toFixed(3)}`);
-      console.log(`📊 Data points received: ${data.data.length}`);
-      console.log(`📊 Latest timestamp: ${new Date(latestData.timestamp).toISOString()}`);
-      
-      return { value: avivRatio, fromAPI: true };
+      console.log(`📊 Bitcoin AVIV Ratio: ${avivRatio.toFixed(3)}`);
+      return avivRatio;
     } catch (error) {
       console.error('❌ Error fetching Bitcoin AVIV ratio:', error);
-      throw error; // Don't fallback, let caller handle the error
+      return 1.0; // Fallback
     }
   }
 
-  async fetchBitcoinRealizedVolatility(): Promise<{ value: number; fromAPI: boolean }> {
+  async fetchBitcoinCointimeDestroyed(): Promise<number> {
     try {
-      console.log('🔍 Fetching REAL Bitcoin volatility from Glass Node API');
+      console.log('🔍 Fetching Bitcoin cointime destroyed from Glass Node API');
       
       const { data, error } = await supabase.functions.invoke('fetch-glassnode-data', {
         body: { 
-          metric: 'market/realized_volatility_all',
+          metric: 'indicators/coin_blocks_destroyed',
           asset: 'BTC',
           resolution: '24h'
         }
       });
 
       if (error) {
-        console.error('❌ Failed to fetch Bitcoin volatility:', error);
-        throw new Error(`Volatility API call failed: ${error.message}`);
+        console.error('❌ Failed to fetch Bitcoin cointime destroyed:', error);
+        return 0;
       }
 
-      if (!data?.data || data.data.length === 0) {
-        console.error('❌ No volatility data returned from API');
-        throw new Error('No volatility data available from Glassnode');
-      }
-
-      const latestData = data.data[data.data.length - 1];
-      const volatility = latestData?.value || latestData?.v;
+      const latestData = data?.data?.[data.data.length - 1];
+      const cointimeDestroyed = latestData?.value || 0;
       
-      if (typeof volatility !== 'number' || volatility < 0) {
-        throw new Error(`Invalid volatility received: ${volatility}`);
-      }
-      
-      // Glassnode returns volatility as decimal (e.g., 0.65 = 65%)
-      // Convert to percentage for display but keep reasonable bounds
-      const volatilityPercent = volatility * 100;
-      
-      console.log(`📊 REAL Bitcoin Volatility from API:`);
-      console.log(`   - Raw API value: ${volatility.toFixed(4)}`);
-      console.log(`   - As percentage: ${volatilityPercent.toFixed(2)}%`);
-      console.log(`   - Data points received: ${data.data.length}`);
-      console.log(`   - Latest timestamp: ${new Date(latestData.timestamp).toISOString()}`);
-      
-      // Validate reasonable volatility range for Bitcoin (20-150%)
-      if (volatilityPercent < 5 || volatilityPercent > 200) {
-        console.warn(`⚠️ Unusual Bitcoin volatility: ${volatilityPercent.toFixed(2)}%`);
-      }
-      
-      return { value: volatilityPercent, fromAPI: true };
+      console.log(`📊 Bitcoin Cointime Destroyed: ${cointimeDestroyed.toFixed(0)}`);
+      return cointimeDestroyed;
     } catch (error) {
-      console.error('❌ Error fetching Bitcoin volatility:', error);
-      throw error; // Don't fallback, let caller handle the error
+      console.error('❌ Error fetching Bitcoin cointime destroyed:', error);
+      return 0;
     }
   }
 
-  async fetchBitcoinMVRVZScore(): Promise<{ value: number; fromAPI: boolean }> {
+  async fetchBitcoinLiquidSupply(): Promise<number> {
     try {
-      console.log('🔍 Fetching Bitcoin MVRV Z-Score from Glass Node API');
+      console.log('🔍 Fetching Bitcoin liquid supply from Glass Node API');
       
       const { data, error } = await supabase.functions.invoke('fetch-glassnode-data', {
         body: { 
-          metric: 'market/mvrv_z_score',
+          metric: 'supply/liquid_sum',
           asset: 'BTC',
           resolution: '24h'
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Failed to fetch Bitcoin liquid supply:', error);
+        return 0;
+      }
 
       const latestData = data?.data?.[data.data.length - 1];
-      const mvrvZScore = latestData?.value || latestData?.v || 0;
+      const liquidSupply = latestData?.value || 0;
       
-      console.log(`📊 Bitcoin MVRV Z-Score: ${mvrvZScore.toFixed(3)}`);
-      return { value: mvrvZScore, fromAPI: true };
+      console.log(`📊 Bitcoin Liquid Supply: ${liquidSupply.toFixed(0)}`);
+      return liquidSupply;
     } catch (error) {
-      console.error('❌ Error fetching Bitcoin MVRV Z-Score:', error);
-      throw error;
+      console.error('❌ Error fetching Bitcoin liquid supply:', error);
+      return 0;
     }
   }
 
-  async fetchBitcoinPriceDrawdown(): Promise<{ value: number; fromAPI: boolean }> {
-    try {
-      console.log('🔍 Fetching Bitcoin price drawdown from Glass Node API');
-      
-      const { data, error } = await supabase.functions.invoke('fetch-glassnode-data', {
-        body: { 
-          metric: 'market/price_drawdown_relative',
-          asset: 'BTC',
-          resolution: '24h'
-        }
-      });
-
-      if (error) throw error;
-
-      const latestData = data?.data?.[data.data.length - 1];
-      const drawdown = Math.abs(latestData?.value || latestData?.v || 0);
-      
-      console.log(`📊 Bitcoin Price Drawdown: ${drawdown.toFixed(3)}`);
-      return { value: drawdown, fromAPI: true };
-    } catch (error) {
-      console.error('❌ Error fetching Bitcoin price drawdown:', error);
-      throw error;
-    }
-  }
-
-  async fetchBitcoinPrice(): Promise<{ value: number; fromAPI: boolean }> {
+  async fetchBitcoinPrice(): Promise<number> {
     try {
       console.log('🔍 Fetching Bitcoin price from Glass Node API');
       
@@ -174,126 +111,76 @@ class BitcoinGlassNodeService {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Failed to fetch Bitcoin price:', error);
+        return 50000; // Fallback price
+      }
 
       const latestData = data?.data?.[data.data.length - 1];
-      const price = latestData?.value || latestData?.v || 50000;
+      const price = latestData?.value || 50000;
       
       console.log(`📊 Bitcoin Price: $${price.toFixed(2)}`);
-      return { value: price, fromAPI: true };
+      return price;
     } catch (error) {
       console.error('❌ Error fetching Bitcoin price:', error);
-      throw error;
+      return 50000; // Fallback
     }
   }
 
-  async getBitcoinRealData(): Promise<BitcoinGlassNodeData> {
-    const cacheKey = 'bitcoin-real-data';
+  async getBitcoinCointimeData(): Promise<BitcoinGlassNodeData> {
+    const cacheKey = 'bitcoin-cointime-data';
     
     if (this.isCacheValid(cacheKey)) {
-      console.log('📦 Using cached Bitcoin real data');
       return this.cache.get(cacheKey)!.data;
     }
 
-    console.log('🔄 Fetching comprehensive REAL Bitcoin data from Glassnode...');
-    
-    const results = await Promise.allSettled([
-      this.fetchBitcoinAvivRatio(),
-      this.fetchBitcoinRealizedVolatility(),
-      this.fetchBitcoinMVRVZScore(),
-      this.fetchBitcoinPriceDrawdown(),
-      this.fetchBitcoinPrice()
-    ]);
+    try {
+      console.log('🔄 Fetching comprehensive Bitcoin cointime data...');
+      
+      const [avivRatio, cointimeDestroyed, liquidSupply, price] = await Promise.all([
+        this.fetchBitcoinAvivRatio(),
+        this.fetchBitcoinCointimeDestroyed(),
+        this.fetchBitcoinLiquidSupply(),
+        this.fetchBitcoinPrice()
+      ]);
 
-    let apiCallsSuccessful = 0;
-    let apiCallsFailed = 0;
+      // Calculate cointime metrics using Bitcoin data
+      const cointimePrice = cointimeDestroyed > 0 ? price / cointimeDestroyed : 0;
+      const cointimeRatio = avivRatio; // AVIV ratio is essentially the cointime ratio
 
-    // Process AVIV ratio
-    const avivResult = results[0];
-    let avivRatio = 1.0;
-    let avivFromAPI = false;
-    if (avivResult.status === 'fulfilled') {
-      avivRatio = avivResult.value.value;
-      avivFromAPI = avivResult.value.fromAPI;
-      apiCallsSuccessful++;
-    } else {
-      console.error('❌ AVIV ratio fetch failed:', avivResult.reason);
-      apiCallsFailed++;
+      const bitcoinData: BitcoinGlassNodeData = {
+        avivRatio,
+        cointimeDestroyed,
+        liquidSupply,
+        price,
+        cointimePrice,
+        cointimeRatio,
+        lastUpdated: new Date().toISOString()
+      };
+
+      this.setCache(cacheKey, bitcoinData);
+      
+      console.log('✅ Bitcoin cointime data fetched successfully');
+      console.log(`📊 AVIV Ratio: ${avivRatio.toFixed(3)}, Cointime Price: ${cointimePrice.toFixed(2)}`);
+      
+      return bitcoinData;
+    } catch (error) {
+      console.error('❌ Failed to fetch Bitcoin cointime data:', error);
+      return this.getFallbackBitcoinData();
     }
+  }
 
-    // Process volatility
-    const volatilityResult = results[1];
-    let realizedVolatility = 65.0; // Default for Bitcoin
-    let volatilityFromAPI = false;
-    if (volatilityResult.status === 'fulfilled') {
-      realizedVolatility = volatilityResult.value.value;
-      volatilityFromAPI = volatilityResult.value.fromAPI;
-      apiCallsSuccessful++;
-    } else {
-      console.error('❌ Volatility fetch failed:', volatilityResult.reason);
-      apiCallsFailed++;
-    }
-
-    // Process MVRV Z-Score
-    const mvrvResult = results[2];
-    let mvrvZScore = 0;
-    let mvrvFromAPI = false;
-    if (mvrvResult.status === 'fulfilled') {
-      mvrvZScore = mvrvResult.value.value;
-      mvrvFromAPI = mvrvResult.value.fromAPI;
-      apiCallsSuccessful++;
-    } else {
-      console.error('❌ MVRV Z-Score fetch failed:', mvrvResult.reason);
-      apiCallsFailed++;
-    }
-
-    // Process price drawdown
-    const drawdownResult = results[3];
-    let priceDrawdown = 0.2;
-    if (drawdownResult.status === 'fulfilled') {
-      priceDrawdown = drawdownResult.value.value;
-      apiCallsSuccessful++;
-    } else {
-      console.error('❌ Price drawdown fetch failed:', drawdownResult.reason);
-      apiCallsFailed++;
-    }
-
-    // Process price
-    const priceResult = results[4];
-    let price = 50000;
-    if (priceResult.status === 'fulfilled') {
-      price = priceResult.value.value;
-      apiCallsSuccessful++;
-    } else {
-      console.error('❌ Price fetch failed:', priceResult.reason);
-      apiCallsFailed++;
-    }
-
-    const bitcoinData: BitcoinGlassNodeData = {
-      avivRatio,
-      realizedVolatility,
-      mvrvZScore,
-      priceDrawdown,
-      netRealizedPL: 0, // Can be added later
-      price,
-      lastUpdated: new Date().toISOString(),
-      dataQuality: {
-        avivFromAPI,
-        volatilityFromAPI,
-        mvrvFromAPI,
-        apiCallsSuccessful,
-        apiCallsFailed
-      }
+  private getFallbackBitcoinData(): BitcoinGlassNodeData {
+    console.log('⚠️ Using fallback Bitcoin data');
+    return {
+      avivRatio: 1.0,
+      cointimeDestroyed: 0,
+      liquidSupply: 0,
+      price: 50000,
+      cointimePrice: 0,
+      cointimeRatio: 1.0,
+      lastUpdated: new Date().toISOString()
     };
-
-    this.setCache(cacheKey, bitcoinData);
-    
-    console.log('✅ Bitcoin real data fetch completed');
-    console.log(`📊 API Success Rate: ${apiCallsSuccessful}/${apiCallsSuccessful + apiCallsFailed}`);
-    console.log(`📊 AVIV Ratio: ${avivRatio.toFixed(3)} (${avivFromAPI ? 'REAL API' : 'FALLBACK'})`);
-    console.log(`📊 Volatility: ${realizedVolatility.toFixed(2)}% (${volatilityFromAPI ? 'REAL API' : 'FALLBACK'})`);
-    
-    return bitcoinData;
   }
 
   private isCacheValid(key: string): boolean {
@@ -306,19 +193,6 @@ class BitcoinGlassNodeService {
       data,
       timestamp: Date.now()
     });
-  }
-
-  async getBitcoinCointimeData(): Promise<any> {
-    const bitcoinData = await this.getBitcoinRealData();
-    return {
-      cointimeEconomics: {
-        avivRatio: bitcoinData.avivRatio,
-        realizedVolatility: bitcoinData.realizedVolatility,
-        mvrvZScore: bitcoinData.mvrvZScore,
-        priceDrawdown: bitcoinData.priceDrawdown,
-        netRealizedPL: bitcoinData.netRealizedPL
-      }
-    };
   }
 
   clearCache(): void {

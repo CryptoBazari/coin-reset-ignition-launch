@@ -9,11 +9,13 @@ import SubscriptionButton from '@/components/subscription/SubscriptionButton';
 import MarketOverview from '@/components/analysis/MarketOverview';
 import AssetLiveData from '@/components/analysis/AssetLiveData';
 import GlassNodeDashboard from '@/components/analysis/GlassNodeDashboard';
-import { EnhancedHybridInvestmentForm } from '@/components/EnhancedHybridInvestmentForm';
+import { HybridInvestmentForm } from '@/components/HybridInvestmentForm';
+import { HybridAnalysisResults } from '@/components/HybridAnalysisResults';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { useRealInvestmentAnalysis } from '@/hooks/useRealInvestmentAnalysis';
 import { useRealDataPopulation } from '@/hooks/useRealDataPopulation';
 import { enhancedGlassNodeAnalyzer } from '@/services/enhancedGlassNodeAnalyzer';
+import { directApiAnalysisService, DirectAnalysisResult } from '@/services/directApiAnalysisService';
 import { Lock, BarChart3, Globe, TrendingUp, Calculator, Activity, Shield, Zap } from 'lucide-react';
 import type { InvestmentInputs } from '@/types/investment';
 import type { CoinData } from '@/services/realTimeMarketService';
@@ -25,10 +27,12 @@ import { useGlassnodeDataInitialization } from '@/hooks/useGlassnodeDataInitiali
 const CryptoAnalysis = () => {
   const [realAnalysisResult, setRealAnalysisResult] = useState(null);
   const [comprehensiveResult, setComprehensiveResult] = useState<ComprehensiveAnalysisResult | null>(null);
+  const [hybridResult, setHybridResult] = useState<DirectAnalysisResult | null>(null);
   const [selectedCoin, setSelectedCoin] = useState<CoinData | null>(null);
   const [selectedCoinSymbol, setSelectedCoinSymbol] = useState<string>('BTC');
   const [dataStatus, setDataStatus] = useState<any>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [hybridLoading, setHybridLoading] = useState(false);
   const [dataInitialized, setDataInitialized] = useState(false);
   
   const { hasAccess, hasActiveSubscription, isAdmin, accessType, user } = useAdminAccess();
@@ -95,6 +99,32 @@ const CryptoAnalysis = () => {
     }
   };
 
+  const handleHybridAnalysis = async (data: {
+    coinId: string;
+    symbol: string;
+    investmentAmount: number;
+    timeHorizon: number;
+    hasGlassNodeData: boolean;
+  }) => {
+    setHybridLoading(true);
+    console.log('🚀 Starting hybrid analysis with real API data only');
+    console.log('📊 Analysis inputs:', data);
+    
+    try {
+      const result = await directApiAnalysisService.analyzeInvestment(
+        data.coinId,
+        data.symbol,
+        data.investmentAmount,
+        data.timeHorizon
+      );
+      console.log('✅ Hybrid analysis completed:', result);
+      setHybridResult(result);
+    } catch (error) {
+      console.error('❌ Hybrid analysis failed:', error);
+    } finally {
+      setHybridLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
@@ -155,8 +185,8 @@ const CryptoAnalysis = () => {
               </CardContent>
             </Card>
           ) : (
-            <Tabs defaultValue="analysis" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-3">
+            <Tabs defaultValue="hybrid" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="overview" className="gap-2">
                   <Globe className="h-4 w-4" />
                   Market Overview
@@ -165,12 +195,20 @@ const CryptoAnalysis = () => {
                   <BarChart3 className="h-4 w-4" />
                   Live Data
                 </TabsTrigger>
-                <TabsTrigger value="analysis" className="gap-2">
-                  <Calculator className="h-4 w-4" />
-                  Investment Analyzer
+                <TabsTrigger value="onchain" className="gap-2">
+                  <Activity className="h-4 w-4" />
+                  On-Chain Analytics
+                </TabsTrigger>
+                <TabsTrigger value="hybrid" className="gap-2">
+                  <Zap className="h-4 w-4" />
                   <Badge variant="outline" className="bg-blue-100 text-blue-800 text-xs ml-1">
                     1000+ COINS
                   </Badge>
+                  Hybrid Analysis
+                </TabsTrigger>
+                <TabsTrigger value="legacy" className="gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Legacy Analysis
                 </TabsTrigger>
               </TabsList>
 
@@ -182,15 +220,40 @@ const CryptoAnalysis = () => {
                 <AssetLiveData onCoinSelect={handleCoinSelect} />
               </TabsContent>
 
-              <TabsContent value="analysis">
+              <TabsContent value="onchain">
                 <div className="space-y-6">
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
-                        <Calculator className="h-5 w-5" />
-                        Comprehensive Investment Analyzer
+                        <Activity className="h-5 w-5" />
+                        Glass Node On-Chain Analytics
+                        {accessType === 'admin' && (
+                          <Badge variant="outline" className="bg-blue-100 text-blue-800 text-xs">
+                            <Shield className="h-3 w-3 mr-1" />
+                            ADMIN ACCESS
+                          </Badge>
+                        )}
+                      </CardTitle>
+                      <CardDescription>
+                        Real-time blockchain data and metrics for {selectedCoinSymbol}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <GlassNodeDashboard coinSymbol={selectedCoinSymbol} />
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="hybrid">
+                <div className="space-y-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Zap className="h-5 w-5" />
+                        Hybrid Investment Analysis
                         <Badge variant="outline" className="bg-blue-100 text-blue-800 text-xs">
-                          REAL GLASSNODE DATA
+                          REAL API DATA ONLY
                         </Badge>
                         <Badge variant="outline" className="bg-green-100 text-green-800 text-xs">
                           1000+ COINS
@@ -203,13 +266,224 @@ const CryptoAnalysis = () => {
                         )}
                       </CardTitle>
                       <CardDescription>
-                        Advanced NPV calculations with Bitcoin cointime analysis (AVIV, Active Supply) and S&P 500 benchmark. Altcoins use Bitcoin as benchmark.
+                        Select any cryptocurrency and get real-time analysis. Comprehensive Glassnode data for supported coins, basic analysis for others.
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <EnhancedHybridInvestmentForm />
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div>
+                          <HybridInvestmentForm 
+                            onSubmit={handleHybridAnalysis}
+                            loading={hybridLoading}
+                          />
+                        </div>
+                        <div>
+                          {hybridResult && (
+                            <HybridAnalysisResults 
+                              result={hybridResult}
+                            />
+                          )}
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="legacy">
+                <div className="space-y-6">
+                  <Card className={`${dataStatus?.isPopulated ? 'border-green-200 bg-green-50' : 'border-yellow-200 bg-yellow-50'}`}>
+                    <CardContent className="pt-6">
+                      <div className={`flex items-center gap-2 ${dataStatus?.isPopulated ? 'text-green-800' : 'text-yellow-800'}`}>
+                        <Activity className="h-5 w-5" />
+                        <div>
+                          <div className="font-semibold">
+                            {dataStatus?.isPopulated ? 'REAL Data Analysis Active' : 'Data Initialization Required'}
+                            {accessType === 'admin' && (
+                              <Badge variant="outline" className="bg-blue-100 text-blue-800 text-xs ml-2">
+                                <Shield className="h-3 w-3 mr-1" />
+                                ADMIN ACCESS
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="text-sm">
+                            {dataStatus?.isPopulated 
+                              ? `Using live Glass Node API, Monte Carlo projections, and calculated volatility. ${dataStatus.coinsWithRealData}/${dataStatus.totalCoins} coins with real data (${dataStatus.dataQuality}% quality).`
+                              : 'Initialize the database above to start using real market data for calculations.'
+                            }
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {error && (
+                    <Card className="border-yellow-200 bg-yellow-50">
+                      <CardContent className="pt-6">
+                        <div className="flex items-center gap-2 text-yellow-800">
+                          <TrendingUp className="h-4 w-4" />
+                          <span className="text-sm">
+                            {error} - Check data initialization status above.
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                  
+                  <EnhancedInvestmentForm onSubmit={handleRealAnalysis} loading={loading} />
+                  
+                  {realAnalysisResult && (
+                    <div className="space-y-6">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Activity className="h-5 w-5 text-green-600" />
+                            Real-Time Analysis Results
+                            <Badge variant="outline" className="bg-green-100 text-green-800">
+                              {realAnalysisResult.dataQualityScore}% Data Quality
+                            </Badge>
+                            {accessType === 'admin' && (
+                              <Badge variant="outline" className="bg-blue-100 text-blue-800 text-xs">
+                                <Shield className="h-3 w-3 mr-1" />
+                                ADMIN ACCESS
+                              </Badge>
+                            )}
+                          </CardTitle>
+                          <CardDescription>
+                            Analysis powered by {dataStatus?.isPopulated ? 'live database data' : 'available market data'} and Monte Carlo simulation
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="space-y-3">
+                              <h4 className="font-semibold text-lg">Financial Metrics</h4>
+                              <div className="space-y-2">
+                                <div className="flex justify-between">
+                                  <span>NPV:</span>
+                                  <span className={realAnalysisResult.financialMetrics.npv > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+                                    ${realAnalysisResult.financialMetrics.npv.toLocaleString()}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>IRR:</span>
+                                  <span className="font-semibold">{realAnalysisResult.financialMetrics.irr.toFixed(1)}%</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Real 36M CAGR:</span>
+                                  <span className="font-semibold">{realAnalysisResult.financialMetrics.realCAGR.toFixed(1)}%</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Real Volatility:</span>
+                                  <span className="font-semibold">{realAnalysisResult.financialMetrics.realVolatility.toFixed(1)}%</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Sharpe Ratio:</span>
+                                  <span className="font-semibold">{realAnalysisResult.financialMetrics.sharpeRatio.toFixed(2)}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="space-y-3">
+                              <h4 className="font-semibold text-lg">Monte Carlo Projection</h4>
+                              <div className="space-y-2">
+                                <div className="flex justify-between">
+                                  <span>Expected Value:</span>
+                                  <span className="font-semibold text-blue-600">
+                                    ${realAnalysisResult.monteCarloProjection.expectedValue.toLocaleString()}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>95% Confidence:</span>
+                                  <span className="text-sm">
+                                    ${realAnalysisResult.monteCarloProjection.confidenceInterval.lower.toLocaleString()} - 
+                                    ${realAnalysisResult.monteCarloProjection.confidenceInterval.upper.toLocaleString()}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Probability of Loss:</span>
+                                  <span className={realAnalysisResult.monteCarloProjection.probabilityOfLoss > 0.3 ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'}>
+                                    {(realAnalysisResult.monteCarloProjection.probabilityOfLoss * 100).toFixed(1)}%
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Value at Risk:</span>
+                                  <span className="text-red-600 font-semibold">
+                                    ${realAnalysisResult.monteCarloProjection.valueAtRisk.toLocaleString()}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="space-y-3">
+                              <h4 className="font-semibold text-lg">Live Glass Node Data</h4>
+                              <div className="space-y-2">
+                                <div className="flex justify-between">
+                                  <span>AVIV Ratio:</span>
+                                  <span className="font-semibold">{realAnalysisResult.realTimeData.avivRatio.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Active Supply:</span>
+                                  <span className="font-semibold">{realAnalysisResult.realTimeData.activeSupply.toFixed(1)}%</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Vaulted Supply:</span>
+                                  <span className="font-semibold">{realAnalysisResult.realTimeData.vaultedSupply.toFixed(1)}%</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Beta:</span>
+                                  <span className="font-semibold">{realAnalysisResult.betaAnalysis.beta.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Data Source:</span>
+                                  <Badge variant={dataStatus?.isPopulated ? 'default' : 'secondary'}>
+                                    {dataStatus?.isPopulated ? 'Database' : 'Fallback'}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="mt-6 p-4 rounded-lg bg-slate-50">
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                                realAnalysisResult.recommendation.action === 'Buy' ? 'bg-green-100 text-green-800' :
+                                realAnalysisResult.recommendation.action === 'Buy Less' ? 'bg-yellow-100 text-yellow-800' :
+                                realAnalysisResult.recommendation.action === 'Sell' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {realAnalysisResult.recommendation.action}
+                              </div>
+                              <span className="text-sm text-gray-600">
+                                {realAnalysisResult.recommendation.confidence}% confidence
+                              </span>
+                            </div>
+                            
+                            {realAnalysisResult.recommendation.reasoning.length > 0 && (
+                              <div className="mb-3">
+                                <h5 className="font-semibold text-green-700 mb-1">Supporting Factors:</h5>
+                                <ul className="text-sm space-y-1">
+                                  {realAnalysisResult.recommendation.reasoning.map((reason, index) => (
+                                    <li key={index} className="text-green-700">✅ {reason}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            
+                            {realAnalysisResult.recommendation.riskWarnings.length > 0 && (
+                              <div>
+                                <h5 className="font-semibold text-red-700 mb-1">Risk Warnings:</h5>
+                                <ul className="text-sm space-y-1">
+                                  {realAnalysisResult.recommendation.riskWarnings.map((warning, index) => (
+                                    <li key={index} className="text-red-700">⚠️ {warning}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
                 </div>
               </TabsContent>
             </Tabs>

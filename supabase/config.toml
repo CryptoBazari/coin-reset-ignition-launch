@@ -1,4 +1,3 @@
-
 project_id = "cljbwjglmvdpusmfyslh"
 
 [auth]
@@ -15,7 +14,7 @@ enable_confirmations = false
 [auth.sms]
 enable_signup = false
 
-[functions.fetch-glassnode-data]
+[functions.fetch-alpha-vantage-data]
 verify_jwt = false
 
 [functions.fetch-blockchain-data]
