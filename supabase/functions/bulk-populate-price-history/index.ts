@@ -55,35 +55,88 @@ serve(async (req) => {
                       coin.coin_id === 'litecoin' ? 'LTC' :
                       coin.coin_id.toUpperCase();
 
-        // Fetch historical data from CoinMarketCap
-        const response = await fetch(
-          `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/historical?symbol=${symbol}&time_start=${startDate.toISOString()}&time_end=${endDate.toISOString()}&interval=daily`,
-          {
-            headers: {
-              'X-CMC_PRO_API_KEY': coinMarketCapApiKey,
-              'Accept': 'application/json',
-            },
-          }
-        );
+        // Try to use Glassnode data first for supported coins
+        const glassnodeSupported = ['bitcoin', 'ethereum', 'solana', 'cardano', 'chainlink'];
+        let priceHistory = [];
 
-        if (!response.ok) {
-          console.error(`CoinMarketCap API error for ${coin.name}: ${response.status}`);
-          continue;
+        if (glassnodeSupported.includes(coin.coin_id)) {
+          console.log(`Fetching daily Glassnode data for ${coin.name}`);
+          
+          // Map coin_id to Glassnode asset
+          const assetMap: Record<string, string> = {
+            'bitcoin': 'BTC',
+            'ethereum': 'ETH', 
+            'solana': 'SOL',
+            'cardano': 'ADA',
+            'chainlink': 'LINK'
+          };
+          
+          const asset = assetMap[coin.coin_id];
+          
+          try {
+            // Fetch daily Glassnode data with sampling disabled for full daily data
+            const glassnodeResponse = await supabaseClient.functions.invoke('fetch-glassnode-data', {
+              body: {
+                metric: 'market/price_usd_close',
+                asset: asset,
+                since: startDate.toISOString().split('T')[0],
+                until: endDate.toISOString().split('T')[0],
+                disableSampling: true // Important: get daily data, not monthly
+              }
+            });
+
+            if (glassnodeResponse.data && glassnodeResponse.data.data && glassnodeResponse.data.data.length > 0) {
+              priceHistory = glassnodeResponse.data.data.map((point: any) => ({
+                coin_id: coin.coin_id,
+                price_date: point.timestamp.split('T')[0],
+                price_usd: point.value,
+                volume_24h: 0, // Volume would need separate API call
+                market_cap: 0,  // Market cap would need separate API call
+                data_source: 'glassnode'
+              }));
+              
+              console.log(`✅ Fetched ${priceHistory.length} daily Glassnode price points for ${coin.name}`);
+            }
+          } catch (glassnodeError) {
+            console.error(`Glassnode fetch failed for ${coin.name}, falling back to CoinMarketCap:`, glassnodeError);
+          }
         }
 
-        const data = await response.json();
-        
-        if (data.data && data.data.quotes) {
-          const priceHistory = data.data.quotes.map((quote: any) => ({
-            coin_id: coin.coin_id,
-            price_date: quote.timestamp.split('T')[0],
-            price_usd: quote.quote.USD.price,
-            volume_24h: quote.quote.USD.volume_24h || 0,
-            market_cap: quote.quote.USD.market_cap || 0,
-            data_source: 'coinmarketcap'
-          }));
+        // Fallback to CoinMarketCap if Glassnode failed or not supported
+        if (priceHistory.length === 0) {
+          console.log(`Using CoinMarketCap for ${coin.name}`);
+          
+          const response = await fetch(
+            `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/historical?symbol=${symbol}&time_start=${startDate.toISOString()}&time_end=${endDate.toISOString()}&interval=daily`,
+            {
+              headers: {
+                'X-CMC_PRO_API_KEY': coinMarketCapApiKey,
+                'Accept': 'application/json',
+              },
+            }
+          );
 
-          // Store in database
+          if (!response.ok) {
+            console.error(`CoinMarketCap API error for ${coin.name}: ${response.status}`);
+            continue;
+          }
+
+          const data = await response.json();
+          
+          if (data.data && data.data.quotes) {
+            priceHistory = data.data.quotes.map((quote: any) => ({
+              coin_id: coin.coin_id,
+              price_date: quote.timestamp.split('T')[0],
+              price_usd: quote.quote.USD.price,
+              volume_24h: quote.quote.USD.volume_24h || 0,
+              market_cap: quote.quote.USD.market_cap || 0,
+              data_source: 'coinmarketcap'
+            }));
+          }
+        }
+
+        // Store in database if we have data
+        if (priceHistory.length > 0) {
           const { error: insertError } = await supabaseClient
             .from('price_history_36m')
             .upsert(priceHistory, { 

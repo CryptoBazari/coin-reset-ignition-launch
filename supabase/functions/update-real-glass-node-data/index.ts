@@ -43,32 +43,48 @@ Deno.serve(async (req) => {
       try {
         console.log(`📊 Updating data for ${coin.name} (${coin.coinId})`);
         
-        // Fetch 36 months of price data
-        const since = Math.floor((Date.now() - 36 * 30 * 24 * 60 * 60 * 1000) / 1000);
-        const priceUrl = `https://api.glassnode.com/v1/metrics/market/price_usd_close?a=${coin.glassNodeAsset}&api_key=${glassNodeApiKey}&s=${since}&i=24h`;
+        // Fetch 36 months of daily price data using internal function
+        const startDate = new Date();
+        startDate.setMonth(startDate.getMonth() - 36);
         
-        const priceResponse = await fetch(priceUrl);
-        if (!priceResponse.ok) {
-          console.error(`Failed to fetch price data for ${coin.coinId}: ${priceResponse.status}`);
+        const priceDataResponse = await supabase.functions.invoke('fetch-glassnode-data', {
+          body: {
+            metric: 'market/price_usd_close',
+            asset: coin.glassNodeAsset,
+            since: startDate.toISOString().split('T')[0],
+            until: new Date().toISOString().split('T')[0],
+            disableSampling: true // Critical: get daily data, not monthly
+          }
+        });
+
+        if (priceDataResponse.error) {
+          console.error(`Failed to fetch price data for ${coin.coinId}:`, priceDataResponse.error);
           continue;
         }
+
+        const priceData = priceDataResponse.data?.data || [];
+        console.log(`📈 Received ${priceData.length} daily price points for ${coin.coinId}`);
         
-        const priceData: GlassNodeResponse[] = await priceResponse.json();
-        console.log(`📈 Received ${priceData.length} price points for ${coin.coinId}`);
-        
+        // Convert data format for calculations
+        const priceDataForCalc = priceData.map((point: any) => ({
+          t: point.unix_timestamp,
+          v: point.value
+        }));
+
         // Calculate real metrics
-        const realMetrics = calculateRealMetrics(priceData);
+        const realMetrics = calculateRealMetrics(priceDataForCalc);
         
         // Fetch supply data
         const supplyMetrics = await fetchSupplyMetrics(coin.glassNodeAsset, glassNodeApiKey);
         
-        // Store price history in new table
-        const priceEntries = priceData.map(point => ({
+        // Store daily price history in database
+        const priceEntries = priceData.map((point: any) => ({
           coin_id: coin.coinId.toLowerCase(),
-          price_date: new Date(point.t * 1000).toISOString().split('T')[0],
-          price_usd: point.v,
+          price_date: point.timestamp.split('T')[0],
+          price_usd: point.value,
           volume_24h: 0, // Would need separate API call for volume
-          market_cap: 0   // Would need separate API call for market cap
+          market_cap: 0,  // Would need separate API call for market cap
+          data_source: 'glassnode'
         }));
         
         const { error: priceError } = await supabase
@@ -105,7 +121,7 @@ Deno.serve(async (req) => {
             name: coin.name,
             basket: coin.coinId === 'BTC' ? 'Bitcoin' : coin.coinId === 'ETH' ? 'Blue Chip' : 'Small-Cap',
             current_price: realMetrics.currentPrice,
-            price_history: JSON.stringify(priceData.slice(-365)), // Last year for storage
+            price_history: JSON.stringify(priceDataForCalc.slice(-365)), // Last year for storage
             cagr_36m: realMetrics.cagr36m,
             volatility: realMetrics.volatility,
             aviv_ratio: supplyMetrics.avivRatio,
