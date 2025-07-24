@@ -104,7 +104,7 @@ export const useEnhancedInvestmentAnalysis = () => {
         assumptions.discount_rate
       );
 
-      const cagrResult = calculateEnhancedCAGR(enhancedCoinData);
+      const cagrResult = await calculateEnhancedCAGR(enhancedCoinData);
       const irrResult = calculateEnhancedIRR(
         enhancedCoinData,
         inputs.investmentAmount,

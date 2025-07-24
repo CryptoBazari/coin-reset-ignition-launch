@@ -80,28 +80,63 @@ export const calculateEnhancedNPV = (
   return { npv, projectedValues, confidenceScore };
 };
 
-export const calculateEnhancedCAGR = (
+export const calculateEnhancedCAGR = async (
   coinData: EnhancedCoinData
-): { cagr: number; volatilityAdjustedCAGR: number; onChainGrowthRate: number } => {
-  const baseCagr = coinData.cagr_36m || 20;
-  const volatility = coinData.priceHistory.volatility30d || 50;
-  const onChainGrowthRate = coinData.onChainData.networkGrowth || 0;
+): Promise<{ cagr: number; volatilityAdjustedCAGR: number; onChainGrowthRate: number }> => {
+  // Import the real-time CAGR calculation service
+  const { realTimeCAGRCalculationService } = await import('@/services/realTimeCAGRCalculationService');
   
-  console.log('🔍 CAGR Calculation Data Sources:');
-  console.log(`   - Base CAGR: ${baseCagr}% (${coinData.cagr_36m ? 'CALCULATED from real 36m price data' : 'ESTIMATED'})`);
-  console.log(`   - Volatility: ${volatility}% (${coinData.priceHistory.volatility30d ? 'CALCULATED from real daily prices' : 'ESTIMATED'})`);
-  console.log(`   - On-chain Growth: ${onChainGrowthRate}% (${coinData.onChainData.networkGrowth ? 'REAL from Glass Node' : 'ESTIMATED'})`);
-  
-  // Volatility-adjusted CAGR using REAL volatility data
-  const volatilityAdjustedCAGR = baseCagr * (1 - volatility / 200);
-  
-  console.log(`   📊 Volatility-adjusted CAGR: ${volatilityAdjustedCAGR.toFixed(2)}%`);
-  
-  return {
-    cagr: baseCagr,
-    volatilityAdjustedCAGR,
-    onChainGrowthRate
-  };
+  try {
+    // Calculate REAL CAGR using Glassnode API data and correct formula
+    console.log('🔍 Calculating REAL CAGR using Glassnode API data...');
+    
+    // Use coin_id which actually contains the symbol (BTC, ETH, SOL, etc.)
+    const coinSymbol = coinData.coin_id;
+    
+    const realCAGRResult = await realTimeCAGRCalculationService.calculateRealTimeCAGR(
+      coinData.coin_id, 
+      coinSymbol, 
+      3 // 3 years back like the Bitcoin example
+    );
+    
+    const baseCagr = realCAGRResult.cagr;
+    const volatility = coinData.priceHistory.volatility30d || 50;
+    const onChainGrowthRate = coinData.onChainData.networkGrowth || 0;
+    
+    console.log('🔍 REAL CAGR Calculation Data Sources:');
+    console.log(`   - REAL CAGR: ${baseCagr.toFixed(2)}% (CALCULATED using real API data with correct formula)`);
+    console.log(`   - Data Source: ${realCAGRResult.dataSource} (${realCAGRResult.dataPoints} data points)`);
+    console.log(`   - Confidence: ${realCAGRResult.confidence}`);
+    console.log(`   - Volatility: ${volatility}% (${coinData.priceHistory.volatility30d ? 'CALCULATED from real daily prices' : 'ESTIMATED'})`);
+    console.log(`   - On-chain Growth: ${onChainGrowthRate}% (${coinData.onChainData.networkGrowth ? 'REAL from Glass Node' : 'ESTIMATED'})`);
+    
+    // Volatility-adjusted CAGR using REAL CAGR calculation
+    const volatilityAdjustedCAGR = baseCagr * (1 - volatility / 200);
+    
+    console.log(`   📊 Volatility-adjusted CAGR: ${volatilityAdjustedCAGR.toFixed(2)}%`);
+    
+    return {
+      cagr: baseCagr,
+      volatilityAdjustedCAGR,
+      onChainGrowthRate
+    };
+    
+  } catch (error) {
+    console.error('❌ Real-time CAGR calculation failed, using fallback:', error);
+    
+    // Fallback to database value if real-time calculation fails
+    const baseCagr = coinData.cagr_36m || 20;
+    const volatility = coinData.priceHistory.volatility30d || 50;
+    const onChainGrowthRate = coinData.onChainData.networkGrowth || 0;
+    
+    const volatilityAdjustedCAGR = baseCagr * (1 - volatility / 200);
+    
+    return {
+      cagr: baseCagr,
+      volatilityAdjustedCAGR,
+      onChainGrowthRate
+    };
+  }
 };
 
 export const calculateEnhancedIRR = (
