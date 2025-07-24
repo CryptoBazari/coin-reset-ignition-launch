@@ -5,6 +5,7 @@ import { symbolMappingService } from '@/services/symbolMappingService';
 import { bitcoinAnalysisService } from '@/services/bitcoinAnalysisService';
 import { realDataFinancialCalculations } from '@/services/realDataFinancialCalculations';
 import { bitcoinMarketAnalyzer } from '@/services/bitcoinMarketAnalyzer';
+import { comprehensiveBetaCalculationService } from '@/services/comprehensiveBetaCalculationService';
 
 export interface DirectAnalysisResult {
   coinId: string;
@@ -190,6 +191,18 @@ export class DirectApiAnalysisService {
         true
       );
       
+      // Calculate accurate beta using comprehensive beta calculation service
+      try {
+        console.log(`🔄 Calculating comprehensive beta for ${symbol}`);
+        const betaResult = await comprehensiveBetaCalculationService.calculateComprehensiveBeta(symbol);
+        if (betaResult?.beta && !isNaN(betaResult.beta)) {
+          financialMetrics.beta = betaResult.beta;
+          console.log(`✅ Updated beta for ${symbol}: ${betaResult.beta.toFixed(3)}`);
+        }
+      } catch (betaError) {
+        console.warn(`⚠️ Comprehensive beta calculation failed for ${symbol}, using fallback:`, betaError);
+      }
+      
       // Generate altcoin recommendation (no cointime metrics)
       const recommendation = this.generateAltcoinRecommendation(
         financialMetrics,
@@ -262,6 +275,18 @@ export class DirectApiAnalysisService {
         timeHorizon,
         false
       );
+      
+      // Calculate accurate beta using comprehensive beta calculation service
+      try {
+        console.log(`🔄 Calculating comprehensive beta for ${symbol}`);
+        const betaResult = await comprehensiveBetaCalculationService.calculateComprehensiveBeta(symbol);
+        if (betaResult?.beta && !isNaN(betaResult.beta)) {
+          financialMetrics.beta = betaResult.beta;
+          console.log(`✅ Updated beta for ${symbol}: ${betaResult.beta.toFixed(3)}`);
+        }
+      } catch (betaError) {
+        console.warn(`⚠️ Comprehensive beta calculation failed for ${symbol}, using fallback:`, betaError);
+      }
       
       // Generate conservative altcoin recommendation
       const recommendation = this.generateAltcoinRecommendation(
