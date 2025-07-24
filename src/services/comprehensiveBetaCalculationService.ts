@@ -63,22 +63,15 @@ export class ComprehensiveBetaCalculationService {
    */
   private async fetchGlassnodeData(asset: string, startDate: string, endDate: string): Promise<PriceData[]> {
     try {
-      const startTimestamp = Math.floor(new Date(startDate).getTime() / 1000);
-      const endTimestamp = Math.floor(new Date(endDate).getTime() / 1000);
-      
       console.log(`📊 Fetching Glassnode data for ${asset} from ${startDate} to ${endDate}`);
       
       const { data, error } = await supabase.functions.invoke('fetch-glassnode-data', {
         body: {
-          endpoint: '/v1/metrics/market/price_usd_close',
-          params: {
-            a: asset.toLowerCase(),
-            i: '24h',
-            c: 'usd',
-            s: startTimestamp,
-            u: endTimestamp,
-            timestamp_format: 'unix'
-          }
+          metric: 'market/price_usd_close',
+          asset: asset.toUpperCase(),
+          resolution: '24h',
+          since: startDate,
+          until: endDate
         }
       });
 
