@@ -5,7 +5,7 @@ import { symbolMappingService } from '@/services/symbolMappingService';
 import { bitcoinAnalysisService } from '@/services/bitcoinAnalysisService';
 import { realDataFinancialCalculations } from '@/services/realDataFinancialCalculations';
 import { bitcoinMarketAnalyzer } from '@/services/bitcoinMarketAnalyzer';
-import { comprehensiveBetaCalculationService } from '@/services/comprehensiveBetaCalculationService';
+import { comprehensiveBetaCalculationService, type BetaCalculationResult } from '@/services/comprehensiveBetaCalculationService';
 
 export interface DirectAnalysisResult {
   coinId: string;
@@ -55,6 +55,9 @@ export interface DirectAnalysisResult {
     reasoning: string[];
     riskWarnings: string[];
   };
+  
+  // Beta calculation details (when available)
+  betaCalculationDetails?: BetaCalculationResult;
   
   // Data quality indicators
   dataQuality: {
@@ -192,11 +195,13 @@ export class DirectApiAnalysisService {
       );
       
       // Calculate accurate beta using comprehensive beta calculation service
+      let betaCalculationDetails: BetaCalculationResult | undefined;
       try {
         console.log(`🔄 Calculating comprehensive beta for ${symbol}`);
         const betaResult = await comprehensiveBetaCalculationService.calculateComprehensiveBeta(symbol);
         if (betaResult?.beta && !isNaN(betaResult.beta)) {
           financialMetrics.beta = betaResult.beta;
+          betaCalculationDetails = betaResult;
           console.log(`✅ Updated beta for ${symbol}: ${betaResult.beta.toFixed(3)}`);
         }
       } catch (betaError) {
@@ -237,6 +242,7 @@ export class DirectApiAnalysisService {
           summary: bitcoinMarketState.summary
         },
         recommendation,
+        betaCalculationDetails,
         dataQuality: {
           score: financialMetrics.confidenceScore,
           source: 'Glassnode + CoinMarketCap',
@@ -277,11 +283,13 @@ export class DirectApiAnalysisService {
       );
       
       // Calculate accurate beta using comprehensive beta calculation service
+      let betaCalculationDetails: BetaCalculationResult | undefined;
       try {
         console.log(`🔄 Calculating comprehensive beta for ${symbol}`);
         const betaResult = await comprehensiveBetaCalculationService.calculateComprehensiveBeta(symbol);
         if (betaResult?.beta && !isNaN(betaResult.beta)) {
           financialMetrics.beta = betaResult.beta;
+          betaCalculationDetails = betaResult;
           console.log(`✅ Updated beta for ${symbol}: ${betaResult.beta.toFixed(3)}`);
         }
       } catch (betaError) {
@@ -322,6 +330,7 @@ export class DirectApiAnalysisService {
           summary: bitcoinMarketState.summary
         },
         recommendation,
+        betaCalculationDetails,
         dataQuality: {
           score: financialMetrics.confidenceScore,
           source: 'CoinMarketCap only',

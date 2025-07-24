@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Shield, Globe, AlertCircle, TrendingUp, Activity, Bitcoin, Coins } from 'lucide-react';
 import type { DirectAnalysisResult } from '@/services/directApiAnalysisService';
+import { BetaCalculationCard } from '@/components/analysis/BetaCalculationCard';
 
 interface HybridAnalysisResultsProps {
   result: DirectAnalysisResult;
@@ -233,6 +234,11 @@ export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({ re
           </div>
         </CardContent>
       </Card>
+
+      {/* Beta Calculation Details (when available) */}
+      {result.betaCalculationDetails && (
+        <BetaCalculationCard betaDetails={result.betaCalculationDetails} />
+      )}
 
       {/* Investment Recommendation */}
       <Card>
