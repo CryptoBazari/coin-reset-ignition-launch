@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { ChevronLeft, ChevronRight, CheckCircle, Circle, Clock, Check, User } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { createSafeHtml } from '@/utils/htmlSanitizer';
 
 interface Chapter {
   id: string;
@@ -311,7 +312,7 @@ const ChapterReader = ({ courseId, initialChapterId, onProgressUpdate }: Chapter
         <CardContent className="pt-6">
           <div 
             className="prose prose-lg max-w-none dark:prose-invert"
-            dangerouslySetInnerHTML={{ __html: currentChapter.content }}
+            dangerouslySetInnerHTML={createSafeHtml(currentChapter.content)}
           />
           
           {/* Completion Button at End of Content */}

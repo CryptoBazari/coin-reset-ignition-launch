@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Edit, Trash2, GripVertical, Clock } from 'lucide-react';
 import RichTextEditor from '@/components/admin/RichTextEditor';
+import { createSafeHtml } from '@/utils/htmlSanitizer';
 
 interface Chapter {
   id: string;
@@ -336,7 +337,7 @@ const ChapterManagement = ({ courseId, onChaptersUpdate }: ChapterManagementProp
               <CardContent>
                 <div 
                   className="prose prose-sm max-w-none text-muted-foreground line-clamp-3"
-                  dangerouslySetInnerHTML={{ __html: chapter.content.slice(0, 200) + '...' }}
+                  dangerouslySetInnerHTML={createSafeHtml(chapter.content.slice(0, 200) + '...')}
                 />
               </CardContent>
             </Card>

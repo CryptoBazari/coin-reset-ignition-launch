@@ -7,6 +7,7 @@ import { ArrowLeft, Calendar, User, Share } from 'lucide-react';
 import { format } from 'date-fns';
 import Navbar from '@/components/Navbar';
 import { useToast } from '@/hooks/use-toast';
+import { createSafeHtml } from '@/utils/htmlSanitizer';
 
 interface NewsArticle {
   id: string;
@@ -184,7 +185,7 @@ const NewsDetail = () => {
           {/* Content */}
           <div className="prose prose-lg max-w-none dark:prose-invert">
             <div 
-              dangerouslySetInnerHTML={{ __html: article.content }}
+              dangerouslySetInnerHTML={createSafeHtml(article.content)}
               className="text-foreground leading-relaxed"
             />
           </div>

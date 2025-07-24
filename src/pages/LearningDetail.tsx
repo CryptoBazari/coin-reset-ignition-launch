@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import ChapterReader from '@/components/learning/ChapterReader';
 import CourseProgress from '@/components/learning/CourseProgress';
+import { createSafeHtml } from '@/utils/htmlSanitizer';
 
 interface LearningCourse {
   id: string;
@@ -285,7 +286,7 @@ const LearningDetail = () => {
                     <CardContent>
                       <div className="prose prose-lg max-w-none dark:prose-invert">
                         <div 
-                          dangerouslySetInnerHTML={{ __html: course.content }}
+                          dangerouslySetInnerHTML={createSafeHtml(course.content)}
                           className="text-foreground leading-relaxed"
                         />
                       </div>

@@ -15,6 +15,7 @@ import RichTextEditor from '@/components/admin/RichTextEditor';
 import ImageUpload from '@/components/admin/ImageUpload';
 import ChapterManagement from '@/components/learning/ChapterManagement';
 import { format } from 'date-fns';
+import { createSafeHtml } from '@/utils/htmlSanitizer';
 
 interface LearningCourse {
   id: string;
@@ -403,7 +404,7 @@ const LearningManagement = () => {
                       <h4 className="text-sm font-medium mb-2">Course Overview</h4>
                       <div 
                         className="prose prose-sm max-w-none text-muted-foreground"
-                        dangerouslySetInnerHTML={{ __html: course.content.slice(0, 300) + '...' }}
+                        dangerouslySetInnerHTML={createSafeHtml(course.content.slice(0, 300) + '...')}
                       />
                     </div>
                   </TabsContent>

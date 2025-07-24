@@ -22,27 +22,12 @@ export const useAdmin = () => {
     let mounted = true;
     
     const initializeAuth = async () => {
-      // Check initial session for akuch87@gmail.com
+      // Check initial session and admin status through database
       const { data: { session } } = await supabase.auth.getSession();
       
-      if (session?.user?.email === 'akuch87@gmail.com') {
-        console.log('🚀 AUTO-GRANTING ADMIN ACCESS TO akuch87@gmail.com');
-        setUser(session.user);
-        setAdminData({
-          id: 'hardcoded-admin',
-          user_id: session.user.id,
-          email: session.user.email,
-          role: 'admin' as const,
-          permissions: ['*'],
-          is_active: true
-        });
-        setIsAdmin(true);
-        setLoading(false);
-        return;
+      if (session?.user) {
+        await checkAdminUser(session.user);
       }
-      
-      // For other users, do normal check
-      await checkAdminStatus();
       
       // Set up listener
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -52,18 +37,7 @@ export const useAdmin = () => {
           console.log('Auth state changed:', event, !!session);
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
             setUser(session?.user || null);
-            if (session?.user?.email === 'akuch87@gmail.com') {
-              console.log('🚀 AUTO-GRANTING ADMIN ACCESS TO akuch87@gmail.com');
-              setAdminData({
-                id: 'hardcoded-admin',
-                user_id: session.user.id,
-                email: session.user.email,
-                role: 'admin' as const,
-                permissions: ['*'],
-                is_active: true
-              });
-              setIsAdmin(true);
-            } else if (session?.user) {
+            if (session?.user) {
               await checkAdminUser(session.user);
             }
           } else if (event === 'SIGNED_OUT') {
@@ -106,25 +80,7 @@ export const useAdmin = () => {
       });
       
       if (session?.user) {
-        // DIRECT CHECK FOR akuch87@gmail.com
-        if (session.user.email === 'akuch87@gmail.com') {
-          console.log('✅ HARDCODED ADMIN ACCESS!');
-          setAdminData({
-            id: 'hardcoded-admin',
-            user_id: session.user.id,
-            email: session.user.email,
-            role: 'admin' as const,
-            permissions: ['*'],
-            is_active: true
-          });
-          setIsAdmin(true);
-          toast({
-            title: "🎉 ADMIN ACCESS GRANTED!",
-            description: `Welcome Admin ${session.user.email}!`,
-          });
-        } else {
-          await checkAdminUser(session.user);
-        }
+        await checkAdminUser(session.user);
       } else {
         console.log('No session found');
         toast({
@@ -150,16 +106,28 @@ export const useAdmin = () => {
     try {
       console.log('🔍 CHECKING ADMIN FOR:', user.email);
       
-      // HARDCODED ADMIN ACCESS FOR akuch87@gmail.com
-      if (user.email === 'akuch87@gmail.com') {
-        console.log('✅ HARDCODED ADMIN ACCESS GRANTED!');
+      // Check admin status through database
+      const { data: adminUser, error } = await supabase
+        .from('admin_users')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+        console.error('Error checking admin user:', error);
+        throw error;
+      }
+
+      if (adminUser) {
+        console.log('✅ ADMIN ACCESS GRANTED!');
         setAdminData({
-          id: 'hardcoded-admin',
-          user_id: user.id,
-          email: user.email,
-          role: 'admin' as const,
-          permissions: ['*'],
-          is_active: true
+          id: adminUser.id,
+          user_id: adminUser.user_id,
+          email: adminUser.email,
+          role: adminUser.role,
+          permissions: adminUser.permissions || [],
+          is_active: adminUser.is_active
         });
         setIsAdmin(true);
         toast({
@@ -167,17 +135,13 @@ export const useAdmin = () => {
           description: `Welcome Admin ${user.email}!`,
         });
       } else {
-        console.log('❌ NOT ADMIN EMAIL');
+        console.log('❌ NOT ADMIN USER');
         setAdminData(null);
         setIsAdmin(false);
-        toast({
-          title: "❌ Access Denied",
-          description: "Not an admin user",
-          variant: "destructive",
-        });
       }
     } catch (error) {
       console.error('💥 ADMIN CHECK ERROR:', error);
+      setAdminData(null);
       setIsAdmin(false);
     }
   };
