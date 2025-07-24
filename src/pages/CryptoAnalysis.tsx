@@ -23,7 +23,7 @@ import { ComprehensiveInvestmentForm } from '@/components/ComprehensiveInvestmen
 import { ComprehensiveAnalysisResults } from '@/components/ComprehensiveAnalysisResults';
 import { comprehensiveGlassNodeAnalyzer, AnalysisInputs, ComprehensiveAnalysisResult } from '@/services/comprehensiveGlassNodeAnalyzer';
 import { useGlassnodeDataInitialization } from '@/hooks/useGlassnodeDataInitialization';
-import { IntegratedBetaAnalysis } from '@/components/analysis/IntegratedBetaAnalysis';
+
 import { priceHistoryExportService } from '@/services/priceHistoryExportService';
 import { betaCalculationExportService } from '@/services/betaCalculationExportService';
 import { Button } from '@/components/ui/button';
@@ -501,9 +501,6 @@ const CryptoAnalysis = () => {
                             )}
                           </div>
                         </div>
-                        
-                        {/* Beta Analysis Integration */}
-                        <IntegratedBetaAnalysis selectedCoin={selectedCoinSymbol} />
                       </div>
                     </CardContent>
                   </Card>
