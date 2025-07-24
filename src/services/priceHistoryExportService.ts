@@ -3,8 +3,13 @@ import { supabase } from '@/integrations/supabase/client';
 interface PriceHistoryData {
   date: string;
   price: number;
-  volume: number;
-  market_cap: number;
+  volume?: number;
+  market_cap?: number;
+}
+
+interface SP500Data {
+  date: string;
+  value: number;
 }
 
 export class PriceHistoryExportService {
@@ -96,6 +101,50 @@ export class PriceHistoryExportService {
     }
   }
 
+  async fetchSP500HistoricalData(): Promise<SP500Data[]> {
+    console.log('📊 Fetching S&P 500 36-month daily data for export...');
+    
+    const endDate = new Date().toISOString().split('T')[0];
+    const startDate = new Date(Date.now() - 3 * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
+    const { data: functionData, error: functionError } = await supabase.functions.invoke(
+      'fetch-sp500-data',
+      {
+        body: { 
+          series_id: 'SP500',
+          observation_start: startDate,
+          observation_end: endDate
+        }
+      }
+    );
+
+    if (functionError) {
+      throw new Error(`Failed to fetch S&P 500 data: ${functionError.message}`);
+    }
+
+    if (!functionData.success) {
+      throw new Error(`API Error: ${functionData.error}`);
+    }
+
+    return functionData.data.map((obs: any) => ({
+      date: obs.date,
+      value: parseFloat(obs.value)
+    }));
+  }
+
+  generateSP500CSV(data: SP500Data[]): string {
+    const headers = ['Date', 'S&P 500 Value'];
+    const csvContent = [
+      headers.join(','),
+      ...data.map(row => [
+        row.date,
+        row.value.toFixed(2)
+      ].join(','))
+    ].join('\n');
+
+    return csvContent;
+  }
+
   async exportBTCHistoricalData(): Promise<void> {
     try {
       console.log('🚀 Starting BTC price history export...');
@@ -111,6 +160,25 @@ export class PriceHistoryExportService {
       console.log('✅ Export completed successfully');
     } catch (error) {
       console.error('❌ Export failed:', error);
+      throw error;
+    }
+  }
+
+  async exportSP500HistoricalData(): Promise<void> {
+    try {
+      console.log('🚀 Starting S&P 500 data export...');
+      
+      const data = await this.fetchSP500HistoricalData();
+      console.log(`📊 Exporting ${data.length} data points`);
+      
+      const csvContent = this.generateSP500CSV(data);
+      const filename = `sp500_data_36m_${new Date().toISOString().split('T')[0]}.csv`;
+      
+      this.downloadCSV(csvContent, filename);
+      
+      console.log('✅ S&P 500 export completed successfully');
+    } catch (error) {
+      console.error('❌ S&P 500 export failed:', error);
       throw error;
     }
   }
