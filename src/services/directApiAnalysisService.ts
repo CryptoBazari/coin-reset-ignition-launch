@@ -335,7 +335,7 @@ export class DirectApiAnalysisService {
       try {
         // Use the coin's Glassnode asset name if available, otherwise use symbol
         const mapping = symbolMappingService.getMapping(symbol);
-        const cagrAssetId = mapping?.glassNodeAsset || symbol.toLowerCase();
+        const cagrAssetId = mapping?.glassNodeAsset || symbol.toUpperCase();
         console.log(`🔄 Calculating CAGR for ${symbol} using asset ID: ${cagrAssetId}`);
         cagrCalculationDetails = await comprehensiveCAGRCalculationService.calculateComprehensiveCAGR(cagrAssetId);
         console.log('✅ Detailed CAGR calculation completed');
