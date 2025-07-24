@@ -66,6 +66,8 @@ export class ComprehensiveBetaCalculationService {
       const startTimestamp = Math.floor(new Date(startDate).getTime() / 1000);
       const endTimestamp = Math.floor(new Date(endDate).getTime() / 1000);
       
+      console.log(`📊 Fetching Glassnode data for ${asset} from ${startDate} to ${endDate}`);
+      
       const { data, error } = await supabase.functions.invoke('fetch-glassnode-data', {
         body: {
           endpoint: '/v1/metrics/market/price_usd_close',
@@ -80,7 +82,12 @@ export class ComprehensiveBetaCalculationService {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Glassnode API error:', error);
+        throw error;
+      }
+
+      console.log('Raw Glassnode response:', data);
 
       // Handle different response formats
       const responseData = Array.isArray(data) ? data : 
@@ -89,13 +96,17 @@ export class ComprehensiveBetaCalculationService {
 
       if (!Array.isArray(responseData)) {
         console.error('Invalid response format:', data);
-        throw new Error('Expected array response from Glassnode API');
+        throw new Error(`Expected array response from Glassnode API, got: ${typeof data}`);
       }
 
-      return responseData.map((item: any) => ({
+      const processedData = responseData.map((item: any) => ({
         date: new Date(item.t * 1000).toISOString().split('T')[0],
         price: parseFloat(item.v)
       })).filter((item: PriceData) => item.price > 0);
+
+      console.log(`✅ Processed ${processedData.length} data points for ${asset}`);
+      
+      return processedData;
     } catch (error) {
       console.error(`Error fetching Glassnode data for ${asset}:`, error);
       throw error;

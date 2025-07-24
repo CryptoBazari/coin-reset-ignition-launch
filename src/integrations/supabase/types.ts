@@ -1213,6 +1213,10 @@ export type Database = {
         Args: { target_user_id: string }
         Returns: Json
       }
+      check_admin_access: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       cleanup_expired_payments: {
         Args: Record<PropertyKey, never>
         Returns: Json

@@ -28,11 +28,13 @@ interface HybridInvestmentFormProps {
     hasGlassNodeData: boolean;
   }) => void;
   loading: boolean;
+  onCoinSelect?: (coinData: CoinMarketCapCoin) => void;
 }
 
 export const HybridInvestmentForm: React.FC<HybridInvestmentFormProps> = ({
   onSubmit,
-  loading
+  loading,
+  onCoinSelect
 }) => {
   const [selectedCoin, setSelectedCoin] = useState<CoinMarketCapCoin | null>(null);
   const [selectedCoinId, setSelectedCoinId] = useState<string>('');
@@ -61,6 +63,11 @@ export const HybridInvestmentForm: React.FC<HybridInvestmentFormProps> = ({
     setSelectedCoin(coinData);
     setSelectedCoinId(coinId);
     setValue('coinId', coinId);
+    
+    // Call the parent callback if provided
+    if (onCoinSelect) {
+      onCoinSelect(coinData);
+    }
   };
 
   const handleFormSubmit = (data: {

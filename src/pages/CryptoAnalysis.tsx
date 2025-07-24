@@ -23,7 +23,7 @@ import { ComprehensiveInvestmentForm } from '@/components/ComprehensiveInvestmen
 import { ComprehensiveAnalysisResults } from '@/components/ComprehensiveAnalysisResults';
 import { comprehensiveGlassNodeAnalyzer, AnalysisInputs, ComprehensiveAnalysisResult } from '@/services/comprehensiveGlassNodeAnalyzer';
 import { useGlassnodeDataInitialization } from '@/hooks/useGlassnodeDataInitialization';
-import { ComprehensiveBetaAnalysis } from '@/components/analysis/ComprehensiveBetaAnalysis';
+import { IntegratedBetaAnalysis } from '@/components/analysis/IntegratedBetaAnalysis';
 import { priceHistoryExportService } from '@/services/priceHistoryExportService';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -231,12 +231,8 @@ const CryptoAnalysis = () => {
               </CardContent>
             </Card>
           ) : (
-            <Tabs defaultValue="beta" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-6">
-                <TabsTrigger value="beta" className="gap-2">
-                  <Calculator className="h-4 w-4" />
-                  Beta Analysis
-                </TabsTrigger>
+            <Tabs defaultValue="hybrid" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="overview" className="gap-2">
                   <Globe className="h-4 w-4" />
                   Market Overview
@@ -261,10 +257,6 @@ const CryptoAnalysis = () => {
                   Legacy Analysis
                 </TabsTrigger>
               </TabsList>
-
-              <TabsContent value="beta">
-                <ComprehensiveBetaAnalysis />
-              </TabsContent>
 
               <TabsContent value="overview">
                 <MarketOverview />
@@ -324,20 +316,28 @@ const CryptoAnalysis = () => {
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <div>
-                          <HybridInvestmentForm 
-                            onSubmit={handleHybridAnalysis}
-                            loading={hybridLoading}
-                          />
-                        </div>
-                        <div>
-                          {hybridResult && (
-                            <HybridAnalysisResults 
-                              result={hybridResult}
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                          <div>
+                            <HybridInvestmentForm 
+                              onSubmit={handleHybridAnalysis}
+                              loading={hybridLoading}
+                              onCoinSelect={(coinData) => {
+                                setSelectedCoinSymbol(coinData.symbol?.toUpperCase() || 'BTC');
+                              }}
                             />
-                          )}
+                          </div>
+                          <div>
+                            {hybridResult && (
+                              <HybridAnalysisResults 
+                                result={hybridResult}
+                              />
+                            )}
+                          </div>
                         </div>
+                        
+                        {/* Beta Analysis Integration */}
+                        <IntegratedBetaAnalysis selectedCoin={selectedCoinSymbol} />
                       </div>
                     </CardContent>
                   </Card>
