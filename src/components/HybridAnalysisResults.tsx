@@ -210,9 +210,9 @@ export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({ re
             </div>
             <div className="text-center p-3 bg-slate-50 rounded-lg">
               <div className="text-xl font-bold text-purple-700">
-                {result.financialMetrics.cagr.toFixed(1)}%
+                {result.cagrCalculationDetails ? result.cagrCalculationDetails.cagrPercent.toFixed(1) : result.financialMetrics.cagr.toFixed(1)}%
               </div>
-              <div className="text-sm text-gray-600">CAGR</div>
+              <div className="text-sm text-gray-600">CAGR {result.cagrCalculationDetails ? '(Glassnode)' : ''}</div>
             </div>
             <div className="text-center p-3 bg-slate-50 rounded-lg">
               <div className="text-xl font-bold text-orange-700">

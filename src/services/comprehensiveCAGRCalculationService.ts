@@ -132,10 +132,12 @@ export class ComprehensiveCAGRCalculationService {
   private async gatherAndPrepareDailyPriceData(coinId: string, maxDays: number): Promise<PriceDataPoint[]> {
     console.log(`📊 Gathering daily price data for ${coinId} (max ${maxDays} days)...`);
     
+    // Use Glassnode data source only
     const { data, error } = await supabase
       .from('price_history_36m')
       .select('price_date, price_usd, data_source')
       .eq('coin_id', coinId)
+      .eq('data_source', 'glassnode')
       .order('price_date', { ascending: true })
       .limit(maxDays);
     
