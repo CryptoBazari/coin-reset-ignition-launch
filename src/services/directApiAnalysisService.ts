@@ -176,7 +176,7 @@ export class DirectApiAnalysisService {
     timeHorizon: number,
     bitcoinMarketState: any
   ): Promise<DirectAnalysisResult> {
-    const mapping = symbolMappingService.getMapping(coinId);
+    const mapping = symbolMappingService.getMapping(symbol);
     const glassNodeAsset = mapping?.glassNodeAsset;
     
     let result: DirectAnalysisResult;
