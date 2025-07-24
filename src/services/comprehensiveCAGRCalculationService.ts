@@ -159,13 +159,14 @@ export class ComprehensiveCAGRCalculationService {
         
         if (glassnodeError) {
           console.warn(`⚠️ Glassnode API failed: ${glassnodeError.message}, falling back to database`);
-        } else if (glassnodeData && glassnodeData.length > 0) {
+        } else if (glassnodeData && Array.isArray(glassnodeData) && glassnodeData.length > 0) {
           // Transform Glassnode data to PriceDataPoint format
+          console.log(`🔧 Transforming ${glassnodeData.length} Glassnode data points...`);
           const validatedData: PriceDataPoint[] = glassnodeData
-            .filter((point: any) => point.v && point.v > 0)
+            .filter((point: any) => point.value && point.value > 0)
             .map((point: any) => ({
-              price_date: new Date(point.t * 1000).toISOString().split('T')[0], // Convert timestamp to YYYY-MM-DD
-              price_usd: parseFloat(point.v.toString()),
+              price_date: new Date(point.unix_timestamp * 1000).toISOString().split('T')[0], // Convert timestamp to YYYY-MM-DD
+              price_usd: parseFloat(point.value.toString()),
               data_source: 'glassnode'
             }))
             .sort((a, b) => a.price_date.localeCompare(b.price_date)); // Sort ascending by date
