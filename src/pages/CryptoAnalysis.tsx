@@ -184,6 +184,58 @@ const CryptoAnalysis = () => {
     }
   };
 
+  const handleExportETHHistory = async () => {
+    setExportLoading(true);
+    try {
+      toast({
+        title: "Export Started",
+        description: "Fetching ETH price history...",
+      });
+
+      await priceHistoryExportService.exportETHHistoricalData();
+      
+      toast({
+        title: "Export Completed",
+        description: "ETH 36-month price history downloaded successfully",
+      });
+    } catch (error) {
+      console.error('ETH export failed:', error);
+      toast({
+        title: "Export Failed",
+        description: error instanceof Error ? error.message : "Failed to export ETH data",
+        variant: "destructive",
+      });
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const handleExportSOLHistory = async () => {
+    setExportLoading(true);
+    try {
+      toast({
+        title: "Export Started",
+        description: "Fetching SOL price history...",
+      });
+
+      await priceHistoryExportService.exportSOLHistoricalData();
+      
+      toast({
+        title: "Export Completed",
+        description: "SOL 36-month price history downloaded successfully",
+      });
+    } catch (error) {
+      console.error('SOL export failed:', error);
+      toast({
+        title: "Export Failed",
+        description: error instanceof Error ? error.message : "Failed to export SOL data",
+        variant: "destructive",
+      });
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       <Navbar />
@@ -209,6 +261,30 @@ const CryptoAnalysis = () => {
                 >
                   <Download className="h-4 w-4" />
                   {exportLoading ? 'Exporting...' : 'Export BTC Data'}
+                </Button>
+              )}
+              {selectedCoinSymbol === 'ETH' && hasAccess && (
+                <Button
+                  onClick={handleExportETHHistory}
+                  disabled={exportLoading}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  {exportLoading ? 'Exporting...' : 'Export ETH Data'}
+                </Button>
+              )}
+              {selectedCoinSymbol === 'SOL' && hasAccess && (
+                <Button
+                  onClick={handleExportSOLHistory}
+                  disabled={exportLoading}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  {exportLoading ? 'Exporting...' : 'Export SOL Data'}
                 </Button>
               )}
               {hasAccess && (
