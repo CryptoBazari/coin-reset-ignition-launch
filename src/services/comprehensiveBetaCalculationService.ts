@@ -117,8 +117,9 @@ export class ComprehensiveBetaCalculationService {
     try {
       const { data, error } = await supabase.functions.invoke('fetch-sp500-data', {
         body: {
-          startDate,
-          endDate
+          series_id: 'SP500',
+          observation_start: startDate,
+          observation_end: endDate
         }
       });
 
