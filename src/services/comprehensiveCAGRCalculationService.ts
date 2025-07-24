@@ -134,8 +134,25 @@ export class ComprehensiveCAGRCalculationService {
     console.log(`📊 Gathering daily price data for ${coinId} (max ${maxDays} days)...`);
     
     // Check if coin is supported by Glassnode using symbol mapping service
-    const isSupported = symbolMappingService.isGlassNodeSupported(coinId);
-    const glassnodeAsset = symbolMappingService.getGlassNodeAsset(coinId);
+    // Note: coinId might be symbol like "ETH" or numeric ID like "1027"
+    let mapping = symbolMappingService.getMapping(coinId);
+    if (!mapping) {
+      // Try to find by searching coins table for this coinId
+      const { data: coinData } = await supabase
+        .from('coins')
+        .select('coin_id, name')
+        .eq('coin_id', coinId)
+        .single();
+      
+      if (coinData) {
+        // Try mapping with the coin symbol from database
+        const symbol = coinData.name?.toLowerCase() || coinId;
+        mapping = symbolMappingService.getMapping(symbol);
+      }
+    }
+    
+    const isSupported = mapping ? symbolMappingService.isGlassNodeSupported(mapping.coinMarketCapSymbol || coinId) : false;
+    const glassnodeAsset = mapping?.glassNodeAsset;
     
     console.log(`🔍 CAGR Service Debug - coinId: ${coinId}, isSupported: ${isSupported}, glassnodeAsset: ${glassnodeAsset}`);
     
