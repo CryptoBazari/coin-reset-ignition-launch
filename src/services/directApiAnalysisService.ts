@@ -6,7 +6,7 @@ import { bitcoinAnalysisService } from '@/services/bitcoinAnalysisService';
 import { realDataFinancialCalculations } from '@/services/realDataFinancialCalculations';
 import { bitcoinMarketAnalyzer } from '@/services/bitcoinMarketAnalyzer';
 import { comprehensiveBetaCalculationService, type BetaCalculationResult } from '@/services/comprehensiveBetaCalculationService';
-import { comprehensiveCAGRCalculationService, type CAGRCalculationResult } from '@/services/comprehensiveCAGRCalculationService';
+
 
 export interface DirectAnalysisResult {
   coinId: string;
@@ -59,7 +59,6 @@ export interface DirectAnalysisResult {
   
   // Beta calculation details (when available)
   betaCalculationDetails?: BetaCalculationResult;
-  cagrCalculationDetails?: CAGRCalculationResult;
   
   // Data quality indicators
   dataQuality: {
@@ -127,15 +126,7 @@ export class DirectApiAnalysisService {
         console.warn('⚠️ Detailed beta calculation failed for Bitcoin, continuing without it:', error);
       }
       
-      // Get comprehensive CAGR calculation details for Bitcoin
-      console.log('🔄 Calculating detailed CAGR analysis for Bitcoin...');
-      let cagrCalculationDetails: CAGRCalculationResult | undefined;
-      try {
-        cagrCalculationDetails = await comprehensiveCAGRCalculationService.calculateComprehensiveCAGR('bitcoin');
-        console.log('✅ Detailed CAGR calculation completed for Bitcoin');
-      } catch (error) {
-        console.warn('⚠️ Detailed CAGR calculation failed for Bitcoin, continuing without it:', error);
-      }
+      // CAGR is already calculated correctly in Bitcoin analysis service
       
       console.log('✅ Bitcoin analysis completed with full cointime metrics');
       
@@ -158,7 +149,6 @@ export class DirectApiAnalysisService {
         },
         recommendation: bitcoinAnalysis.recommendation,
         betaCalculationDetails,
-        cagrCalculationDetails,
         dataQuality: bitcoinAnalysis.dataQuality,
         lastUpdated: new Date().toISOString()
       };
@@ -232,30 +222,7 @@ export class DirectApiAnalysisService {
         console.warn(`⚠️ Comprehensive beta calculation failed for ${symbol}, using fallback:`, betaError);
       }
       
-      // Use CAGR from financial metrics (already calculated correctly)
-      console.log(`📊 Using CAGR from financial metrics: ${financialMetrics.cagr}%`);
-      const cagrCalculationDetails: CAGRCalculationResult = {
-        cagr: financialMetrics.cagr / 100, // Convert percentage to decimal
-        cagrPercent: financialMetrics.cagr,
-        beginningDate: 'Database calculation',
-        beginningPrice: 0,
-        endingDate: 'Database calculation', 
-        endingPrice: 0,
-        totalDays: timeHorizon * 365,
-        numYears: timeHorizon,
-        growthRatio: 1 + (financialMetrics.cagr / 100),
-        exponent: 1 / timeHorizon,
-        annualizedGrowth: 1 + (financialMetrics.cagr / 100),
-        dataPoints: 365 * timeHorizon,
-        dataQuality: 85, // Good quality from database
-        dataSource: 'database',
-        calculatedAt: new Date().toISOString(),
-        coinId,
-        isValid: financialMetrics.cagr !== 0,
-        hasMinimumData: true,
-        hasCompletePeriod: true,
-        warnings: []
-      };
+      // CAGR is already calculated correctly in financialMetrics from database
       
       // Generate altcoin recommendation (no cointime metrics)
       const recommendation = this.generateAltcoinRecommendation(
@@ -292,7 +259,6 @@ export class DirectApiAnalysisService {
         },
         recommendation,
         betaCalculationDetails,
-        cagrCalculationDetails,
         dataQuality: {
           score: financialMetrics.confidenceScore,
           source: 'Glassnode + CoinMarketCap',
@@ -346,15 +312,7 @@ export class DirectApiAnalysisService {
         console.warn(`⚠️ Comprehensive beta calculation failed for ${symbol}, using fallback:`, betaError);
       }
       
-      // Calculate comprehensive CAGR for detailed analysis
-      let cagrCalculationDetails: CAGRCalculationResult | undefined;
-      try {
-        console.log(`🔄 Calculating CAGR for ${symbol} using coinId: ${coinId}`);
-        cagrCalculationDetails = await comprehensiveCAGRCalculationService.calculateComprehensiveCAGR(coinId);
-        console.log('✅ Detailed CAGR calculation completed');
-      } catch (error) {
-        console.warn('⚠️ Detailed CAGR calculation failed, continuing without it:', error);
-      }
+      // CAGR is already calculated correctly in financialMetrics from database
       
       // Generate conservative altcoin recommendation
       const recommendation = this.generateAltcoinRecommendation(
@@ -391,7 +349,6 @@ export class DirectApiAnalysisService {
         },
         recommendation,
         betaCalculationDetails,
-        cagrCalculationDetails,
         dataQuality: {
           score: financialMetrics.confidenceScore,
           source: 'CoinMarketCap only',

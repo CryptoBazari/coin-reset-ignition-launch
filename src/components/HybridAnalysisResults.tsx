@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Shield, Globe, AlertCircle, TrendingUp, Activity, Bitcoin, Coins } from 'lucide-react';
 import type { DirectAnalysisResult } from '@/services/directApiAnalysisService';
 import { BetaCalculationCard } from '@/components/analysis/BetaCalculationCard';
-import { CAGRCalculationCard } from '@/components/analysis/CAGRCalculationCard';
+
 
 interface HybridAnalysisResultsProps {
   result: DirectAnalysisResult;
@@ -210,9 +210,9 @@ export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({ re
             </div>
             <div className="text-center p-3 bg-slate-50 rounded-lg">
               <div className="text-xl font-bold text-purple-700">
-                {result.cagrCalculationDetails ? result.cagrCalculationDetails.cagrPercent.toFixed(1) : result.financialMetrics.cagr.toFixed(1)}%
+                {result.financialMetrics.cagr.toFixed(1)}%
               </div>
-              <div className="text-sm text-gray-600">CAGR {result.cagrCalculationDetails ? '(Glassnode)' : ''}</div>
+              <div className="text-sm text-gray-600">CAGR</div>
             </div>
             <div className="text-center p-3 bg-slate-50 rounded-lg">
               <div className="text-xl font-bold text-orange-700">
@@ -241,10 +241,6 @@ export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({ re
         <BetaCalculationCard betaDetails={result.betaCalculationDetails} />
       )}
 
-      {/* CAGR Calculation Details (when available) */}
-      {result.cagrCalculationDetails && (
-        <CAGRCalculationCard result={result.cagrCalculationDetails} />
-      )}
 
       {/* Investment Recommendation */}
       <Card>
