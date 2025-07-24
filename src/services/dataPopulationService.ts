@@ -24,8 +24,8 @@ class DataPopulationService {
         errors: []
       };
 
-      // Step 1: Update coins table with real current data
-      console.log('Step 1: Updating coins table...');
+      // Step 1: Update coins table with real current data AND populate daily Glassnode data
+      console.log('Step 1: Updating coins and populating daily Glassnode data...');
       try {
         const { data: coinsResult, error: coinsError } = await supabase.functions.invoke(
           'update-coins-real-data',
@@ -38,15 +38,27 @@ class DataPopulationService {
           results.coinsUpdated = coinsResult?.updated || 0;
           console.log(`✅ Updated ${results.coinsUpdated} coins`);
         }
+
+        // Also trigger Glassnode daily data update
+        const { data: glassNodeResult, error: glassNodeError } = await supabase.functions.invoke(
+          'update-real-glass-node-data',
+          { body: {} }
+        );
+        
+        if (glassNodeError) {
+          results.errors.push(`Glassnode daily data update failed: ${glassNodeError.message}`);
+        } else {
+          console.log(`✅ Updated Glassnode daily data for supported coins`);
+        }
       } catch (error) {
-        results.errors.push(`Coins update error: ${error.message}`);
+        results.errors.push(`Data update error: ${error.message}`);
       }
 
       // Wait 3 seconds before next step
       await new Promise(resolve => setTimeout(resolve, 3000));
 
-      // Step 2: Populate price history
-      console.log('Step 2: Populating price history...');
+      // Step 2: Populate daily price history (including daily Glassnode data)
+      console.log('Step 2: Populating daily price history...');
       try {
         const { data: priceResult, error: priceError } = await supabase.functions.invoke(
           'bulk-populate-price-history',
@@ -57,7 +69,7 @@ class DataPopulationService {
           results.errors.push(`Price history failed: ${priceError.message}`);
         } else {
           results.priceHistoryPopulated = priceResult?.successful || 0;
-          console.log(`✅ Populated price history for ${results.priceHistoryPopulated} coins`);
+          console.log(`✅ Populated daily price history for ${results.priceHistoryPopulated} coins`);
         }
       } catch (error) {
         results.errors.push(`Price history error: ${error.message}`);
