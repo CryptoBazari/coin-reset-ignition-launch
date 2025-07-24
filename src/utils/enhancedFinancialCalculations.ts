@@ -1,17 +1,36 @@
 
 import type { EnhancedCoinData, MarketConditions } from '@/types/investment';
 
-export const calculateEnhancedNPV = (
+export const calculateEnhancedNPV = async (
   investmentAmount: number,
   coinData: EnhancedCoinData,
   horizon: number,
   discountRate: number
-): { npv: number; projectedValues: number[]; confidenceScore: number } => {
+): Promise<{ npv: number; projectedValues: number[]; confidenceScore: number }> => {
   const projectedValues: number[] = [];
   const currentPrice = coinData.current_price;
   
-  // VERIFIED: Enhanced growth rate using Glass Node data
-  let baseGrowthRate = (coinData.cagr_36m || 20) / 100;
+  // Import the real-time CAGR calculation service
+  const { realTimeCAGRCalculationService } = await import('@/services/realTimeCAGRCalculationService');
+  
+  let baseGrowthRate: number;
+  
+  try {
+    // Calculate REAL CAGR using Glassnode API data
+    console.log('🔍 NPV: Calculating REAL CAGR using Glassnode API data...');
+    const coinSymbol = coinData.coin_id;
+    const realCAGRResult = await realTimeCAGRCalculationService.calculateRealTimeCAGR(
+      coinData.coin_id, 
+      coinSymbol, 
+      3
+    );
+    
+    baseGrowthRate = realCAGRResult.cagr / 100;
+    console.log(`✅ NPV: Using REAL CAGR ${realCAGRResult.cagr.toFixed(2)}% from ${realCAGRResult.dataSource}`);
+  } catch (error) {
+    console.warn('⚠️ NPV: Real-time CAGR calculation failed, using fallback:', error);
+    baseGrowthRate = (coinData.cagr_36m || 20) / 100;
+  }
   
   // Log data source verification
   console.log('🔍 NPV Calculation Data Sources:');

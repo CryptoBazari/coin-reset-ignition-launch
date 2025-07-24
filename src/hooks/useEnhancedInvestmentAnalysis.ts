@@ -97,7 +97,7 @@ export const useEnhancedInvestmentAnalysis = () => {
 
       // 4. Calculate enhanced financial metrics
       console.log('💰 Calculating enhanced financial metrics...');
-      const npvResult = calculateEnhancedNPV(
+      const npvResult = await calculateEnhancedNPV(
         inputs.investmentAmount,
         enhancedCoinData,
         inputs.investmentHorizon || 2,
