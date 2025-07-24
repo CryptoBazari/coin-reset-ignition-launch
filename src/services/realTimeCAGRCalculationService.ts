@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { symbolMappingService } from './symbolMappingService';
 
 export interface RealTimeCAGRResult {
   cagr: number;
@@ -33,11 +34,14 @@ class RealTimeCAGRCalculationService {
     console.log(`🔢 Starting real-time CAGR calculation for ${symbol} (${yearsBack} years)`);
     
     // Try to get fresh Glassnode data first (for supported coins)
-    if (this.isGlassNodeSupported(symbol)) {
+    if (this.isGlassNodeSupported(coinId)) {
       try {
-        const glassnodeResult = await this.calculateCAGRFromGlassNode(symbol, yearsBack);
-        console.log(`✅ Using fresh Glassnode data for ${symbol} CAGR calculation`);
-        return glassnodeResult;
+        const glassnodeAsset = symbolMappingService.getGlassNodeAsset(coinId);
+        if (glassnodeAsset) {
+          const glassnodeResult = await this.calculateCAGRFromGlassNode(glassnodeAsset, yearsBack);
+          console.log(`✅ Using fresh Glassnode data for ${symbol} CAGR calculation`);
+          return glassnodeResult;
+        }
       } catch (error) {
         console.warn(`⚠️ Glassnode fetch failed for ${symbol}, falling back to database:`, error);
       }
@@ -253,11 +257,10 @@ class RealTimeCAGRCalculationService {
   }
   
   /**
-   * Check if a coin is supported by Glassnode
+   * Check if a coin is supported by Glassnode using the symbol mapping service
    */
-  private isGlassNodeSupported(symbol: string): boolean {
-    const supportedCoins = ['BTC', 'ETH', 'LTC'];
-    return supportedCoins.includes(symbol.toUpperCase());
+  private isGlassNodeSupported(coinIdOrSymbol: string): boolean {
+    return symbolMappingService.isGlassNodeSupported(coinIdOrSymbol);
   }
 }
 

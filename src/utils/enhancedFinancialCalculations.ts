@@ -28,8 +28,8 @@ export const calculateEnhancedNPV = async (
     baseGrowthRate = realCAGRResult.cagr / 100;
     console.log(`✅ NPV: Using REAL CAGR ${realCAGRResult.cagr.toFixed(2)}% from ${realCAGRResult.dataSource}`);
   } catch (error) {
-    console.warn('⚠️ NPV: Real-time CAGR calculation failed, using fallback:', error);
-    baseGrowthRate = (coinData.cagr_36m || 20) / 100;
+    console.error('❌ NPV: Real-time CAGR calculation failed:', error);
+    throw new Error(`Failed to calculate NPV for ${coinData.coin_id}: ${error.message}`);
   }
   
   // Log data source verification
@@ -141,20 +141,8 @@ export const calculateEnhancedCAGR = async (
     };
     
   } catch (error) {
-    console.error('❌ Real-time CAGR calculation failed, using fallback:', error);
-    
-    // Fallback to database value if real-time calculation fails
-    const baseCagr = coinData.cagr_36m || 20;
-    const volatility = coinData.priceHistory.volatility30d || 50;
-    const onChainGrowthRate = coinData.onChainData.networkGrowth || 0;
-    
-    const volatilityAdjustedCAGR = baseCagr * (1 - volatility / 200);
-    
-    return {
-      cagr: baseCagr,
-      volatilityAdjustedCAGR,
-      onChainGrowthRate
-    };
+    console.error('❌ Real-time CAGR calculation failed:', error);
+    throw new Error(`Failed to calculate CAGR for ${coinData.coin_id}: ${error.message}`);
   }
 };
 
