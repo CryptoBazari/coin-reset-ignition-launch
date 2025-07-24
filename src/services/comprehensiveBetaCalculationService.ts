@@ -113,7 +113,8 @@ export class ComprehensiveBetaCalculationService {
           asset: asset.toUpperCase(),
           resolution: '24h',
           since: startDate,
-          until: endDate
+          until: endDate,
+          disableSampling: true // Get raw daily data for beta calculation
         }
       });
 
@@ -122,7 +123,7 @@ export class ComprehensiveBetaCalculationService {
         throw error;
       }
 
-      console.log('Raw Glassnode response:', data);
+      console.log(`✅ Glassnode data received: ${data?.data?.length || 0} points for ${asset}`);
 
       // Handle different response formats - ensure we get an array
       let responseData: any[] = [];
@@ -156,7 +157,16 @@ export class ComprehensiveBetaCalculationService {
         })
         .sort((a, b) => a.date.localeCompare(b.date)); // Sort chronologically
 
-      console.log(`✅ Processed ${processedData.length} valid data points for ${asset}`);
+      // Add data validation for expected daily frequency
+      const expectedDailyPoints = Math.floor((new Date(endDate).getTime() - new Date(startDate).getTime()) / (24 * 60 * 60 * 1000));
+      const dataFrequency = processedData.length >= expectedDailyPoints * 0.8 ? 'daily' : 'monthly';
+      
+      console.log(`💰 ${asset}: ${processedData.length} points (expected ~${expectedDailyPoints} daily) - Frequency: ${dataFrequency}`);
+      console.log(`📅 Date range: ${processedData[0]?.date} to ${processedData[processedData.length - 1]?.date}`);
+      
+      if (dataFrequency === 'monthly' && processedData.length < 30) {
+        console.warn(`⚠️ Warning: Only ${processedData.length} data points for ${asset}, may affect beta accuracy`);
+      }
       
       // Validate minimum data points
       if (processedData.length < 30) {

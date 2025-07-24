@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { metric, asset, since, until, resolution } = await req.json();
+    const { metric, asset, since, until, resolution, disableSampling } = await req.json();
     
     const glassNodeApiKey = Deno.env.get('GLASSNODE_API_KEY');
     
@@ -239,8 +239,11 @@ Deno.serve(async (req) => {
     }));
 
     // Apply monthly sampling if we have daily data spanning more than 2 months
-    if (processedData.length > 60) {
+    // Skip sampling if explicitly disabled (for beta calculations)
+    if (processedData.length > 60 && !disableSampling) {
       processedData = sampleDataToMonthly(processedData);
+    } else if (disableSampling) {
+      console.log(`🔍 Beta calculation mode: Keeping all ${processedData.length} daily data points`);
     }
 
     return new Response(
