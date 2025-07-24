@@ -160,17 +160,18 @@ export class ComprehensiveCAGRCalculationService {
         
         if (glassnodeError) {
           console.warn(`⚠️ Glassnode API failed: ${glassnodeError.message}, falling back to database`);
-        } else if (glassnodeData && (glassnodeData.data || Array.isArray(glassnodeData))) {
-          // Handle flexible response formats - data could be in glassnodeData.data or directly in glassnodeData
-          const dataArray = glassnodeData.data || glassnodeData;
+        } else if (glassnodeData && glassnodeData.success && glassnodeData.data && Array.isArray(glassnodeData.data)) {
+          // Use proper Glassnode response format - check for success and use data.data like beta service
+          const dataArray = glassnodeData.data;
           
-          if (Array.isArray(dataArray) && dataArray.length > 0) {
+          if (dataArray.length > 0) {
             console.log(`🔧 Transforming ${dataArray.length} Glassnode data points...`);
+            console.log(`📊 CAGR Debug - First data point:`, dataArray[0]);
             const validatedData: PriceDataPoint[] = dataArray
-              .filter((point: any) => (point.value || point.v) && (point.value > 0 || point.v > 0))
+              .filter((point: any) => point.v && point.v > 0)
               .map((point: any) => ({
-                price_date: new Date((point.timestamp || point.t) * 1000).toISOString().split('T')[0], // Use timestamp like beta service
-                price_usd: parseFloat((point.value || point.v).toString()),
+                price_date: new Date(point.t * 1000).toISOString().split('T')[0], // Use t * 1000 like beta service
+                price_usd: parseFloat(point.v.toString()),
                 data_source: 'glassnode'
               }))
               .sort((a, b) => a.price_date.localeCompare(b.price_date)); // Sort ascending by date
