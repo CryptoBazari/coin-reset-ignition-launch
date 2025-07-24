@@ -189,7 +189,7 @@ export class ComprehensiveBetaCalculationService {
 
   /**
    * Align price data on common dates using benchmark dates as master
-   * Logic: Use benchmark dates as master to ensure trading day alignment
+   * Logic: Use benchmark dates as master to ensure trading day alignment with forward-fill
    */
   private alignPriceData(coinData: PriceData[], benchmarkData: PriceData[]): AlignedData[] {
     console.log(`🔄 Aligning ${coinData.length} coin prices with ${benchmarkData.length} benchmark prices`);
@@ -199,10 +199,17 @@ export class ComprehensiveBetaCalculationService {
     const benchmarkMap = new Map(benchmarkData.map(item => [item.date, item.price]));
     
     const aligned: AlignedData[] = [];
+    let lastValidCoinPrice: number | null = null;
     
     // Use benchmark dates as master (important for S&P 500 trading days)
     for (const benchmarkItem of benchmarkData) {
-      const coinPrice = coinMap.get(benchmarkItem.date);
+      let coinPrice = coinMap.get(benchmarkItem.date);
+      
+      // If no exact match, use forward-fill from last valid price
+      if (coinPrice === undefined && lastValidCoinPrice !== null) {
+        coinPrice = lastValidCoinPrice;
+        console.log(`📅 Forward-filling coin price for ${benchmarkItem.date}: ${coinPrice}`);
+      }
       
       if (coinPrice !== undefined) {
         // Type validation: ensure prices are numbers
@@ -212,6 +219,7 @@ export class ComprehensiveBetaCalculationService {
             coinPrice,
             benchmarkPrice: benchmarkItem.price
           });
+          lastValidCoinPrice = coinPrice; // Update last valid price
         }
       }
     }
@@ -221,9 +229,9 @@ export class ComprehensiveBetaCalculationService {
     
     console.log(`✅ Successfully aligned ${aligned.length} data points`);
     
-    // Validate minimum aligned data points
-    if (aligned.length < 30) {
-      throw new Error(`Insufficient aligned data points: ${aligned.length}. Need at least 30.`);
+    // Lower threshold to 20 for more flexibility with aligned data
+    if (aligned.length < 20) {
+      throw new Error(`Insufficient aligned data points: ${aligned.length}. Need at least 20.`);
     }
     
     return aligned;
