@@ -158,6 +158,32 @@ const CryptoAnalysis = () => {
     }
   };
 
+  const handleExportSP500History = async () => {
+    setExportLoading(true);
+    try {
+      toast({
+        title: "Export Started",
+        description: "Fetching S&P 500 data...",
+      });
+
+      await priceHistoryExportService.exportSP500HistoricalData();
+      
+      toast({
+        title: "Export Completed",
+        description: "S&P 500 36-month data downloaded successfully",
+      });
+    } catch (error) {
+      console.error('S&P 500 export failed:', error);
+      toast({
+        title: "Export Failed",
+        description: error instanceof Error ? error.message : "Failed to export S&P 500 data",
+        variant: "destructive",
+      });
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       <Navbar />
@@ -172,18 +198,32 @@ const CryptoAnalysis = () => {
             <h1 className="text-4xl font-bold text-gray-900">
               Hybrid Crypto Investment Analyzer
             </h1>
-            {selectedCoinSymbol === 'BTC' && hasAccess && (
-              <Button
-                onClick={handleExportBTCHistory}
-                disabled={exportLoading}
-                variant="outline"
-                size="sm"
-                className="gap-2"
-              >
-                <Download className="h-4 w-4" />
-                {exportLoading ? 'Exporting...' : 'Export BTC Data'}
-              </Button>
-            )}
+            <div className="flex gap-2">
+              {selectedCoinSymbol === 'BTC' && hasAccess && (
+                <Button
+                  onClick={handleExportBTCHistory}
+                  disabled={exportLoading}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  {exportLoading ? 'Exporting...' : 'Export BTC Data'}
+                </Button>
+              )}
+              {hasAccess && (
+                <Button
+                  onClick={handleExportSP500History}
+                  disabled={exportLoading}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  {exportLoading ? 'Exporting...' : 'Export S&P 500'}
+                </Button>
+              )}
+            </div>
           </div>
           <p className="text-xl text-gray-600 max-w-4xl mx-auto">
             <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm font-semibold mr-2">
