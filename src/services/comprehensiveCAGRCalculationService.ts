@@ -158,13 +158,14 @@ export class ComprehensiveCAGRCalculationService {
         
         if (glassnodeError) {
           console.warn(`⚠️ Glassnode API failed: ${glassnodeError.message}, falling back to database`);
-        } else if (glassnodeData && glassnodeData.success && glassnodeData.data && Array.isArray(glassnodeData.data) && glassnodeData.data.length > 0) {
-          // Transform Glassnode data to PriceDataPoint format
-          console.log(`🔧 Transforming ${glassnodeData.data.length} Glassnode data points...`);
-          const validatedData: PriceDataPoint[] = glassnodeData.data
+        } else if (glassnodeData && (glassnodeData.data || Array.isArray(glassnodeData)) && ((glassnodeData.data && Array.isArray(glassnodeData.data)) || Array.isArray(glassnodeData))) {
+          // Handle flexible response formats - data could be in glassnodeData.data or directly in glassnodeData
+          const dataArray = glassnodeData.data || glassnodeData;
+          console.log(`🔧 Transforming ${dataArray.length} Glassnode data points...`);
+          const validatedData: PriceDataPoint[] = dataArray
             .filter((point: any) => (point.value || point.v) && (point.value > 0 || point.v > 0))
             .map((point: any) => ({
-              price_date: new Date((point.unix_timestamp || point.t) * 1000).toISOString().split('T')[0], // Convert timestamp to YYYY-MM-DD
+              price_date: new Date((point.timestamp || point.t) * 1000).toISOString().split('T')[0], // Use timestamp like beta service
               price_usd: parseFloat((point.value || point.v).toString()),
               data_source: 'glassnode'
             }))
