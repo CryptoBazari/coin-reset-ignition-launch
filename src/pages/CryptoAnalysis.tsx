@@ -12,7 +12,7 @@ import GlassNodeDashboard from '@/components/analysis/GlassNodeDashboard';
 import { HybridInvestmentForm } from '@/components/HybridInvestmentForm';
 import { HybridAnalysisResults } from '@/components/HybridAnalysisResults';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
-import { useRealInvestmentAnalysis } from '@/hooks/useRealInvestmentAnalysis';
+import { useEnhancedInvestmentAnalysis } from '@/hooks/useEnhancedInvestmentAnalysis';
 import { useRealDataPopulation } from '@/hooks/useRealDataPopulation';
 import { enhancedGlassNodeAnalyzer } from '@/services/enhancedGlassNodeAnalyzer';
 import { directApiAnalysisService, DirectAnalysisResult } from '@/services/directApiAnalysisService';
@@ -28,9 +28,10 @@ import { betaCalculationExportService } from '@/services/betaCalculationExportSe
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { BetaCalculationCard } from '@/components/analysis/BetaCalculationCard';
+import { EnhancedAnalysisResults } from '@/components/EnhancedAnalysisResults';
 
 const CryptoAnalysis = () => {
-  const [realAnalysisResult, setRealAnalysisResult] = useState(null);
+  const [realAnalysisResult, setRealAnalysisResult] = useState<any>(null);
   const [comprehensiveResult, setComprehensiveResult] = useState<ComprehensiveAnalysisResult | null>(null);
   const [hybridResult, setHybridResult] = useState<DirectAnalysisResult | null>(null);
   const [selectedCoin, setSelectedCoin] = useState<CoinData | null>(null);
@@ -42,7 +43,7 @@ const CryptoAnalysis = () => {
   const [exportLoading, setExportLoading] = useState(false);
   
   const { hasAccess, hasActiveSubscription, isAdmin, accessType, user } = useAdminAccess();
-  const { analyzeInvestment, loading, error } = useRealInvestmentAnalysis();
+  const { analyzeInvestment, loading, error } = useEnhancedInvestmentAnalysis();
   const { checkDataStatus } = useRealDataPopulation();
   const { toast } = useToast();
   const { 
@@ -550,161 +551,7 @@ const CryptoAnalysis = () => {
                   <EnhancedInvestmentForm onSubmit={handleRealAnalysis} loading={loading} />
                   
                   {realAnalysisResult && (
-                    <div className="space-y-6">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2">
-                            <Activity className="h-5 w-5 text-green-600" />
-                            Real-Time Analysis Results
-                            <Badge variant="outline" className="bg-green-100 text-green-800">
-                              {realAnalysisResult.dataQualityScore}% Data Quality
-                            </Badge>
-                            {accessType === 'admin' && (
-                              <Badge variant="outline" className="bg-blue-100 text-blue-800 text-xs">
-                                <Shield className="h-3 w-3 mr-1" />
-                                ADMIN ACCESS
-                              </Badge>
-                            )}
-                          </CardTitle>
-                          <CardDescription>
-                            Analysis powered by {dataStatus?.isPopulated ? 'live database data' : 'available market data'} and Monte Carlo simulation
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="space-y-3">
-                              <h4 className="font-semibold text-lg">Financial Metrics</h4>
-                              <div className="space-y-2">
-                                <div className="flex justify-between">
-                                  <span>NPV:</span>
-                                  <span className={realAnalysisResult.financialMetrics.npv > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
-                                    ${realAnalysisResult.financialMetrics.npv.toLocaleString()}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>IRR:</span>
-                                  <span className="font-semibold">{realAnalysisResult.financialMetrics.irr.toFixed(1)}%</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>Real 36M CAGR:</span>
-                                  <span className="font-semibold">{realAnalysisResult.financialMetrics.realCAGR.toFixed(1)}%</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>Real Volatility:</span>
-                                  <span className="font-semibold">{realAnalysisResult.financialMetrics.realVolatility.toFixed(1)}%</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>Sharpe Ratio:</span>
-                                  <span className="font-semibold">{realAnalysisResult.financialMetrics.sharpeRatio.toFixed(2)}</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="space-y-3">
-                              <h4 className="font-semibold text-lg">Monte Carlo Projection</h4>
-                              <div className="space-y-2">
-                                <div className="flex justify-between">
-                                  <span>Expected Value:</span>
-                                  <span className="font-semibold text-blue-600">
-                                    ${realAnalysisResult.monteCarloProjection.expectedValue.toLocaleString()}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>95% Confidence:</span>
-                                  <span className="text-sm">
-                                    ${realAnalysisResult.monteCarloProjection.confidenceInterval.lower.toLocaleString()} - 
-                                    ${realAnalysisResult.monteCarloProjection.confidenceInterval.upper.toLocaleString()}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>Probability of Loss:</span>
-                                  <span className={realAnalysisResult.monteCarloProjection.probabilityOfLoss > 0.3 ? 'text-red-600 font-semibold' : 'text-green-600 font-semibold'}>
-                                    {(realAnalysisResult.monteCarloProjection.probabilityOfLoss * 100).toFixed(1)}%
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>Value at Risk:</span>
-                                  <span className="text-red-600 font-semibold">
-                                    ${realAnalysisResult.monteCarloProjection.valueAtRisk.toLocaleString()}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="space-y-3">
-                              <h4 className="font-semibold text-lg">Live Glass Node Data</h4>
-                              <div className="space-y-2">
-                                <div className="flex justify-between">
-                                  <span>AVIV Ratio:</span>
-                                  <span className="font-semibold">{realAnalysisResult.realTimeData.avivRatio.toFixed(2)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>Active Supply:</span>
-                                  <span className="font-semibold">{realAnalysisResult.realTimeData.activeSupply.toFixed(1)}%</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>Vaulted Supply:</span>
-                                  <span className="font-semibold">{realAnalysisResult.realTimeData.vaultedSupply.toFixed(1)}%</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>Beta:</span>
-                                  <span className="font-semibold">{realAnalysisResult.betaAnalysis.beta.toFixed(2)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>Data Source:</span>
-                                  <Badge variant={dataStatus?.isPopulated ? 'default' : 'secondary'}>
-                                    {dataStatus?.isPopulated ? 'Database' : 'Fallback'}
-                                  </Badge>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="mt-6 p-4 rounded-lg bg-slate-50">
-                            <div className="flex items-center gap-2 mb-3">
-                              <div className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                                realAnalysisResult.recommendation.action === 'Buy' ? 'bg-green-100 text-green-800' :
-                                realAnalysisResult.recommendation.action === 'Buy Less' ? 'bg-yellow-100 text-yellow-800' :
-                                realAnalysisResult.recommendation.action === 'Sell' ? 'bg-red-100 text-red-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>
-                                {realAnalysisResult.recommendation.action}
-                              </div>
-                              <span className="text-sm text-gray-600">
-                                {realAnalysisResult.recommendation.confidence}% confidence
-                              </span>
-                            </div>
-                            
-                            {realAnalysisResult.recommendation.reasoning.length > 0 && (
-                              <div className="mb-3">
-                                <h5 className="font-semibold text-green-700 mb-1">Supporting Factors:</h5>
-                                <ul className="text-sm space-y-1">
-                                  {realAnalysisResult.recommendation.reasoning.map((reason, index) => (
-                                    <li key={index} className="text-green-700">✅ {reason}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                            
-                            {realAnalysisResult.recommendation.riskWarnings.length > 0 && (
-                              <div>
-                                <h5 className="font-semibold text-red-700 mb-1">Risk Warnings:</h5>
-                                <ul className="text-sm space-y-1">
-                                  {realAnalysisResult.recommendation.riskWarnings.map((warning, index) => (
-                                    <li key={index} className="text-red-700">⚠️ {warning}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                      
-                      {/* Beta Calculation Details Card */}
-                      {realAnalysisResult?.betaCalculationDetails && (
-                        <BetaCalculationCard betaDetails={realAnalysisResult.betaCalculationDetails} />
-                      )}
-                    </div>
+                    <EnhancedAnalysisResults result={realAnalysisResult} />
                   )}
 
                   {/* Comprehensive Analysis Section */}
