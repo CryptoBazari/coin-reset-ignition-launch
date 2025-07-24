@@ -224,13 +224,13 @@ export class RealDataFinancialCalculations {
 
   private async calculateComprehensiveBeta(symbol: string): Promise<number> {
     try {
-      console.log(`🔄 Calculating comprehensive beta for ${symbol} using CAPM methodology`);
+      console.log(`🔄 Calculating comprehensive beta for ${symbol} using CAMP methodology`);
       const betaResult = await comprehensiveBetaCalculationService.calculateComprehensiveBeta(symbol);
-      console.log(`✅ CAPM beta calculated: ${betaResult.beta.toFixed(3)} (${betaResult.confidence} confidence)`);
+      console.log(`✅ CAMP beta calculated: ${betaResult.beta.toFixed(3)} (${betaResult.confidence} confidence, ${betaResult.dataPoints} points)`);
       return betaResult.beta;
     } catch (error) {
-      console.warn(`⚠️ Beta calculation failed for ${symbol}, using fallback:`, error);
-      return 1.2; // Default crypto beta
+      console.error(`❌ Beta calculation failed for ${symbol}:`, error);
+      throw error; // Don't silently fail - let the calling code handle it
     }
   }
 
