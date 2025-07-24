@@ -82,7 +82,17 @@ export class ComprehensiveBetaCalculationService {
 
       if (error) throw error;
 
-      return data.map((item: any) => ({
+      // Handle different response formats
+      const responseData = Array.isArray(data) ? data : 
+                          data?.data ? data.data : 
+                          data?.result ? data.result : [];
+
+      if (!Array.isArray(responseData)) {
+        console.error('Invalid response format:', data);
+        throw new Error('Expected array response from Glassnode API');
+      }
+
+      return responseData.map((item: any) => ({
         date: new Date(item.t * 1000).toISOString().split('T')[0],
         price: parseFloat(item.v)
       })).filter((item: PriceData) => item.price > 0);
@@ -103,7 +113,17 @@ export class ComprehensiveBetaCalculationService {
 
       if (error) throw error;
 
-      return data.map((item: any) => ({
+      // Handle different response formats
+      const responseData = Array.isArray(data) ? data : 
+                          data?.data ? data.data : 
+                          data?.observations ? data.observations : [];
+
+      if (!Array.isArray(responseData)) {
+        console.error('Invalid S&P 500 response format:', data);
+        throw new Error('Expected array response from S&P 500 API');
+      }
+
+      return responseData.map((item: any) => ({
         date: item.date,
         price: parseFloat(item.value)
       })).filter((item: PriceData) => item.price > 0);
