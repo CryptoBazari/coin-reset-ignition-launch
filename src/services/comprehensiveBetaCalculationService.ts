@@ -100,8 +100,8 @@ export class ComprehensiveBetaCalculationService {
   }
 
   /**
-   * Step 2: Fetch Historical Daily Closing Prices for Exact Date Range
-   * Logic: Use exact date range (2022-08-06 to 2025-05-01) to match manual methodology
+   * Step 2: Fetch Historical Daily Closing Prices for Past 3 Years
+   * Logic: Use dynamic 3-year period to always get current market conditions
    */
   private async fetchGlassnodeData(asset: string, startDate: string, endDate: string): Promise<PriceData[]> {
     try {
@@ -505,9 +505,9 @@ export class ComprehensiveBetaCalculationService {
       // Step 1: Determine benchmark
       const { benchmark, coinDataSource, benchmarkDataSource } = this.determineBenchmark(coinSymbol);
       
-      // Use exact date range from manual methodology (2022-08-06 to 2025-05-01)
-      const startDate = '2022-08-06';
-      const endDate = '2025-05-01';
+      // Use dynamic 3-year period from current date
+      const endDate = new Date().toISOString().split('T')[0];
+      const startDate = new Date(Date.now() - (3 * 365 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0];
       
       console.log(`📅 Period: ${startDate} to ${endDate}, Benchmark: ${benchmark}`);
       
