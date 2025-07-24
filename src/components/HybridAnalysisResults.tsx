@@ -226,9 +226,18 @@ export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({ re
             </div>
             <div className="text-center p-3 bg-slate-50 rounded-lg">
               <div className="text-xl font-bold text-indigo-700">
-                {result.financialMetrics.beta.toFixed(2)}
+                {result.financialMetrics.beta.toFixed(3)}
               </div>
-              <div className="text-sm text-gray-600">Beta</div>
+              <div className="text-sm text-gray-600">Beta (CAPM)</div>
+              <div className="text-xs text-blue-600 mt-1">
+                vs {result.symbol.toUpperCase() === 'BTC' ? 'S&P 500' : 'Bitcoin'}
+              </div>
+            </div>
+            <div className="text-center p-3 bg-slate-50 rounded-lg">
+              <div className="text-xl font-bold text-green-700">
+                {result.financialMetrics.sharpeRatio?.toFixed(2) || 'N/A'}
+              </div>
+              <div className="text-sm text-gray-600">Sharpe Ratio</div>
             </div>
           </div>
         </CardContent>

@@ -502,8 +502,6 @@ const CryptoAnalysis = () => {
                           </div>
                         </div>
                         
-                        {/* Beta Analysis Integration */}
-                        <IntegratedBetaAnalysis selectedCoin={selectedCoinSymbol} />
                       </div>
                     </CardContent>
                   </Card>
