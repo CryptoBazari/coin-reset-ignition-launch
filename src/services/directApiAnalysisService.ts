@@ -6,6 +6,7 @@ import { bitcoinAnalysisService } from '@/services/bitcoinAnalysisService';
 import { realDataFinancialCalculations } from '@/services/realDataFinancialCalculations';
 import { bitcoinMarketAnalyzer } from '@/services/bitcoinMarketAnalyzer';
 import { comprehensiveBetaCalculationService, type BetaCalculationResult } from '@/services/comprehensiveBetaCalculationService';
+import { comprehensiveCAGRCalculationService, type CAGRCalculationResult } from '@/services/comprehensiveCAGRCalculationService';
 
 export interface DirectAnalysisResult {
   coinId: string;
@@ -58,6 +59,7 @@ export interface DirectAnalysisResult {
   
   // Beta calculation details (when available)
   betaCalculationDetails?: BetaCalculationResult;
+  cagrCalculationDetails?: CAGRCalculationResult;
   
   // Data quality indicators
   dataQuality: {
@@ -125,6 +127,16 @@ export class DirectApiAnalysisService {
         console.warn('⚠️ Detailed beta calculation failed for Bitcoin, continuing without it:', error);
       }
       
+      // Get comprehensive CAGR calculation details for Bitcoin
+      console.log('🔄 Calculating detailed CAGR analysis for Bitcoin...');
+      let cagrCalculationDetails: CAGRCalculationResult | undefined;
+      try {
+        cagrCalculationDetails = await comprehensiveCAGRCalculationService.calculateComprehensiveCAGR('bitcoin');
+        console.log('✅ Detailed CAGR calculation completed for Bitcoin');
+      } catch (error) {
+        console.warn('⚠️ Detailed CAGR calculation failed for Bitcoin, continuing without it:', error);
+      }
+      
       console.log('✅ Bitcoin analysis completed with full cointime metrics');
       
       return {
@@ -146,6 +158,7 @@ export class DirectApiAnalysisService {
         },
         recommendation: bitcoinAnalysis.recommendation,
         betaCalculationDetails,
+        cagrCalculationDetails,
         dataQuality: bitcoinAnalysis.dataQuality,
         lastUpdated: new Date().toISOString()
       };
@@ -219,6 +232,15 @@ export class DirectApiAnalysisService {
         console.warn(`⚠️ Comprehensive beta calculation failed for ${symbol}, using fallback:`, betaError);
       }
       
+      // Calculate comprehensive CAGR for detailed analysis
+      let cagrCalculationDetails: CAGRCalculationResult | undefined;
+      try {
+        cagrCalculationDetails = await comprehensiveCAGRCalculationService.calculateComprehensiveCAGR(coinId);
+        console.log('✅ Detailed CAGR calculation completed');
+      } catch (error) {
+        console.warn('⚠️ Detailed CAGR calculation failed, continuing without it:', error);
+      }
+      
       // Generate altcoin recommendation (no cointime metrics)
       const recommendation = this.generateAltcoinRecommendation(
         financialMetrics,
@@ -254,6 +276,7 @@ export class DirectApiAnalysisService {
         },
         recommendation,
         betaCalculationDetails,
+        cagrCalculationDetails,
         dataQuality: {
           score: financialMetrics.confidenceScore,
           source: 'Glassnode + CoinMarketCap',
@@ -307,6 +330,15 @@ export class DirectApiAnalysisService {
         console.warn(`⚠️ Comprehensive beta calculation failed for ${symbol}, using fallback:`, betaError);
       }
       
+      // Calculate comprehensive CAGR for detailed analysis
+      let cagrCalculationDetails: CAGRCalculationResult | undefined;
+      try {
+        cagrCalculationDetails = await comprehensiveCAGRCalculationService.calculateComprehensiveCAGR(coinId);
+        console.log('✅ Detailed CAGR calculation completed');
+      } catch (error) {
+        console.warn('⚠️ Detailed CAGR calculation failed, continuing without it:', error);
+      }
+      
       // Generate conservative altcoin recommendation
       const recommendation = this.generateAltcoinRecommendation(
         financialMetrics,
@@ -342,6 +374,7 @@ export class DirectApiAnalysisService {
         },
         recommendation,
         betaCalculationDetails,
+        cagrCalculationDetails,
         dataQuality: {
           score: financialMetrics.confidenceScore,
           source: 'CoinMarketCap only',
