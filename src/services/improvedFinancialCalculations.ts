@@ -1,5 +1,6 @@
 
 import { enhancedHistoricalDataService, MonthlyPriceData } from './enhancedHistoricalDataService';
+import { comprehensiveBetaCalculationService } from './comprehensiveBetaCalculationService';
 
 export interface ImprovedFinancialMetrics {
   npv: number;
@@ -66,8 +67,8 @@ class ImprovedFinancialCalculations {
     // Calculate ROI from actual expected returns
     const roi = this.calculateRealROI(cagr, timeHorizon);
     
-    // Calculate Beta using market correlation
-    const beta = this.calculateImprovedBeta(monthlyReturns, volatility);
+    // Calculate Beta using comprehensive CAPM methodology
+    const beta = await this.calculateComprehensiveBeta(symbol);
     
     // Calculate Sharpe ratio with real risk-free rate
     const sharpeRatio = this.calculateSharpeRatio(cagr, volatility);
@@ -201,14 +202,17 @@ class ImprovedFinancialCalculations {
     return Math.max(-95, Math.min(2000, totalReturn));
   }
 
-  private calculateImprovedBeta(monthlyReturns: number[], volatility: number): number {
-    // For crypto, we'll estimate beta based on volatility and market correlation
-    // This is simplified - in production, you'd correlate with market index returns
-    const marketVolatility = 20; // Assume 20% market volatility
-    const correlation = Math.min(0.8, volatility / 100); // Higher volatility = higher correlation
-    
-    const beta = correlation * (volatility / marketVolatility);
-    return Math.max(0.1, Math.min(3.0, beta));
+  private async calculateComprehensiveBeta(symbol: string): Promise<number> {
+    try {
+      console.log(`🔄 Calculating comprehensive beta for ${symbol} using CAPM methodology`);
+      const betaResult = await comprehensiveBetaCalculationService.calculateComprehensiveBeta(symbol);
+      console.log(`✅ CAPM beta calculated: ${betaResult.beta.toFixed(3)} (${betaResult.confidence} confidence, ${betaResult.dataPoints} points)`);
+      return betaResult.beta;
+    } catch (error) {
+      console.warn(`⚠️ Beta calculation failed for ${symbol}, using fallback:`, error);
+      // Fallback to simplified estimation
+      return 1.2; // Default crypto beta
+    }
   }
 
   private calculateSharpeRatio(cagr: number, volatility: number): number {

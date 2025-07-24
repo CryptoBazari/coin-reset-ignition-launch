@@ -2,6 +2,7 @@ import { fetchGlassNodeMetric, GLASS_NODE_METRICS } from './glassNodeService';
 import { bitcoinGlassNodeService } from './bitcoinGlassNodeService';
 import { fetchCoinPrices } from './coinMarketCapService';
 import { improvedFinancialCalculations } from './improvedFinancialCalculations';
+import { comprehensiveBetaCalculationService } from './comprehensiveBetaCalculationService';
 
 export interface RealFinancialMetrics {
   npv: number;
@@ -96,7 +97,7 @@ export class RealDataFinancialCalculations {
       const roi = this.calculateROI(currentPrice, cagr, timeHorizon);
       const npv = this.calculateNPV(investmentAmount, currentPrice, cagr, timeHorizon);
       const irr = this.calculateIRR(investmentAmount, currentPrice, cagr, timeHorizon);
-      const beta = this.calculateBeta(historicalPrices);
+      const beta = await this.calculateComprehensiveBeta(symbol);
       const sharpeRatio = this.calculateSharpeRatio(cagr, volatility);
 
       console.log(`✅ Glassnode metrics calculated - CAGR: ${cagr.toFixed(1)}%, Volatility: ${volatility.toFixed(1)}%`);
@@ -144,7 +145,7 @@ export class RealDataFinancialCalculations {
       const roi = this.calculateROI(currentPrice, cagr, timeHorizon);
       const npv = this.calculateNPV(investmentAmount, currentPrice, cagr, timeHorizon);
       const irr = this.calculateIRR(investmentAmount, currentPrice, cagr, timeHorizon);
-      const beta = this.estimateBeta(volatility);
+      const beta = await this.calculateComprehensiveBeta(symbol);
       const sharpeRatio = this.calculateSharpeRatio(cagr, volatility);
 
       console.log(`⚠️ CoinMarketCap metrics calculated - Estimated CAGR: ${cagr.toFixed(1)}%, Volatility: ${volatility.toFixed(1)}%`);
@@ -221,13 +222,16 @@ export class RealDataFinancialCalculations {
     return ((futurePrice - currentPrice) / currentPrice) * 100;
   }
 
-  private calculateBeta(prices: number[]): number {
-    if (prices.length < 30) return 1.0;
-    
-    // Simplified beta calculation - in a real implementation, 
-    // this would correlate with market index returns
-    const volatility = this.calculateHistoricalVolatility(prices);
-    return Math.min(2.0, Math.max(0.5, volatility / 50));
+  private async calculateComprehensiveBeta(symbol: string): Promise<number> {
+    try {
+      console.log(`🔄 Calculating comprehensive beta for ${symbol} using CAPM methodology`);
+      const betaResult = await comprehensiveBetaCalculationService.calculateComprehensiveBeta(symbol);
+      console.log(`✅ CAPM beta calculated: ${betaResult.beta.toFixed(3)} (${betaResult.confidence} confidence)`);
+      return betaResult.beta;
+    } catch (error) {
+      console.warn(`⚠️ Beta calculation failed for ${symbol}, using fallback:`, error);
+      return 1.2; // Default crypto beta
+    }
   }
 
   private calculateSharpeRatio(cagr: number, volatility: number): number {
