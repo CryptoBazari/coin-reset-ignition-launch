@@ -68,7 +68,13 @@ class ImprovedFinancialCalculations {
     const roi = this.calculateRealROI(cagr, timeHorizon);
     
     // Calculate Beta using comprehensive CAPM methodology
-    const beta = await this.calculateComprehensiveBeta(symbol);
+    let beta;
+    try {
+      beta = await this.calculateComprehensiveBeta(symbol);
+    } catch (error) {
+      console.warn(`⚠️ Comprehensive beta calculation failed for ${symbol}, using fallback:`, error);
+      beta = 1.2; // Fallback beta for crypto
+    }
     
     // Calculate Sharpe ratio with real risk-free rate
     const sharpeRatio = this.calculateSharpeRatio(cagr, volatility);
