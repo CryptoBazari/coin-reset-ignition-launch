@@ -176,13 +176,32 @@ class EnhancedHistoricalDataService {
   calculateRealCAGR(data: MonthlyPriceData[]): number {
     if (data.length < 2) return 0;
     
-    const startPrice = data[0].price;
-    const endPrice = data[data.length - 1].price;
-    const years = data.length / 12;
+    // Step 1: Initial Value (IV)
+    const initialValue = data[0].price;
     
-    if (startPrice <= 0 || endPrice <= 0 || years <= 0) return 0;
+    // Step 2: Final Value (FV) 
+    const finalValue = data[data.length - 1].price;
     
-    const cagr = (Math.pow(endPrice / startPrice, 1 / years) - 1) * 100;
+    // Step 3: Time period in years (n)
+    const initialDate = new Date(data[0].date);
+    const finalDate = new Date(data[data.length - 1].date);
+    const timeperiodYears = (finalDate.getTime() - initialDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+    
+    if (initialValue <= 0 || finalValue <= 0 || timeperiodYears <= 0) return 0;
+    
+    // Step 4: Growth Ratio (FV / IV)
+    const growthRatio = finalValue / initialValue;
+    
+    // Step 5: Exponent (1/n)
+    const exponent = 1 / timeperiodYears;
+    
+    // Step 6: CAGR Base (Growth Ratio^Exponent)
+    const cagrBase = Math.pow(growthRatio, exponent);
+    
+    // Step 7: Final CAGR ((Base - 1) * 100)
+    const cagr = (cagrBase - 1) * 100;
+    
+    console.log(`📊 CAGR Calculation: Initial=$${initialValue.toLocaleString()}, Final=$${finalValue.toLocaleString()}, Years=${timeperiodYears.toFixed(2)}, CAGR=${cagr.toFixed(2)}%`);
     
     // Validate CAGR is reasonable (between -95% and 1000%)
     return Math.max(-95, Math.min(1000, cagr));

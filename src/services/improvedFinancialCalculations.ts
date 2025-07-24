@@ -1,6 +1,7 @@
 
 import { enhancedHistoricalDataService, MonthlyPriceData } from './enhancedHistoricalDataService';
 import { comprehensiveBetaCalculationService } from './comprehensiveBetaCalculationService';
+import { realTimeCAGRCalculationService } from './realTimeCAGRCalculationService';
 
 export interface ImprovedFinancialMetrics {
   npv: number;
@@ -46,7 +47,17 @@ class ImprovedFinancialCalculations {
     console.log(`✅ Using ${data.length} months of real price data for ${symbol}`);
     
     // Calculate real metrics from historical data
-    const cagr = enhancedHistoricalDataService.calculateRealCAGR(data);
+    // Use real-time CAGR calculation for more accurate results
+    const cagrResult = await realTimeCAGRCalculationService.calculateRealTimeCAGR(coinId, symbol, 3);
+    const cagr = cagrResult.cagr;
+    
+    console.log(`🔢 Real-time CAGR calculation completed:`);
+    console.log(`   Initial: $${cagrResult.initialValue.toLocaleString()}`);
+    console.log(`   Final: $${cagrResult.finalValue.toLocaleString()}`);
+    console.log(`   Period: ${cagrResult.timeperiodYears.toFixed(2)} years`);
+    console.log(`   CAGR: ${cagr.toFixed(2)}%`);
+    console.log(`   Confidence: ${cagrResult.confidence} (${cagrResult.dataPoints} data points)`);
+    
     const volatility = enhancedHistoricalDataService.calculateRealVolatility(data);
     const monthlyReturns = enhancedHistoricalDataService.calculateMonthlyReturns(data);
     

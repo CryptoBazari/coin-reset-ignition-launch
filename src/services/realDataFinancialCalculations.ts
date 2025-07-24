@@ -3,6 +3,7 @@ import { bitcoinGlassNodeService } from './bitcoinGlassNodeService';
 import { fetchCoinPrices } from './coinMarketCapService';
 import { improvedFinancialCalculations } from './improvedFinancialCalculations';
 import { comprehensiveBetaCalculationService } from './comprehensiveBetaCalculationService';
+import { realTimeCAGRCalculationService } from './realTimeCAGRCalculationService';
 
 export interface RealFinancialMetrics {
   npv: number;
@@ -170,11 +171,32 @@ export class RealDataFinancialCalculations {
   private calculateRealCAGR(prices: number[], months: number): number {
     if (prices.length < 2) return 0;
     
-    const startPrice = prices[0];
-    const endPrice = prices[prices.length - 1];
-    const years = months / 12;
+    // Step 1: Initial Value (IV)
+    const initialValue = prices[0];
     
-    return (Math.pow(endPrice / startPrice, 1 / years) - 1) * 100;
+    // Step 2: Final Value (FV)
+    const finalValue = prices[prices.length - 1];
+    
+    // Step 3: Time period in years (n)
+    const timeperiodYears = months / 12;
+    
+    if (initialValue <= 0 || finalValue <= 0 || timeperiodYears <= 0) return 0;
+    
+    // Step 4: Growth Ratio (FV / IV)
+    const growthRatio = finalValue / initialValue;
+    
+    // Step 5: Exponent (1/n)
+    const exponent = 1 / timeperiodYears;
+    
+    // Step 6: CAGR Base (Growth Ratio^Exponent)
+    const cagrBase = Math.pow(growthRatio, exponent);
+    
+    // Step 7: Final CAGR ((Base - 1) * 100)
+    const cagr = (cagrBase - 1) * 100;
+    
+    console.log(`📊 Fallback CAGR: Initial=$${initialValue.toLocaleString()}, Final=$${finalValue.toLocaleString()}, Years=${timeperiodYears.toFixed(2)}, CAGR=${cagr.toFixed(2)}%`);
+    
+    return cagr;
   }
 
   private calculateHistoricalVolatility(prices: number[]): number {
