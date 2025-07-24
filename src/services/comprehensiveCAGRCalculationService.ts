@@ -137,6 +137,8 @@ export class ComprehensiveCAGRCalculationService {
     const isSupported = symbolMappingService.isGlassNodeSupported(coinId);
     const glassnodeAsset = symbolMappingService.getGlassNodeAsset(coinId);
     
+    console.log(`🔍 CAGR Service Debug - coinId: ${coinId}, isSupported: ${isSupported}, glassnodeAsset: ${glassnodeAsset}`);
+    
     if (isSupported && glassnodeAsset) {
       // For Glassnode supported coins, fetch daily data directly from API
       console.log(`🟢 Fetching daily Glassnode data for ${coinId} (mapped to ${glassnodeAsset})...`);
@@ -158,22 +160,25 @@ export class ComprehensiveCAGRCalculationService {
         
         if (glassnodeError) {
           console.warn(`⚠️ Glassnode API failed: ${glassnodeError.message}, falling back to database`);
-        } else if (glassnodeData && (glassnodeData.data || Array.isArray(glassnodeData)) && ((glassnodeData.data && Array.isArray(glassnodeData.data)) || Array.isArray(glassnodeData))) {
+        } else if (glassnodeData && (glassnodeData.data || Array.isArray(glassnodeData))) {
           // Handle flexible response formats - data could be in glassnodeData.data or directly in glassnodeData
           const dataArray = glassnodeData.data || glassnodeData;
-          console.log(`🔧 Transforming ${dataArray.length} Glassnode data points...`);
-          const validatedData: PriceDataPoint[] = dataArray
-            .filter((point: any) => (point.value || point.v) && (point.value > 0 || point.v > 0))
-            .map((point: any) => ({
-              price_date: new Date((point.timestamp || point.t) * 1000).toISOString().split('T')[0], // Use timestamp like beta service
-              price_usd: parseFloat((point.value || point.v).toString()),
-              data_source: 'glassnode'
-            }))
-            .sort((a, b) => a.price_date.localeCompare(b.price_date)); // Sort ascending by date
           
-          if (validatedData.length >= 2) {
-            console.log(`📈 Loaded ${validatedData.length} daily Glassnode price points from ${validatedData[0]?.price_date} to ${validatedData[validatedData.length - 1]?.price_date}`);
-            return validatedData;
+          if (Array.isArray(dataArray) && dataArray.length > 0) {
+            console.log(`🔧 Transforming ${dataArray.length} Glassnode data points...`);
+            const validatedData: PriceDataPoint[] = dataArray
+              .filter((point: any) => (point.value || point.v) && (point.value > 0 || point.v > 0))
+              .map((point: any) => ({
+                price_date: new Date((point.timestamp || point.t) * 1000).toISOString().split('T')[0], // Use timestamp like beta service
+                price_usd: parseFloat((point.value || point.v).toString()),
+                data_source: 'glassnode'
+              }))
+              .sort((a, b) => a.price_date.localeCompare(b.price_date)); // Sort ascending by date
+          
+            if (validatedData.length >= 2) {
+              console.log(`📈 Loaded ${validatedData.length} daily Glassnode price points from ${validatedData[0]?.price_date} to ${validatedData[validatedData.length - 1]?.price_date}`);
+              return validatedData;
+            }
           }
         }
       } catch (error) {

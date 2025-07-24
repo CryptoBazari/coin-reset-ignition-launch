@@ -333,7 +333,11 @@ export class DirectApiAnalysisService {
       // Calculate comprehensive CAGR for detailed analysis
       let cagrCalculationDetails: CAGRCalculationResult | undefined;
       try {
-        cagrCalculationDetails = await comprehensiveCAGRCalculationService.calculateComprehensiveCAGR(symbol.toLowerCase());
+        // Use the coin's Glassnode asset name if available, otherwise use symbol
+        const mapping = symbolMappingService.getMapping(symbol);
+        const cagrAssetId = mapping?.glassNodeAsset || symbol.toLowerCase();
+        console.log(`🔄 Calculating CAGR for ${symbol} using asset ID: ${cagrAssetId}`);
+        cagrCalculationDetails = await comprehensiveCAGRCalculationService.calculateComprehensiveCAGR(cagrAssetId);
         console.log('✅ Detailed CAGR calculation completed');
       } catch (error) {
         console.warn('⚠️ Detailed CAGR calculation failed, continuing without it:', error);
