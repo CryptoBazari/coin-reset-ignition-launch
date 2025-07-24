@@ -39,8 +39,8 @@ class ImprovedFinancialCalculations {
     const historicalResult = await enhancedHistoricalDataService.getHistoricalData(coinId, symbol);
     
     if (!historicalResult.success || historicalResult.data.length < 12) {
-      console.warn(`⚠️ Insufficient historical data for ${symbol}, using fallback`);
-      return this.calculateFallbackMetrics(investmentAmount, timeHorizon);
+      console.warn(`⚠️ Insufficient historical data for ${symbol}, using fallback with REAL CAGR`);
+      return await this.calculateFallbackMetrics(investmentAmount, timeHorizon, coinId, symbol);
     }
 
     const data = historicalResult.data;
@@ -263,24 +263,50 @@ class ImprovedFinancialCalculations {
     return Math.round(Math.min(100, score));
   }
 
-  private calculateFallbackMetrics(
+  private async calculateFallbackMetrics(
     investmentAmount: number,
-    timeHorizon: number
-  ): ImprovedFinancialMetrics {
-    console.warn('⚠️ Using fallback metrics due to insufficient data');
+    timeHorizon: number,
+    coinId: string,
+    symbol: string
+  ): Promise<ImprovedFinancialMetrics> {
+    console.warn('⚠️ Using fallback metrics due to insufficient data, but calculating REAL CAGR');
     
-    return {
-      npv: investmentAmount * 0.1, // Conservative 10% return
-      irr: 8, // Conservative 8% IRR
-      cagr: 12, // Conservative 12% CAGR
-      roi: (Math.pow(1.12, timeHorizon / 12) - 1) * 100,
-      volatility: 45, // Moderate volatility
-      beta: 1.2, // Slightly higher than market
-      sharpeRatio: 0.16, // Low but positive
-      confidenceScore: 25, // Low confidence
-      dataSource: 'fallback',
-      monthsOfData: 0
-    };
+    try {
+      // Even in fallback mode, calculate REAL CAGR using Glassnode API
+      const cagrResult = await realTimeCAGRCalculationService.calculateRealTimeCAGR(coinId, symbol, 3);
+      const realCagr = cagrResult.cagr;
+      
+      console.log(`✅ Fallback mode: Using REAL CAGR ${realCagr.toFixed(2)}% from ${cagrResult.dataSource} (${cagrResult.dataPoints} points)`);
+      
+      return {
+        npv: investmentAmount * (realCagr / 100), // Use real CAGR for NPV
+        irr: Math.min(500, Math.max(realCagr * 0.8, 8)), // IRR based on real CAGR with bounds
+        cagr: realCagr, // REAL CAGR from API calculation
+        roi: (Math.pow(1 + realCagr / 100, timeHorizon / 12) - 1) * 100,
+        volatility: 45, // Moderate volatility fallback
+        beta: 1.2, // Slightly higher than market
+        sharpeRatio: (realCagr - 5) / 45, // Sharpe ratio using real CAGR
+        confidenceScore: cagrResult.confidence === 'high' ? 60 : cagrResult.confidence === 'medium' ? 40 : 25,
+        dataSource: `fallback-${cagrResult.dataSource}`,
+        monthsOfData: 0
+      };
+    } catch (error) {
+      console.error('❌ Even real-time CAGR calculation failed in fallback:', error);
+      
+      // Last resort fallback if everything fails
+      return {
+        npv: investmentAmount * 0.1,
+        irr: 8,
+        cagr: 12, // Only use static if EVERYTHING fails
+        roi: (Math.pow(1.12, timeHorizon / 12) - 1) * 100,
+        volatility: 45,
+        beta: 1.2,
+        sharpeRatio: 0.16,
+        confidenceScore: 15, // Very low confidence
+        dataSource: 'static-fallback',
+        monthsOfData: 0
+      };
+    }
   }
 }
 
