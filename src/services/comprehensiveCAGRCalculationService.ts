@@ -132,12 +132,60 @@ export class ComprehensiveCAGRCalculationService {
   private async gatherAndPrepareDailyPriceData(coinId: string, maxDays: number): Promise<PriceDataPoint[]> {
     console.log(`📊 Gathering daily price data for ${coinId} (max ${maxDays} days)...`);
     
-    // Use Glassnode data source only
+    // Define Glassnode supported coins
+    const glassnodeSupported = ['bitcoin', 'ethereum', 'solana', 'cardano', 'chainlink'];
+    
+    if (glassnodeSupported.includes(coinId.toLowerCase())) {
+      // For Glassnode supported coins, fetch daily data directly from API
+      console.log(`🟢 Fetching daily Glassnode data for ${coinId}...`);
+      
+      try {
+        const { data: glassnodeData, error: glassnodeError } = await supabase.functions.invoke(
+          'fetch-glassnode-data',
+          {
+            body: {
+              metric: 'market/price_usd_close',
+              asset: coinId.toUpperCase() === 'BITCOIN' ? 'BTC' : 
+                     coinId.toUpperCase() === 'ETHEREUM' ? 'ETH' :
+                     coinId.toUpperCase() === 'SOLANA' ? 'SOL' :
+                     coinId.toUpperCase() === 'CARDANO' ? 'ADA' :
+                     coinId.toUpperCase() === 'CHAINLINK' ? 'LINK' : 'BTC',
+              since: Math.floor((Date.now() - (maxDays * 24 * 60 * 60 * 1000)) / 1000),
+              until: Math.floor(Date.now() / 1000),
+              disableSampling: true // Get daily data
+            }
+          }
+        );
+        
+        if (glassnodeError) {
+          console.warn(`⚠️ Glassnode API failed: ${glassnodeError.message}, falling back to database`);
+        } else if (glassnodeData && glassnodeData.length > 0) {
+          // Transform Glassnode data to PriceDataPoint format
+          const validatedData: PriceDataPoint[] = glassnodeData
+            .filter((point: any) => point.v && point.v > 0)
+            .map((point: any) => ({
+              price_date: new Date(point.t * 1000).toISOString().split('T')[0], // Convert timestamp to YYYY-MM-DD
+              price_usd: parseFloat(point.v.toString()),
+              data_source: 'glassnode'
+            }))
+            .sort((a, b) => a.price_date.localeCompare(b.price_date)); // Sort ascending by date
+          
+          if (validatedData.length >= 2) {
+            console.log(`📈 Loaded ${validatedData.length} daily Glassnode price points from ${validatedData[0]?.price_date} to ${validatedData[validatedData.length - 1]?.price_date}`);
+            return validatedData;
+          }
+        }
+      } catch (error) {
+        console.warn(`⚠️ Glassnode API error: ${error}, falling back to database`);
+      }
+    }
+    
+    // Fallback to database for non-Glassnode coins or if API fails
+    console.log(`🔄 Falling back to database for ${coinId}...`);
     const { data, error } = await supabase
       .from('price_history_36m')
       .select('price_date, price_usd, data_source')
       .eq('coin_id', coinId)
-      .eq('data_source', 'glassnode')
       .order('price_date', { ascending: true })
       .limit(maxDays);
     
