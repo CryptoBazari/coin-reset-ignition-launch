@@ -23,6 +23,7 @@ import { ComprehensiveInvestmentForm } from '@/components/ComprehensiveInvestmen
 import { ComprehensiveAnalysisResults } from '@/components/ComprehensiveAnalysisResults';
 import { comprehensiveGlassNodeAnalyzer, AnalysisInputs, ComprehensiveAnalysisResult } from '@/services/comprehensiveGlassNodeAnalyzer';
 import { useGlassnodeDataInitialization } from '@/hooks/useGlassnodeDataInitialization';
+import { ComprehensiveBetaAnalysis } from '@/components/analysis/ComprehensiveBetaAnalysis';
 import { priceHistoryExportService } from '@/services/priceHistoryExportService';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -230,8 +231,12 @@ const CryptoAnalysis = () => {
               </CardContent>
             </Card>
           ) : (
-            <Tabs defaultValue="hybrid" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-5">
+            <Tabs defaultValue="beta" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-6">
+                <TabsTrigger value="beta" className="gap-2">
+                  <Calculator className="h-4 w-4" />
+                  Beta Analysis
+                </TabsTrigger>
                 <TabsTrigger value="overview" className="gap-2">
                   <Globe className="h-4 w-4" />
                   Market Overview
@@ -256,6 +261,10 @@ const CryptoAnalysis = () => {
                   Legacy Analysis
                 </TabsTrigger>
               </TabsList>
+
+              <TabsContent value="beta">
+                <ComprehensiveBetaAnalysis />
+              </TabsContent>
 
               <TabsContent value="overview">
                 <MarketOverview />
