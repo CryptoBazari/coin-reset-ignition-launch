@@ -235,7 +235,7 @@ export class DirectApiAnalysisService {
       // Calculate comprehensive CAGR for detailed analysis
       let cagrCalculationDetails: CAGRCalculationResult | undefined;
       try {
-        cagrCalculationDetails = await comprehensiveCAGRCalculationService.calculateComprehensiveCAGR(symbol.toLowerCase());
+        cagrCalculationDetails = await comprehensiveCAGRCalculationService.calculateComprehensiveCAGR(glassNodeAsset);
         console.log('✅ Detailed CAGR calculation completed');
       } catch (error) {
         console.warn('⚠️ Detailed CAGR calculation failed, continuing without it:', error);
