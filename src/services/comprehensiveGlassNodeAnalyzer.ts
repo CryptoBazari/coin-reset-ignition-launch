@@ -28,6 +28,7 @@ export interface ComprehensiveAnalysisResult {
     npv: number;
     adjustedNPV: number;
     mvrv: number;
+    cagr: number;
     riskAdjustedDiscount: number;
     confidenceScore: number;
     dataSource: string;
@@ -351,6 +352,7 @@ class ComprehensiveGlassNodeAnalyzer {
           npv: npvResult.npv,
           adjustedNPV: npvResult.adjustedNpv,
           mvrv: coinData.mvrv,
+          cagr: coinData.cagr36m,
           riskAdjustedDiscount: npvResult.riskAdjustedDiscount,
           confidenceScore: npvResult.confidenceLevel,
           dataSource: 'glassnode_real_data'

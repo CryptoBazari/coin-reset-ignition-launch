@@ -50,6 +50,22 @@ export const ComprehensiveAnalysisResults: React.FC<ComprehensiveAnalysisResults
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-green-600" />
+                  CAGR (3-Year)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  {result.enhancedNPV.cagr.toFixed(1)}%
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Compound Annual Growth Rate from Glassnode data
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
                   <Zap className="h-5 w-5 text-blue-600" />
                   Enhanced NPV
                 </CardTitle>
