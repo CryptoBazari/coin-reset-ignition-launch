@@ -147,7 +147,8 @@ export class ComprehensiveCAGRCalculationService {
           {
             body: {
               metric: 'market/price_usd_close',
-              asset: glassnodeAsset,
+              asset: glassnodeAsset.toUpperCase(),
+              resolution: '24h',
               since: Math.floor((Date.now() - (maxDays * 24 * 60 * 60 * 1000)) / 1000),
               until: Math.floor(Date.now() / 1000),
               disableSampling: true // Get daily data
@@ -157,14 +158,14 @@ export class ComprehensiveCAGRCalculationService {
         
         if (glassnodeError) {
           console.warn(`⚠️ Glassnode API failed: ${glassnodeError.message}, falling back to database`);
-        } else if (glassnodeData && Array.isArray(glassnodeData) && glassnodeData.length > 0) {
+        } else if (glassnodeData && glassnodeData.success && glassnodeData.data && Array.isArray(glassnodeData.data) && glassnodeData.data.length > 0) {
           // Transform Glassnode data to PriceDataPoint format
-          console.log(`🔧 Transforming ${glassnodeData.length} Glassnode data points...`);
-          const validatedData: PriceDataPoint[] = glassnodeData
-            .filter((point: any) => point.value && point.value > 0)
+          console.log(`🔧 Transforming ${glassnodeData.data.length} Glassnode data points...`);
+          const validatedData: PriceDataPoint[] = glassnodeData.data
+            .filter((point: any) => (point.value || point.v) && (point.value > 0 || point.v > 0))
             .map((point: any) => ({
-              price_date: new Date(point.unix_timestamp * 1000).toISOString().split('T')[0], // Convert timestamp to YYYY-MM-DD
-              price_usd: parseFloat(point.value.toString()),
+              price_date: new Date((point.unix_timestamp || point.t) * 1000).toISOString().split('T')[0], // Convert timestamp to YYYY-MM-DD
+              price_usd: parseFloat((point.value || point.v).toString()),
               data_source: 'glassnode'
             }))
             .sort((a, b) => a.price_date.localeCompare(b.price_date)); // Sort ascending by date
