@@ -36,6 +36,43 @@ interface ReturnData {
 export class ComprehensiveBetaCalculationService {
   
   /**
+   * Enhanced symbol mapping for all supported cryptocurrencies
+   */
+  private getGlassnodeAssetSymbol(coinSymbol: string): string {
+    const upperCoin = coinSymbol.toUpperCase();
+    
+    // Map common coin IDs/symbols to Glassnode asset symbols
+    const symbolMap: Record<string, string> = {
+      'BITCOIN': 'BTC',
+      'BTC': 'BTC',
+      'ETHEREUM': 'ETH', 
+      'ETH': 'ETH',
+      'SOLANA': 'SOL',
+      'SOL': 'SOL',
+      'CARDANO': 'ADA',
+      'ADA': 'ADA',
+      'LITECOIN': 'LTC',
+      'LTC': 'LTC',
+      'BITCOIN-CASH': 'BCH',
+      'BCH': 'BCH',
+      'CHAINLINK': 'LINK',
+      'LINK': 'LINK',
+      'UNISWAP': 'UNI',
+      'UNI': 'UNI',
+      'AAVE': 'AAVE',
+      'COMPOUND': 'COMP',
+      'COMP': 'COMP',
+      'MAKER': 'MKR',
+      'MKR': 'MKR'
+    };
+    
+    const mappedSymbol = symbolMap[upperCoin] || upperCoin;
+    console.log(`🔄 Mapped ${coinSymbol} to Glassnode asset: ${mappedSymbol}`);
+    
+    return mappedSymbol;
+  }
+
+  /**
    * Step 1: Determine the Selected Coin and Benchmark
    * Logic: BTC uses S&P 500 as benchmark, all other coins use BTC as benchmark
    */
@@ -63,8 +100,8 @@ export class ComprehensiveBetaCalculationService {
   }
 
   /**
-   * Step 2: Fetch Historical Daily Closing Prices Over Past 3 Years
-   * Logic: Align prices on common dates to prevent mismatched pairs
+   * Step 2: Fetch Historical Daily Closing Prices for Exact Date Range
+   * Logic: Use exact date range (2022-08-06 to 2025-05-01) to match manual methodology
    */
   private async fetchGlassnodeData(asset: string, startDate: string, endDate: string): Promise<PriceData[]> {
     try {
@@ -188,50 +225,51 @@ export class ComprehensiveBetaCalculationService {
   }
 
   /**
-   * Align price data on common dates using benchmark dates as master
-   * Logic: Use benchmark dates as master to ensure trading day alignment with forward-fill
+   * Align price data using strict inner join (matching manual methodology)
+   * Logic: Only include dates where both assets have valid data (no forward-fill)
    */
   private alignPriceData(coinData: PriceData[], benchmarkData: PriceData[]): AlignedData[] {
-    console.log(`🔄 Aligning ${coinData.length} coin prices with ${benchmarkData.length} benchmark prices`);
+    console.log(`🔄 Aligning ${coinData.length} coin prices with ${benchmarkData.length} benchmark prices using strict inner join`);
     
     // Create lookup maps for efficient matching
     const coinMap = new Map(coinData.map(item => [item.date, item.price]));
     const benchmarkMap = new Map(benchmarkData.map(item => [item.date, item.price]));
     
     const aligned: AlignedData[] = [];
-    let lastValidCoinPrice: number | null = null;
     
-    // Use benchmark dates as master (important for S&P 500 trading days)
-    for (const benchmarkItem of benchmarkData) {
-      let coinPrice = coinMap.get(benchmarkItem.date);
+    // Get all unique dates from both datasets
+    const allDates = new Set([...coinData.map(d => d.date), ...benchmarkData.map(d => d.date)]);
+    
+    // Only include dates where both assets have data (strict inner join)
+    for (const date of allDates) {
+      const coinPrice = coinMap.get(date);
+      const benchmarkPrice = benchmarkMap.get(date);
       
-      // If no exact match, use forward-fill from last valid price
-      if (coinPrice === undefined && lastValidCoinPrice !== null) {
-        coinPrice = lastValidCoinPrice;
-        console.log(`📅 Forward-filling coin price for ${benchmarkItem.date}: ${coinPrice}`);
-      }
-      
-      if (coinPrice !== undefined) {
-        // Type validation: ensure prices are numbers
-        if (typeof coinPrice === 'number' && typeof benchmarkItem.price === 'number') {
-          aligned.push({
-            date: benchmarkItem.date,
-            coinPrice,
-            benchmarkPrice: benchmarkItem.price
-          });
-          lastValidCoinPrice = coinPrice; // Update last valid price
-        }
+      // Both prices must exist and be valid numbers
+      if (coinPrice !== undefined && benchmarkPrice !== undefined && 
+          typeof coinPrice === 'number' && typeof benchmarkPrice === 'number' &&
+          coinPrice > 0 && benchmarkPrice > 0) {
+        aligned.push({
+          date,
+          coinPrice,
+          benchmarkPrice
+        });
       }
     }
     
     // Sort by date ascending
     aligned.sort((a, b) => a.date.localeCompare(b.date));
     
-    console.log(`✅ Successfully aligned ${aligned.length} data points`);
+    console.log(`✅ Successfully aligned ${aligned.length} data points with strict inner join`);
+    console.log(`📊 Date range: ${aligned[0]?.date} to ${aligned[aligned.length - 1]?.date}`);
     
-    // Lower threshold to 20 for more flexibility with aligned data
-    if (aligned.length < 20) {
-      throw new Error(`Insufficient aligned data points: ${aligned.length}. Need at least 20.`);
+    // More stringent validation to match manual methodology (expecting ~998 data points)
+    if (aligned.length < 900) {
+      console.warn(`⚠️ Low aligned data points: ${aligned.length}. Expected around 998 for 36-month period.`);
+    }
+    
+    if (aligned.length < 30) {
+      throw new Error(`Insufficient aligned data points: ${aligned.length}. Need at least 30.`);
     }
     
     return aligned;
@@ -287,9 +325,16 @@ export class ComprehensiveBetaCalculationService {
     const n_returns = returns.length; // int
     console.log(`✅ Calculated ${n_returns} return observations`);
     
-    // Validate minimum returns for reliable statistics
+    // Validate minimum returns for reliable statistics (expecting ~998 for manual methodology)
     if (n_returns < 30) {
       throw new Error(`Insufficient return observations: ${n_returns}. Need at least 30.`);
+    }
+    
+    console.log(`📈 Return validation: Expected ~998 observations, got ${n_returns} (${((n_returns/998)*100).toFixed(1)}% of expected)`);
+    
+    // Log first few returns for debugging alignment with manual calculation
+    if (n_returns > 0) {
+      console.log(`📊 First return: Date=${returns[0].date}, Coin=${returns[0].coinReturn.toFixed(6)}, Benchmark=${returns[0].benchmarkReturn.toFixed(6)}`);
     }
     
     return returns;
@@ -325,7 +370,7 @@ export class ComprehensiveBetaCalculationService {
       throw new Error('Calculated means are not finite numbers');
     }
     
-    console.log(`✅ Calculated means - Coin: ${coinMean.toFixed(6)}, Benchmark: ${benchmarkMean.toFixed(6)}`);
+    console.log(`✅ Calculated means - Coin: ${coinMean.toFixed(8)} (${(coinMean*100).toFixed(6)}% daily), Benchmark: ${benchmarkMean.toFixed(8)} (${(benchmarkMean*100).toFixed(6)}% daily)`);
     
     return { coinMean, benchmarkMean };
   }
@@ -390,7 +435,11 @@ export class ComprehensiveBetaCalculationService {
       throw new Error('Calculated beta is not a finite number');
     }
     
-    console.log(`✅ Beta calculation - Covariance: ${covariance.toFixed(8)}, Variance: ${benchmarkVariance.toFixed(8)}, Beta: ${beta.toFixed(3)}`);
+    console.log(`✅ Beta calculation completed:`);
+    console.log(`   📊 Observations: ${n_returns}`);
+    console.log(`   📈 Covariance: ${covariance.toFixed(8)}`);
+    console.log(`   📉 Benchmark Variance: ${benchmarkVariance.toFixed(8)}`);
+    console.log(`   🎯 Beta: ${beta.toFixed(6)} (rounded to ${Math.round(beta * 1000) / 1000})`);
     
     return { 
       beta: Math.round(beta * 1000) / 1000, // Round to 3 decimals for output
@@ -406,9 +455,9 @@ export class ComprehensiveBetaCalculationService {
   private validateResults(dataPoints: number, beta: number, covariance: number): 'high' | 'medium' | 'low' {
     console.log(`🔍 Validating results - Data points: ${dataPoints}, Beta: ${beta}`);
     
-    // Minimum data points for reliable calculation
+    // Adjusted thresholds based on expected ~998 observations from manual methodology
     if (dataPoints < 30) return 'low';
-    if (dataPoints < 250) return 'medium';
+    if (dataPoints < 900) return 'medium'; // Expect high confidence for ~998 observations
     
     // Check for reasonable beta range (cryptos typically 0.5-5.0)
     if (Math.abs(beta) > 10) {
@@ -456,9 +505,9 @@ export class ComprehensiveBetaCalculationService {
       // Step 1: Determine benchmark
       const { benchmark, coinDataSource, benchmarkDataSource } = this.determineBenchmark(coinSymbol);
       
-      // Define 3-year period (as specified in methodology)
-      const endDate = new Date().toISOString().split('T')[0];
-      const startDate = new Date(Date.now() - (3 * 365 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0];
+      // Use exact date range from manual methodology (2022-08-06 to 2025-05-01)
+      const startDate = '2022-08-06';
+      const endDate = '2025-05-01';
       
       console.log(`📅 Period: ${startDate} to ${endDate}, Benchmark: ${benchmark}`);
       
@@ -466,11 +515,9 @@ export class ComprehensiveBetaCalculationService {
       let coinData: PriceData[];
       let benchmarkData: PriceData[];
       
-      // Fetch coin data
+      // Fetch coin data with improved symbol mapping
       if (coinDataSource === 'glassnode') {
-        const asset = coinSymbol.toLowerCase() === 'btc' ? 'btc' : 
-                     coinSymbol.toLowerCase() === 'ethereum' ? 'eth' : 
-                     coinSymbol.toLowerCase();
+        const asset = this.getGlassnodeAssetSymbol(coinSymbol);
         coinData = await this.fetchGlassnodeData(asset, startDate, endDate);
       } else {
         throw new Error(`Unsupported coin data source: ${coinDataSource}`);

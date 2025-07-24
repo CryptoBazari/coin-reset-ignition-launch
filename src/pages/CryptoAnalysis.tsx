@@ -25,6 +25,7 @@ import { comprehensiveGlassNodeAnalyzer, AnalysisInputs, ComprehensiveAnalysisRe
 import { useGlassnodeDataInitialization } from '@/hooks/useGlassnodeDataInitialization';
 import { IntegratedBetaAnalysis } from '@/components/analysis/IntegratedBetaAnalysis';
 import { priceHistoryExportService } from '@/services/priceHistoryExportService';
+import { betaCalculationExportService } from '@/services/betaCalculationExportService';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
@@ -236,6 +237,43 @@ const CryptoAnalysis = () => {
     }
   };
 
+  const handleExportBetaCalculation = async () => {
+    setExportLoading(true);
+    try {
+      toast({
+        title: "Export Started",
+        description: `Calculating beta for ${selectedCoinSymbol}...`,
+      });
+
+      const csvData = await betaCalculationExportService.downloadCalculationCSV(selectedCoinSymbol);
+      
+      // Create and download CSV file
+      const blob = new Blob([csvData], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${selectedCoinSymbol}_beta_calculation_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Export Completed",
+        description: `Beta calculation data for ${selectedCoinSymbol} downloaded successfully`,
+      });
+    } catch (error) {
+      console.error('Beta calculation export failed:', error);
+      toast({
+        title: "Export Failed",
+        description: error instanceof Error ? error.message : "Failed to export beta calculation data",
+        variant: "destructive",
+      });
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       <Navbar />
@@ -297,6 +335,18 @@ const CryptoAnalysis = () => {
                 >
                   <Download className="h-4 w-4" />
                   {exportLoading ? 'Exporting...' : 'Export S&P 500'}
+                </Button>
+              )}
+              {hasAccess && (
+                <Button
+                  onClick={handleExportBetaCalculation}
+                  disabled={exportLoading}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  {exportLoading ? 'Exporting...' : `Export ${selectedCoinSymbol} Beta`}
                 </Button>
               )}
             </div>
