@@ -34,13 +34,17 @@ interface ReturnData {
 }
 
 export class ComprehensiveBetaCalculationService {
-  private readonly GLASSNODE_BASE_URL = 'https://cljbwjglmvdpusmfyslh.supabase.co/functions/v1';
-  private readonly FRED_BASE_URL = 'https://cljbwjglmvdpusmfyslh.supabase.co/functions/v1';
-
+  
   /**
    * Step 1: Determine the Selected Coin and Benchmark
+   * Logic: BTC uses S&P 500 as benchmark, all other coins use BTC as benchmark
    */
   private determineBenchmark(coinSymbol: string): { benchmark: string; coinDataSource: string; benchmarkDataSource: string } {
+    // Input validation: ensure coinSymbol is string and uppercase
+    if (typeof coinSymbol !== 'string') {
+      throw new TypeError('coinSymbol must be a string');
+    }
+    
     const upperCoin = coinSymbol.toUpperCase();
     
     if (upperCoin === 'BTC' || upperCoin === 'BITCOIN') {
@@ -59,7 +63,8 @@ export class ComprehensiveBetaCalculationService {
   }
 
   /**
-   * Step 2: Fetch and Align Historical Daily Closing Prices Over Past 3 Years
+   * Step 2: Fetch Historical Daily Closing Prices Over Past 3 Years
+   * Logic: Align prices on common dates to prevent mismatched pairs
    */
   private async fetchGlassnodeData(asset: string, startDate: string, endDate: string): Promise<PriceData[]> {
     try {
@@ -82,22 +87,44 @@ export class ComprehensiveBetaCalculationService {
 
       console.log('Raw Glassnode response:', data);
 
-      // Handle different response formats
-      const responseData = Array.isArray(data) ? data : 
-                          data?.data ? data.data : 
-                          data?.result ? data.result : [];
-
-      if (!Array.isArray(responseData)) {
+      // Handle different response formats - ensure we get an array
+      let responseData: any[] = [];
+      if (Array.isArray(data)) {
+        responseData = data;
+      } else if (data?.data && Array.isArray(data.data)) {
+        responseData = data.data;
+      } else if (data?.result && Array.isArray(data.result)) {
+        responseData = data.result;
+      } else {
         console.error('Invalid response format:', data);
         throw new Error(`Expected array response from Glassnode API, got: ${typeof data}`);
       }
 
-      const processedData = responseData.map((item: any) => ({
-        date: new Date(item.t * 1000).toISOString().split('T')[0],
-        price: parseFloat(item.v)
-      })).filter((item: PriceData) => item.price > 0);
+      // Process data with proper type conversion to float64 equivalent
+      const processedData = responseData
+        .map((item: any) => {
+          // Convert timestamp to date string (YYYY-MM-DD format)
+          const date = item.timestamp ? 
+            new Date(item.timestamp).toISOString().split('T')[0] :
+            new Date(item.t * 1000).toISOString().split('T')[0];
+          
+          // Convert price to float with proper precision
+          const price = parseFloat(item.value || item.v);
+          
+          return { date, price };
+        })
+        .filter((item: PriceData) => {
+          // Validate: price must be positive float to prevent division errors
+          return !isNaN(item.price) && item.price > 0 && typeof item.price === 'number';
+        })
+        .sort((a, b) => a.date.localeCompare(b.date)); // Sort chronologically
 
-      console.log(`✅ Processed ${processedData.length} data points for ${asset}`);
+      console.log(`✅ Processed ${processedData.length} valid data points for ${asset}`);
+      
+      // Validate minimum data points
+      if (processedData.length < 30) {
+        throw new Error(`Insufficient data points for ${asset}: ${processedData.length}. Need at least 30.`);
+      }
       
       return processedData;
     } catch (error) {
@@ -108,6 +135,8 @@ export class ComprehensiveBetaCalculationService {
 
   private async fetchSP500Data(startDate: string, endDate: string): Promise<PriceData[]> {
     try {
+      console.log(`📊 Fetching S&P 500 data from ${startDate} to ${endDate}`);
+      
       const { data, error } = await supabase.functions.invoke('fetch-sp500-data', {
         body: {
           series_id: 'SP500',
@@ -116,63 +145,129 @@ export class ComprehensiveBetaCalculationService {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('S&P 500 API error:', error);
+        throw error;
+      }
 
-      // Handle different response formats
-      const responseData = Array.isArray(data) ? data : 
-                          data?.data ? data.data : 
-                          data?.observations ? data.observations : [];
-
-      if (!Array.isArray(responseData)) {
+      // Handle different response formats - ensure we get an array
+      let responseData: any[] = [];
+      if (Array.isArray(data)) {
+        responseData = data;
+      } else if (data?.data && Array.isArray(data.data)) {
+        responseData = data.data;
+      } else if (data?.observations && Array.isArray(data.observations)) {
+        responseData = data.observations;
+      } else {
         console.error('Invalid S&P 500 response format:', data);
         throw new Error('Expected array response from S&P 500 API');
       }
 
-      return responseData.map((item: any) => ({
-        date: item.date,
-        price: parseFloat(item.value)
-      })).filter((item: PriceData) => item.price > 0);
+      const processedData = responseData
+        .map((item: any) => ({
+          date: item.date,
+          price: parseFloat(item.value)
+        }))
+        .filter((item: PriceData) => {
+          // Validate: price must be positive float
+          return !isNaN(item.price) && item.price > 0 && typeof item.price === 'number';
+        })
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      console.log(`✅ Processed ${processedData.length} valid S&P 500 data points`);
+      
+      if (processedData.length < 30) {
+        throw new Error(`Insufficient S&P 500 data points: ${processedData.length}. Need at least 30.`);
+      }
+      
+      return processedData;
     } catch (error) {
       console.error('Error fetching S&P 500 data:', error);
       throw error;
     }
   }
 
+  /**
+   * Align price data on common dates using benchmark dates as master
+   * Logic: Use benchmark dates as master to ensure trading day alignment
+   */
   private alignPriceData(coinData: PriceData[], benchmarkData: PriceData[]): AlignedData[] {
+    console.log(`🔄 Aligning ${coinData.length} coin prices with ${benchmarkData.length} benchmark prices`);
+    
+    // Create lookup maps for efficient matching
     const coinMap = new Map(coinData.map(item => [item.date, item.price]));
     const benchmarkMap = new Map(benchmarkData.map(item => [item.date, item.price]));
     
     const aligned: AlignedData[] = [];
     
-    // Use benchmark dates as master (especially important for S&P 500 trading days)
+    // Use benchmark dates as master (important for S&P 500 trading days)
     for (const benchmarkItem of benchmarkData) {
       const coinPrice = coinMap.get(benchmarkItem.date);
       
       if (coinPrice !== undefined) {
-        aligned.push({
-          date: benchmarkItem.date,
-          coinPrice,
-          benchmarkPrice: benchmarkItem.price
-        });
+        // Type validation: ensure prices are numbers
+        if (typeof coinPrice === 'number' && typeof benchmarkItem.price === 'number') {
+          aligned.push({
+            date: benchmarkItem.date,
+            coinPrice,
+            benchmarkPrice: benchmarkItem.price
+          });
+        }
       }
     }
     
     // Sort by date ascending
-    return aligned.sort((a, b) => a.date.localeCompare(b.date));
+    aligned.sort((a, b) => a.date.localeCompare(b.date));
+    
+    console.log(`✅ Successfully aligned ${aligned.length} data points`);
+    
+    // Validate minimum aligned data points
+    if (aligned.length < 30) {
+      throw new Error(`Insufficient aligned data points: ${aligned.length}. Need at least 30.`);
+    }
+    
+    return aligned;
   }
 
   /**
-   * Step 3: Calculate Daily Returns from Aligned Prices
+   * Step 1: Calculate Daily Returns from Aligned Prices
+   * Logic: Returns normalize to percentages for comparable changes
+   * Formula: return_t = (price_{t+1} - price_t) / price_t
    */
   private calculateReturns(alignedData: AlignedData[]): ReturnData[] {
-    const returns: ReturnData[] = [];
+    console.log(`📈 Calculating returns from ${alignedData.length} price observations`);
     
-    for (let i = 1; i < alignedData.length; i++) {
+    const returns: ReturnData[] = [];
+    const n_prices = alignedData.length; // int
+    
+    // Validate input data
+    if (n_prices < 2) {
+      throw new Error('Need at least 2 price observations to calculate returns');
+    }
+    
+    // Calculate returns for consecutive rows (t=1 to n_prices-1)
+    for (let i = 1; i < n_prices; i++) {
       const current = alignedData[i];
       const previous = alignedData[i - 1];
       
-      const coinReturn = (current.coinPrice - previous.coinPrice) / previous.coinPrice;
-      const benchmarkReturn = (current.benchmarkPrice - previous.benchmarkPrice) / previous.benchmarkPrice;
+      // Validate: prices must be positive to prevent division errors
+      if (previous.coinPrice <= 0 || previous.benchmarkPrice <= 0) {
+        throw new Error(`Invalid price data at index ${i-1}: prices must be positive`);
+      }
+      
+      // Calculate coin return: (price_t - price_{t-1}) / price_{t-1}
+      const coinChange = current.coinPrice - previous.coinPrice; // float64
+      const coinReturn = coinChange / previous.coinPrice; // float64
+      
+      // Calculate benchmark return with same formula
+      const benchmarkChange = current.benchmarkPrice - previous.benchmarkPrice; // float64
+      const benchmarkReturn = benchmarkChange / previous.benchmarkPrice; // float64
+      
+      // Validate: returns should be finite numbers
+      if (!isFinite(coinReturn) || !isFinite(benchmarkReturn)) {
+        console.warn(`Skipping invalid return at ${current.date}: coin=${coinReturn}, benchmark=${benchmarkReturn}`);
+        continue;
+      }
       
       returns.push({
         date: current.date,
@@ -181,72 +276,143 @@ export class ComprehensiveBetaCalculationService {
       });
     }
     
+    const n_returns = returns.length; // int
+    console.log(`✅ Calculated ${n_returns} return observations`);
+    
+    // Validate minimum returns for reliable statistics
+    if (n_returns < 30) {
+      throw new Error(`Insufficient return observations: ${n_returns}. Need at least 30.`);
+    }
+    
     return returns;
   }
 
   /**
-   * Step 4: Calculate Overall Means of Returns
+   * Step 2: Calculate Overall Means of Returns
+   * Logic: Means average returns over n_returns observations for centering deviations
+   * Formula: mean = sum(returns) / n_returns
    */
   private calculateMeans(returns: ReturnData[]): { coinMean: number; benchmarkMean: number } {
-    const n = returns.length;
+    const n_returns = returns.length; // int
+    console.log(`📊 Calculating means from ${n_returns} return observations`);
     
-    const coinSum = returns.reduce((sum, item) => sum + item.coinReturn, 0);
-    const benchmarkSum = returns.reduce((sum, item) => sum + item.benchmarkReturn, 0);
+    if (n_returns === 0) {
+      throw new Error('Cannot calculate means from empty returns array');
+    }
     
-    return {
-      coinMean: coinSum / n,
-      benchmarkMean: benchmarkSum / n
+    // Calculate coin mean: sum all coin returns and divide by count
+    let totalCoinSum = 0.0; // float64
+    let totalBenchmarkSum = 0.0; // float64
+    
+    for (const returnData of returns) {
+      totalCoinSum += returnData.coinReturn; // float64 addition
+      totalBenchmarkSum += returnData.benchmarkReturn; // float64 addition
+    }
+    
+    const coinMean = totalCoinSum / n_returns; // float64 division
+    const benchmarkMean = totalBenchmarkSum / n_returns; // float64 division
+    
+    // Validate: means should be finite and typically small for daily returns
+    if (!isFinite(coinMean) || !isFinite(benchmarkMean)) {
+      throw new Error('Calculated means are not finite numbers');
+    }
+    
+    console.log(`✅ Calculated means - Coin: ${coinMean.toFixed(6)}, Benchmark: ${benchmarkMean.toFixed(6)}`);
+    
+    return { coinMean, benchmarkMean };
+  }
+
+  /**
+   * Steps 3-6: Calculate Deviations, Covariance, Variance, and Beta
+   * Logic: Sequential calculation with type validation at each step
+   */
+  private calculateBetaFromReturns(
+    returns: ReturnData[], 
+    coinMean: number, 
+    benchmarkMean: number
+  ): { beta: number; covariance: number; benchmarkVariance: number } {
+    
+    const n_returns = returns.length; // int
+    console.log(`🧮 Calculating beta from ${n_returns} returns with sample statistics (n-1)`);
+    
+    if (n_returns < 2) {
+      throw new Error('Need at least 2 returns to calculate beta');
+    }
+    
+    // Step 3: Calculate deviations and accumulate covariance/variance components
+    let covarianceSum = 0.0; // float64 - sum of products for covariance
+    let benchmarkVarianceSum = 0.0; // float64 - sum of squares for variance
+    
+    for (const returnData of returns) {
+      // Step 3: Calculate deviations from means
+      const coinDeviation = returnData.coinReturn - coinMean; // float64
+      const benchmarkDeviation = returnData.benchmarkReturn - benchmarkMean; // float64
+      
+      // Step 4: Accumulate covariance components (products of deviations)
+      const product = coinDeviation * benchmarkDeviation; // float64
+      covarianceSum += product; // float64 addition
+      
+      // Step 5: Accumulate variance components (squares of benchmark deviations)
+      const square = benchmarkDeviation * benchmarkDeviation; // float64
+      benchmarkVarianceSum += square; // float64 addition
+    }
+    
+    // Use sample statistics (divide by n-1) for unbiased estimates
+    const denominator = n_returns - 1; // int
+    if (denominator <= 0) {
+      throw new Error('Insufficient degrees of freedom for sample statistics');
+    }
+    
+    // Step 4: Calculate covariance
+    const covariance = covarianceSum / denominator; // float64
+    
+    // Step 5: Calculate benchmark variance
+    const benchmarkVariance = benchmarkVarianceSum / denominator; // float64
+    
+    // Validate: variance must be positive for beta calculation
+    if (benchmarkVariance <= 0) {
+      throw new Error('Benchmark variance is zero or negative - cannot calculate beta');
+    }
+    
+    // Step 6: Calculate beta = covariance / variance
+    const beta = covariance / benchmarkVariance; // float64
+    
+    // Validate: beta should be finite
+    if (!isFinite(beta)) {
+      throw new Error('Calculated beta is not a finite number');
+    }
+    
+    console.log(`✅ Beta calculation - Covariance: ${covariance.toFixed(8)}, Variance: ${benchmarkVariance.toFixed(8)}, Beta: ${beta.toFixed(3)}`);
+    
+    return { 
+      beta: Math.round(beta * 1000) / 1000, // Round to 3 decimals for output
+      covariance, 
+      benchmarkVariance 
     };
   }
 
   /**
-   * Steps 5-8: Calculate Deviations, Covariance, Variance, and Beta
-   */
-  private calculateBetaFromReturns(returns: ReturnData[], coinMean: number, benchmarkMean: number): { beta: number; covariance: number; benchmarkVariance: number } {
-    const n = returns.length;
-    
-    let covarianceSum = 0;
-    let benchmarkVarianceSum = 0;
-    
-    for (const returnData of returns) {
-      // Step 5: Calculate deviations
-      const coinDeviation = returnData.coinReturn - coinMean;
-      const benchmarkDeviation = returnData.benchmarkReturn - benchmarkMean;
-      
-      // Step 6: Accumulate covariance components
-      covarianceSum += coinDeviation * benchmarkDeviation;
-      
-      // Step 7: Accumulate variance components
-      benchmarkVarianceSum += benchmarkDeviation * benchmarkDeviation;
-    }
-    
-    // Use sample statistics (divide by n-1)
-    const covariance = covarianceSum / (n - 1);
-    const benchmarkVariance = benchmarkVarianceSum / (n - 1);
-    
-    // Step 8: Calculate beta
-    if (benchmarkVariance === 0) {
-      throw new Error('Benchmark variance is zero - cannot calculate beta');
-    }
-    
-    const beta = covariance / benchmarkVariance;
-    
-    return { beta, covariance, benchmarkVariance };
-  }
-
-  /**
-   * Step 9: Validate and Output
+   * Step 7: Validate and Output Results
+   * Logic: Ensure data quality and assign confidence levels
    */
   private validateResults(dataPoints: number, beta: number, covariance: number): 'high' | 'medium' | 'low' {
+    console.log(`🔍 Validating results - Data points: ${dataPoints}, Beta: ${beta}`);
+    
     // Minimum data points for reliable calculation
     if (dataPoints < 30) return 'low';
     if (dataPoints < 250) return 'medium';
     
-    // Check for reasonable beta range
-    if (Math.abs(beta) > 10) return 'low';
+    // Check for reasonable beta range (cryptos typically 0.5-5.0)
+    if (Math.abs(beta) > 10) {
+      console.warn(`Beta ${beta} is outside typical range - flagging as low confidence`);
+      return 'low';
+    }
     
     // Check for meaningful covariance
-    if (Math.abs(covariance) < 1e-8) return 'low';
+    if (Math.abs(covariance) < 1e-8) {
+      console.warn(`Covariance ${covariance} is very small - flagging as low confidence`);
+      return 'low';
+    }
     
     return 'high';
   }
@@ -268,23 +434,31 @@ export class ComprehensiveBetaCalculationService {
   }
 
   /**
-   * Main calculation method implementing all 9 steps
+   * Main calculation method implementing all steps with detailed methodology
    */
   async calculateComprehensiveBeta(coinSymbol: string): Promise<BetaCalculationResult> {
     try {
+      console.log(`🚀 Starting comprehensive beta calculation for ${coinSymbol}`);
+      
+      // Input validation
+      if (typeof coinSymbol !== 'string') {
+        throw new TypeError('coinSymbol must be a string');
+      }
+      
       // Step 1: Determine benchmark
       const { benchmark, coinDataSource, benchmarkDataSource } = this.determineBenchmark(coinSymbol);
       
-      // Define 3-year period
+      // Define 3-year period (as specified in methodology)
       const endDate = new Date().toISOString().split('T')[0];
       const startDate = new Date(Date.now() - (3 * 365 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0];
       
-      console.log(`Calculating beta for ${coinSymbol} vs ${benchmark} from ${startDate} to ${endDate}`);
+      console.log(`📅 Period: ${startDate} to ${endDate}, Benchmark: ${benchmark}`);
       
       // Step 2: Fetch and align data
       let coinData: PriceData[];
       let benchmarkData: PriceData[];
       
+      // Fetch coin data
       if (coinDataSource === 'glassnode') {
         const asset = coinSymbol.toLowerCase() === 'btc' ? 'btc' : 
                      coinSymbol.toLowerCase() === 'ethereum' ? 'eth' : 
@@ -294,6 +468,7 @@ export class ComprehensiveBetaCalculationService {
         throw new Error(`Unsupported coin data source: ${coinDataSource}`);
       }
       
+      // Fetch benchmark data
       if (benchmarkDataSource === 'fred') {
         benchmarkData = await this.fetchSP500Data(startDate, endDate);
       } else if (benchmarkDataSource === 'glassnode') {
@@ -302,27 +477,24 @@ export class ComprehensiveBetaCalculationService {
         throw new Error(`Unsupported benchmark data source: ${benchmarkDataSource}`);
       }
       
+      // Align data on common dates
       const alignedData = this.alignPriceData(coinData, benchmarkData);
       
-      if (alignedData.length < 30) {
-        throw new Error(`Insufficient aligned data points: ${alignedData.length}. Need at least 30.`);
-      }
-      
-      // Step 3: Calculate returns
+      // Step 1: Calculate returns
       const returns = this.calculateReturns(alignedData);
       
-      // Step 4: Calculate means
+      // Step 2: Calculate means
       const { coinMean, benchmarkMean } = this.calculateMeans(returns);
       
-      // Steps 5-8: Calculate beta
+      // Steps 3-6: Calculate beta
       const { beta, covariance, benchmarkVariance } = this.calculateBetaFromReturns(returns, coinMean, benchmarkMean);
       
-      // Step 9: Validate
+      // Step 7: Validate and finalize
       const confidence = this.validateResults(returns.length, beta, covariance);
       const annualizedVolatility = this.calculateAnnualizedVolatility(returns, coinMean);
       
       const result: BetaCalculationResult = {
-        beta: Math.round(beta * 1000) / 1000, // Round to 3 decimals
+        beta,
         coinSymbol: coinSymbol.toUpperCase(),
         benchmarkSymbol: benchmark,
         dataPoints: returns.length,
@@ -337,12 +509,12 @@ export class ComprehensiveBetaCalculationService {
         annualizedVolatility
       };
       
-      console.log(`Beta calculation complete: ${result.coinSymbol} vs ${result.benchmarkSymbol} = ${result.beta} (${result.dataPoints} observations)`);
+      console.log(`🎯 Beta calculation complete: ${result.coinSymbol} vs ${result.benchmarkSymbol} = ${result.beta} (confidence: ${result.confidence}, ${result.dataPoints} observations)`);
       
       return result;
       
     } catch (error) {
-      console.error('Beta calculation failed:', error);
+      console.error('❌ Beta calculation failed:', error);
       throw error;
     }
   }
