@@ -115,6 +115,16 @@ export class DirectApiAnalysisService {
         timeHorizon
       );
       
+      // Get comprehensive beta calculation details for Bitcoin
+      console.log('🔄 Calculating detailed beta analysis for Bitcoin...');
+      let betaCalculationDetails: BetaCalculationResult | undefined;
+      try {
+        betaCalculationDetails = await comprehensiveBetaCalculationService.calculateComprehensiveBeta('BTC');
+        console.log('✅ Detailed beta calculation completed for Bitcoin');
+      } catch (error) {
+        console.warn('⚠️ Detailed beta calculation failed for Bitcoin, continuing without it:', error);
+      }
+      
       console.log('✅ Bitcoin analysis completed with full cointime metrics');
       
       return {
@@ -135,6 +145,7 @@ export class DirectApiAnalysisService {
           summary: bitcoinMarketState.summary
         },
         recommendation: bitcoinAnalysis.recommendation,
+        betaCalculationDetails,
         dataQuality: bitcoinAnalysis.dataQuality,
         lastUpdated: new Date().toISOString()
       };
