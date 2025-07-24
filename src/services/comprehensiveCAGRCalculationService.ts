@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { symbolMappingService } from './symbolMappingService';
 
 // Interface for CAGR calculation result with all sub-calculations
 export interface CAGRCalculationResult {
@@ -132,12 +133,13 @@ export class ComprehensiveCAGRCalculationService {
   private async gatherAndPrepareDailyPriceData(coinId: string, maxDays: number): Promise<PriceDataPoint[]> {
     console.log(`📊 Gathering daily price data for ${coinId} (max ${maxDays} days)...`);
     
-    // Define Glassnode supported coins
-    const glassnodeSupported = ['bitcoin', 'ethereum', 'solana', 'cardano', 'chainlink'];
+    // Check if coin is supported by Glassnode using symbol mapping service
+    const isSupported = symbolMappingService.isGlassNodeSupported(coinId);
+    const glassnodeAsset = symbolMappingService.getGlassNodeAsset(coinId);
     
-    if (glassnodeSupported.includes(coinId.toLowerCase())) {
+    if (isSupported && glassnodeAsset) {
       // For Glassnode supported coins, fetch daily data directly from API
-      console.log(`🟢 Fetching daily Glassnode data for ${coinId}...`);
+      console.log(`🟢 Fetching daily Glassnode data for ${coinId} (mapped to ${glassnodeAsset})...`);
       
       try {
         const { data: glassnodeData, error: glassnodeError } = await supabase.functions.invoke(
@@ -145,11 +147,7 @@ export class ComprehensiveCAGRCalculationService {
           {
             body: {
               metric: 'market/price_usd_close',
-              asset: coinId.toUpperCase() === 'BITCOIN' ? 'BTC' : 
-                     coinId.toUpperCase() === 'ETHEREUM' ? 'ETH' :
-                     coinId.toUpperCase() === 'SOLANA' ? 'SOL' :
-                     coinId.toUpperCase() === 'CARDANO' ? 'ADA' :
-                     coinId.toUpperCase() === 'CHAINLINK' ? 'LINK' : 'BTC',
+              asset: glassnodeAsset,
               since: Math.floor((Date.now() - (maxDays * 24 * 60 * 60 * 1000)) / 1000),
               until: Math.floor(Date.now() / 1000),
               disableSampling: true // Get daily data
