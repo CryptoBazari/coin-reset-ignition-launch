@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Activity, BarChart3, Calculator, Database, TrendingUp, AlertTriangle, Target, Zap } from 'lucide-react';
 import { ComprehensiveAnalysisResult } from '@/services/comprehensiveGlassNodeAnalyzer';
+import { BetaCalculationCard } from '@/components/analysis/BetaCalculationCard';
 
 interface ComprehensiveAnalysisResultsProps {
   result: ComprehensiveAnalysisResult;
@@ -141,47 +142,54 @@ export const ComprehensiveAnalysisResults: React.FC<ComprehensiveAnalysisResults
         </TabsContent>
 
         <TabsContent value="beta">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="h-5 w-5" />
-                  Monthly Beta Analysis
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between">
-                  <span>Beta:</span>
-                  <span className="font-bold text-lg">{result.monthlyBetaAnalysis.beta.toFixed(3)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Confidence:</span>
-                  <Badge variant={result.monthlyBetaAnalysis.confidence === 'high' ? 'default' : 'secondary'}>
-                    {result.monthlyBetaAnalysis.confidence}
-                  </Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Correlation:</span>
-                  <span className="font-semibold">{result.monthlyBetaAnalysis.correlation.toFixed(3)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Benchmark:</span>
-                  <span className="font-semibold">{result.monthlyBetaAnalysis.benchmarkUsed}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Data Points:</span>
-                  <span className="font-semibold">{result.monthlyBetaAnalysis.dataPoints}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Frequency:</span>
-                  <Badge variant="outline">{result.monthlyBetaAnalysis.dataFrequency}</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Source:</span>
-                  <Badge variant="outline">{result.monthlyBetaAnalysis.source}</Badge>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="h-5 w-5" />
+                    Monthly Beta Analysis
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between">
+                    <span>Beta:</span>
+                    <span className="font-bold text-lg">{result.monthlyBetaAnalysis.beta.toFixed(3)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Confidence:</span>
+                    <Badge variant={result.monthlyBetaAnalysis.confidence === 'high' ? 'default' : 'secondary'}>
+                      {result.monthlyBetaAnalysis.confidence}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Correlation:</span>
+                    <span className="font-semibold">{result.monthlyBetaAnalysis.correlation.toFixed(3)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Benchmark:</span>
+                    <span className="font-semibold">{result.monthlyBetaAnalysis.benchmarkUsed}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Data Points:</span>
+                    <span className="font-semibold">{result.monthlyBetaAnalysis.dataPoints}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Frequency:</span>
+                    <Badge variant="outline">{result.monthlyBetaAnalysis.dataFrequency}</Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Source:</span>
+                    <Badge variant="outline">{result.monthlyBetaAnalysis.source}</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            
+            {/* Beta Calculation Details Card */}
+            {result.betaCalculationDetails && (
+              <BetaCalculationCard betaDetails={result.betaCalculationDetails} />
+            )}
           </div>
         </TabsContent>
 

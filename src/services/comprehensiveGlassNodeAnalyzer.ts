@@ -4,6 +4,7 @@ import { glassnodeNPVCalculator } from './glassnodeNPVCalculator';
 import { glassnodeMonteCarloService } from './glassnodeMonteCarloService';
 import { glassnodeDataInitializer } from './glassnodeDataInitializer';
 import { realTimeGlassNodeService } from './realTimeGlassNodeService';
+import { comprehensiveBetaCalculationService, BetaCalculationResult } from './comprehensiveBetaCalculationService';
 
 export interface AnalysisInputs {
   coinSymbol: string;
@@ -52,6 +53,9 @@ export interface ComprehensiveAnalysisResult {
     dataFrequency: string;
     source: string;
   };
+  
+  // Detailed Beta Calculation
+  betaCalculationDetails?: BetaCalculationResult;
   
   glassNodeMetrics: {
     aviv_ratio: number;
@@ -272,6 +276,16 @@ class ComprehensiveGlassNodeAnalyzer {
       console.log('📊 Step 2: Calculating real monthly beta...');
       const monthlyBetaResult = await realBetaCalculationService.calculateRealBeta(coinId);
       
+      // Step 2b: Get detailed beta calculation for comprehensive analysis
+      console.log('📊 Step 2b: Calculating detailed beta analysis...');
+      let betaCalculationDetails: BetaCalculationResult | undefined;
+      try {
+        betaCalculationDetails = await comprehensiveBetaCalculationService.calculateComprehensiveBeta(inputs.coinSymbol);
+        console.log('✅ Detailed beta calculation completed');
+      } catch (error) {
+        console.warn('⚠️ Detailed beta calculation failed, continuing without it:', error);
+      }
+      
       // Step 3: Enhanced NPV calculation with REAL MVRV integration
       console.log('📊 Step 3: Calculating NPV with real data...');
       const npvResult = glassnodeNPVCalculator.calculateDataDrivenNPV(
@@ -363,6 +377,8 @@ class ComprehensiveGlassNodeAnalyzer {
           dataFrequency: monthlyBetaResult.dataFrequency || 'monthly',
           source: 'glassnode_monthly_data'
         },
+        
+        betaCalculationDetails,
         
         glassNodeMetrics,
         regionalData,
