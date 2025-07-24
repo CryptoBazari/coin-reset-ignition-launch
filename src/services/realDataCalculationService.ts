@@ -2,6 +2,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { glassnodeBetaCalculationService } from './glassnodeBetaCalculationService';
 import { enhancedNPVCalculationService } from './enhancedNPVCalculationService';
+import { comprehensiveBetaCalculationService, BetaCalculationResult } from './comprehensiveBetaCalculationService';
 
 export interface RealDataCalculationResult {
   success: boolean;
@@ -42,6 +43,7 @@ export interface RealDataCalculationResult {
     riskWarnings: string[];
   };
   dataQualityScore: number;
+  betaCalculationDetails?: BetaCalculationResult;
 }
 
 class RealDataCalculationService {
@@ -97,6 +99,18 @@ class RealDataCalculationService {
       console.log('🔄 Calculating real beta with Glassnode + FRED...');
       const betaResult = await glassnodeBetaCalculationService.calculateBeta(coinId);
       console.log(`✅ Real beta calculated: ${betaResult.beta.toFixed(3)} (${betaResult.confidence} confidence)`);
+      
+      // Get detailed beta calculation for comprehensive analysis
+      console.log('🔄 Calculating detailed beta analysis...');
+      let betaCalculationDetails: BetaCalculationResult | undefined;
+      try {
+        // Map coinId to symbol for comprehensive beta calculation
+        const coinSymbol = coinId.toUpperCase();
+        betaCalculationDetails = await comprehensiveBetaCalculationService.calculateComprehensiveBeta(coinSymbol);
+        console.log('✅ Detailed beta calculation completed');
+      } catch (error) {
+        console.warn('⚠️ Detailed beta calculation failed, continuing without it:', error);
+      }
       
       // Create enhanced coin data for NPV calculation
       const enhancedCoinData = {
@@ -186,7 +200,8 @@ class RealDataCalculationService {
         realTimeData,
         betaAnalysis,
         recommendation,
-        dataQualityScore
+        dataQualityScore,
+        betaCalculationDetails
       };
 
     } catch (error) {

@@ -23,11 +23,11 @@ import { ComprehensiveInvestmentForm } from '@/components/ComprehensiveInvestmen
 import { ComprehensiveAnalysisResults } from '@/components/ComprehensiveAnalysisResults';
 import { comprehensiveGlassNodeAnalyzer, AnalysisInputs, ComprehensiveAnalysisResult } from '@/services/comprehensiveGlassNodeAnalyzer';
 import { useGlassnodeDataInitialization } from '@/hooks/useGlassnodeDataInitialization';
-
 import { priceHistoryExportService } from '@/services/priceHistoryExportService';
 import { betaCalculationExportService } from '@/services/betaCalculationExportService';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { BetaCalculationCard } from '@/components/analysis/BetaCalculationCard';
 
 const CryptoAnalysis = () => {
   const [realAnalysisResult, setRealAnalysisResult] = useState(null);
@@ -699,7 +699,19 @@ const CryptoAnalysis = () => {
                           </div>
                         </CardContent>
                       </Card>
+                      
+                      {/* Beta Calculation Details Card */}
+                      {realAnalysisResult?.betaCalculationDetails && (
+                        <BetaCalculationCard betaDetails={realAnalysisResult.betaCalculationDetails} />
+                      )}
                     </div>
+                  )}
+
+                  {/* Comprehensive Analysis Section */}
+                  <ComprehensiveInvestmentForm onSubmit={handleComprehensiveAnalysis} loading={analysisLoading} />
+                  
+                  {comprehensiveResult && (
+                    <ComprehensiveAnalysisResults result={comprehensiveResult} />
                   )}
                 </div>
               </TabsContent>
