@@ -149,7 +149,7 @@ export class ComprehensiveCAGRCalculationService {
           {
             body: {
               metric: 'market/price_usd_close',
-              asset: glassnodeAsset.toLowerCase(), // Use lowercase like beta service
+              asset: glassnodeAsset.toUpperCase(), // Use uppercase like beta service
               resolution: '24h',
               since: Math.floor((Date.now() - (maxDays * 24 * 60 * 60 * 1000)) / 1000),
               until: Math.floor(Date.now() / 1000),
