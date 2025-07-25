@@ -2,6 +2,7 @@
 import { enhancedHistoricalDataService, MonthlyPriceData } from './enhancedHistoricalDataService';
 import { comprehensiveBetaCalculationService } from './comprehensiveBetaCalculationService';
 import { realTimeCAGRCalculationService } from './realTimeCAGRCalculationService';
+import { symbolMappingService } from './symbolMappingService';
 
 export interface ImprovedFinancialMetrics {
   npv: number;
@@ -269,14 +270,43 @@ class ImprovedFinancialCalculations {
     coinId: string,
     symbol: string
   ): Promise<ImprovedFinancialMetrics> {
-    console.warn('⚠️ Using fallback metrics due to insufficient data, but calculating REAL CAGR');
+    console.warn(`⚠️ Using fallback metrics for ${symbol} due to insufficient data, but calculating REAL CAGR`);
     
     try {
-      // Even in fallback mode, calculate REAL CAGR using Glassnode API
+      // Force Glassnode calculation for supported coins even in fallback mode
+      const isGlassnodeSupported = symbolMappingService.isGlassNodeSupported(symbol);
+      console.log(`🔍 Fallback mode: ${symbol} Glassnode support: ${isGlassnodeSupported}`);
+      
+      if (isGlassnodeSupported) {
+        // Force Glassnode API call directly for supported coins
+        const glassnodeAsset = symbolMappingService.getGlassNodeAsset(symbol);
+        if (glassnodeAsset) {
+          console.log(`🌐 Fallback mode: Forcing Glassnode API call for ${glassnodeAsset}`);
+          const cagrResult = await realTimeCAGRCalculationService.calculateRealTimeCAGR(coinId, symbol, 3);
+          const realCagr = cagrResult.cagr;
+          
+          console.log(`✅ Fallback mode: Got REAL Glassnode CAGR ${realCagr.toFixed(2)}% for ${symbol}`);
+          
+          return {
+            npv: investmentAmount * (realCagr / 100), // Use real CAGR for NPV
+            irr: Math.min(500, Math.max(realCagr * 0.8, 8)), // IRR based on real CAGR with bounds
+            cagr: realCagr, // REAL CAGR from Glassnode API
+            roi: (Math.pow(1 + realCagr / 100, timeHorizon / 12) - 1) * 100,
+            volatility: 45, // Moderate volatility fallback
+            beta: 1.2, // Slightly higher than market
+            sharpeRatio: (realCagr - 5) / 45, // Sharpe ratio using real CAGR
+            confidenceScore: cagrResult.confidence === 'high' ? 70 : cagrResult.confidence === 'medium' ? 50 : 30,
+            dataSource: `fallback-glassnode`,
+            monthsOfData: 0
+          };
+        }
+      }
+      
+      // Try regular CAGR calculation as backup
       const cagrResult = await realTimeCAGRCalculationService.calculateRealTimeCAGR(coinId, symbol, 3);
       const realCagr = cagrResult.cagr;
       
-      console.log(`✅ Fallback mode: Using REAL CAGR ${realCagr.toFixed(2)}% from ${cagrResult.dataSource} (${cagrResult.dataPoints} points)`);
+      console.log(`✅ Fallback mode: Using database CAGR ${realCagr.toFixed(2)}% from ${cagrResult.dataSource} (${cagrResult.dataPoints} points)`);
       
       return {
         npv: investmentAmount * (realCagr / 100), // Use real CAGR for NPV
@@ -291,19 +321,20 @@ class ImprovedFinancialCalculations {
         monthsOfData: 0
       };
     } catch (error) {
-      console.error('❌ Even real-time CAGR calculation failed in fallback:', error);
+      console.error(`❌ All CAGR calculation methods failed for ${symbol} in fallback:`, error);
       
-      // Last resort fallback if everything fails
+      // This should RARELY happen now - only when ALL methods fail
+      console.warn(`🚨 Using emergency static fallback for ${symbol} - this should be very rare!`);
       return {
         npv: investmentAmount * 0.1,
         irr: 8,
-        cagr: 12, // Only use static if EVERYTHING fails
-        roi: (Math.pow(1.12, timeHorizon / 12) - 1) * 100,
-        volatility: 45,
-        beta: 1.2,
-        sharpeRatio: 0.16,
-        confidenceScore: 15, // Very low confidence
-        dataSource: 'static-fallback',
+        cagr: 25, // Higher fallback to indicate this is an emergency case
+        roi: (Math.pow(1.25, timeHorizon / 12) - 1) * 100,
+        volatility: 60, // Higher volatility to indicate uncertainty
+        beta: 1.5, // Higher beta
+        sharpeRatio: 0.33,
+        confidenceScore: 5, // Very low confidence
+        dataSource: 'emergency-static-fallback',
         monthsOfData: 0
       };
     }

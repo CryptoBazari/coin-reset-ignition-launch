@@ -24,7 +24,7 @@ class RealTimeCAGRCalculationService {
   
   /**
    * Calculate CAGR using the exact formula: CAGR = (Final Value / Initial Value)^(1/n) - 1
-   * Uses real Glassnode API data for Bitcoin and database/CoinMarketCap for altcoins
+   * Uses real Glassnode API data for supported coins and database/CoinMarketCap for others
    */
   async calculateRealTimeCAGR(
     coinId: string, 
@@ -33,24 +33,36 @@ class RealTimeCAGRCalculationService {
   ): Promise<RealTimeCAGRResult> {
     console.log(`🔢 Starting real-time CAGR calculation for ${symbol} (${yearsBack} years)`);
     
+    // Check Glassnode support using symbol (more reliable than coinId)
+    const isGlassnodeSupported = this.isGlassNodeSupported(symbol);
+    console.log(`🔍 Glassnode support check for ${symbol}: ${isGlassnodeSupported}`);
+    
     // Try to get fresh Glassnode data first (for supported coins)
-    if (this.isGlassNodeSupported(coinId)) {
+    if (isGlassnodeSupported) {
       try {
-        const glassnodeAsset = symbolMappingService.getGlassNodeAsset(coinId);
+        const glassnodeAsset = symbolMappingService.getGlassNodeAsset(symbol);
         if (glassnodeAsset) {
+          console.log(`🌐 Using Glassnode asset ${glassnodeAsset} for ${symbol}`);
           const glassnodeResult = await this.calculateCAGRFromGlassNode(glassnodeAsset, yearsBack);
-          console.log(`✅ Using fresh Glassnode data for ${symbol} CAGR calculation`);
+          console.log(`✅ Successfully calculated CAGR from Glassnode: ${glassnodeResult.cagr.toFixed(2)}%`);
           return glassnodeResult;
         }
       } catch (error) {
         console.warn(`⚠️ Glassnode fetch failed for ${symbol}, falling back to database:`, error);
       }
+    } else {
+      console.log(`📝 ${symbol} not supported by Glassnode, using database data`);
     }
     
     // Fallback to database data
-    const databaseResult = await this.calculateCAGRFromDatabase(coinId, yearsBack);
-    console.log(`✅ Using database data for ${symbol} CAGR calculation`);
-    return databaseResult;
+    try {
+      const databaseResult = await this.calculateCAGRFromDatabase(coinId, yearsBack);
+      console.log(`✅ Successfully calculated CAGR from database: ${databaseResult.cagr.toFixed(2)}%`);
+      return databaseResult;
+    } catch (error) {
+      console.error(`❌ Database CAGR calculation failed for ${symbol}:`, error);
+      throw new Error(`Failed to calculate CAGR for ${symbol}: both Glassnode and database failed`);
+    }
   }
   
   /**
@@ -258,9 +270,10 @@ class RealTimeCAGRCalculationService {
   
   /**
    * Check if a coin is supported by Glassnode using the symbol mapping service
+   * Prioritizes symbol lookup over coinId for better accuracy
    */
-  private isGlassNodeSupported(coinIdOrSymbol: string): boolean {
-    return symbolMappingService.isGlassNodeSupported(coinIdOrSymbol);
+  private isGlassNodeSupported(symbolOrCoinId: string): boolean {
+    return symbolMappingService.isGlassNodeSupported(symbolOrCoinId);
   }
 }
 
