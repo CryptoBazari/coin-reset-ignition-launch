@@ -1,183 +1,428 @@
 
-import { enhancedFallbackDataService } from './enhancedFallbackDataService';
-import type { InvestmentInputs, AnalysisResult } from '@/types/investment';
+import { fetchGlassNodeMetric, GLASS_NODE_METRICS } from '@/services/glassNodeService';
+import { fetchCoinPrices, CoinMarketCapCoin } from '@/services/coinMarketCapService';
+import { symbolMappingService } from '@/services/symbolMappingService';
+import { bitcoinAnalysisService } from '@/services/bitcoinAnalysisService';
+import { realDataFinancialCalculations } from '@/services/realDataFinancialCalculations';
+import { bitcoinMarketAnalyzer } from '@/services/bitcoinMarketAnalyzer';
+import { comprehensiveBetaCalculationService, type BetaCalculationResult } from '@/services/comprehensiveBetaCalculationService';
 
-export interface DirectApiAnalysisResult {
-  metrics: {
+
+export interface DirectAnalysisResult {
+  coinId: string;
+  symbol: string;
+  name: string;
+  isBitcoin: boolean;
+  dataSource: 'glassnode' | 'coinmarketcap';
+  hasRealData: boolean;
+  
+  // Basic market data (available for all coins)
+  currentPrice: number;
+  priceChange24h: number;
+  marketCap: number;
+  
+  // Standard financial metrics (for all coins)
+  financialMetrics: {
     npv: number;
     irr: number;
-    roi: number;
     cagr: number;
-    beta: number;
+    roi: number;
     volatility: number;
+    beta: number;
     sharpeRatio: number;
-    riskFactor: number;
-    bitcoinAvivRatio?: number;
   };
+  
+  // Bitcoin-specific cointime metrics (only for Bitcoin)
+  cointimeMetrics?: {
+    avivRatio: number;
+    activeSupply: number;
+    vaultedSupply: number;
+    cointimeDestroyed: number;
+    cointimePrice: number;
+    liquidSupply: number;
+  };
+  
+  // Bitcoin market context (shown for all analyses)
+  bitcoinMarketState: {
+    condition: 'bullish' | 'bearish' | 'neutral';
+    confidence: number;
+    summary: string;
+  };
+  
+  // Investment recommendation
   recommendation: {
     action: 'Buy' | 'Hold' | 'Sell' | 'Not Recommended';
     confidence: number;
     reasoning: string[];
     riskWarnings: string[];
   };
+  
+  // Beta calculation details (when available)
+  betaCalculationDetails?: BetaCalculationResult;
+  
+  // Data quality indicators
   dataQuality: {
     score: number;
     source: string;
     freshness: string;
-    isLive: boolean;
   };
-  coinData: {
-    currentPrice: number;
-    volume24h: number;
-    marketCap: number;
-    priceHistory: Array<{ date: string; price: number }>;
-  };
+  
   lastUpdated: string;
 }
 
-class DirectApiAnalysisService {
+export class DirectApiAnalysisService {
   
-  async analyzeInvestment(inputs: InvestmentInputs): Promise<DirectApiAnalysisResult> {
-    console.log('🚀 Starting direct API analysis with enhanced fallback support');
+  async analyzeInvestment(
+    coinId: string,
+    symbol: string,
+    investmentAmount: number,
+    timeHorizon: number
+  ): Promise<DirectAnalysisResult> {
+    console.log(`🔄 Starting differentiated analysis for ${symbol} (${coinId})`);
     
+    const isBitcoin = this.isBitcoinSymbol(symbol);
+    
+    // Always get Bitcoin market state for context
+    const bitcoinMarketState = await bitcoinMarketAnalyzer.getBitcoinMarketState();
+    
+    if (isBitcoin) {
+      console.log('🟠 Detected Bitcoin - using full cointime analysis');
+      return this.analyzeBitcoinWithCointime(coinId, symbol, investmentAmount, timeHorizon, bitcoinMarketState);
+    } else {
+      console.log('🔵 Detected altcoin - using standard financial analysis');
+      return this.analyzeAltcoinStandard(coinId, symbol, investmentAmount, timeHorizon, bitcoinMarketState);
+    }
+  }
+  
+  private async analyzeBitcoinWithCointime(
+    coinId: string,
+    symbol: string,
+    investmentAmount: number,
+    timeHorizon: number,
+    bitcoinMarketState: any
+  ): Promise<DirectAnalysisResult> {
     try {
-      // Get comprehensive analysis data with fallback support
-      const analysisData = await enhancedFallbackDataService.getAnalysisData(
-        inputs.coinId,
-        inputs.coinId.toUpperCase(),
-        inputs.investmentAmount,
-        inputs.investmentHorizon
+      // Get current Bitcoin price
+      const coinPrices = await fetchCoinPrices([symbol]);
+      const coinPrice = coinPrices[0];
+      
+      if (!coinPrice) {
+        throw new Error(`Unable to fetch Bitcoin price`);
+      }
+      
+      // Use Bitcoin analysis service for comprehensive analysis
+      const bitcoinAnalysis = await bitcoinAnalysisService.analyzeBitcoinInvestment(
+        investmentAmount,
+        timeHorizon
       );
       
-      // Generate recommendation based on analysis
-      const recommendation = this.generateRecommendation(
-        analysisData.financial,
-        analysisData.onChainMetrics,
-        analysisData.marketTiming,
-        inputs.coinId.toUpperCase()
-      );
+      // Get comprehensive beta calculation details for Bitcoin
+      console.log('🔄 Calculating detailed beta analysis for Bitcoin...');
+      let betaCalculationDetails: BetaCalculationResult | undefined;
+      try {
+        betaCalculationDetails = await comprehensiveBetaCalculationService.calculateComprehensiveBeta('BTC');
+        console.log('✅ Detailed beta calculation completed for Bitcoin');
+      } catch (error) {
+        console.warn('⚠️ Detailed beta calculation failed for Bitcoin, continuing without it:', error);
+      }
       
-      // Determine data quality
-      const dataQuality = {
-        score: analysisData.financial.confidence,
-        source: analysisData.financial.dataSource === 'live_api' ? 'Live API Data' : 'Enhanced Test Data',
-        freshness: analysisData.financial.dataSource === 'live_api' ? 'Real-time' : 'Simulated',
-        isLive: analysisData.financial.dataSource === 'live_api'
-      };
+      // CAGR is already calculated correctly in Bitcoin analysis service
       
-      console.log(`✅ Analysis completed using ${dataQuality.source}`);
+      console.log('✅ Bitcoin analysis completed with full cointime metrics');
       
       return {
-        metrics: {
-          npv: analysisData.financial.npv,
-          irr: analysisData.financial.irr,
-          roi: analysisData.financial.roi,
-          cagr: analysisData.financial.cagr,
-          beta: analysisData.financial.beta,
-          volatility: analysisData.financial.volatility,
-          sharpeRatio: analysisData.financial.sharpeRatio,
-          riskFactor: analysisData.financial.riskFactor,
-          bitcoinAvivRatio: analysisData.onChainMetrics.avivRatio
+        coinId,
+        symbol,
+        name: coinPrice.name,
+        isBitcoin: true,
+        dataSource: 'glassnode',
+        hasRealData: true,
+        currentPrice: coinPrice.current_price,
+        priceChange24h: coinPrice.price_change_percentage_24h || 0,
+        marketCap: coinPrice.market_cap,
+        financialMetrics: bitcoinAnalysis.financialMetrics,
+        cointimeMetrics: bitcoinAnalysis.cointimeMetrics,
+        bitcoinMarketState: {
+          condition: bitcoinMarketState.condition,
+          confidence: bitcoinMarketState.confidence,
+          summary: bitcoinMarketState.summary
         },
-        recommendation,
-        dataQuality,
-        coinData: analysisData.coinData,
+        recommendation: bitcoinAnalysis.recommendation,
+        betaCalculationDetails,
+        dataQuality: bitcoinAnalysis.dataQuality,
         lastUpdated: new Date().toISOString()
       };
       
     } catch (error) {
-      console.error('❌ Direct API analysis failed:', error);
+      console.error(`❌ Bitcoin analysis failed:`, error);
       throw error;
     }
   }
   
-  private generateRecommendation(
-    financial: any,
-    onChain: any,
-    marketTiming: any,
-    symbol: string
+  private async analyzeAltcoinStandard(
+    coinId: string,
+    symbol: string,
+    investmentAmount: number,
+    timeHorizon: number,
+    bitcoinMarketState: any
+  ): Promise<DirectAnalysisResult> {
+    const mapping = symbolMappingService.getMapping(symbol);
+    const glassNodeAsset = mapping?.glassNodeAsset;
+    
+    let result: DirectAnalysisResult;
+    
+    if (glassNodeAsset && mapping?.glassNodeSupported) {
+      console.log(`✅ Using Glassnode data for ${symbol} (no cointime metrics)`);
+      result = await this.analyzeAltcoinWithGlassNode(coinId, symbol, glassNodeAsset, investmentAmount, timeHorizon, bitcoinMarketState);
+    } else {
+      console.log(`⚠️ Using CoinMarketCap data for ${symbol}`);
+      result = await this.analyzeAltcoinWithCoinMarketCap(coinId, symbol, investmentAmount, timeHorizon, bitcoinMarketState);
+    }
+    
+    return result;
+  }
+  
+  private async analyzeAltcoinWithGlassNode(
+    coinId: string,
+    symbol: string,
+    glassNodeAsset: string,
+    investmentAmount: number,
+    timeHorizon: number,
+    bitcoinMarketState: any
+  ): Promise<DirectAnalysisResult> {
+    try {
+      // Get current price from CoinMarketCap
+      const coinPrices = await fetchCoinPrices([symbol]);
+      const coinPrice = coinPrices[0];
+      
+      if (!coinPrice) {
+        throw new Error(`Unable to fetch price for ${symbol}`);
+      }
+      
+      // Calculate financial metrics using real Glassnode data
+      const financialMetrics = await realDataFinancialCalculations.calculateRealMetrics(
+        coinId,
+        symbol,
+        investmentAmount,
+        timeHorizon,
+        true
+      );
+      
+      // Calculate accurate beta using comprehensive beta calculation service
+      let betaCalculationDetails: BetaCalculationResult | undefined;
+      try {
+        console.log(`🔄 Calculating comprehensive beta for ${symbol}`);
+        const betaResult = await comprehensiveBetaCalculationService.calculateComprehensiveBeta(symbol);
+        if (betaResult?.beta && !isNaN(betaResult.beta)) {
+          financialMetrics.beta = betaResult.beta;
+          betaCalculationDetails = betaResult;
+          console.log(`✅ Updated beta for ${symbol}: ${betaResult.beta.toFixed(3)}`);
+        }
+      } catch (betaError) {
+        console.warn(`⚠️ Comprehensive beta calculation failed for ${symbol}, using fallback:`, betaError);
+      }
+      
+      // CAGR is already calculated correctly in financialMetrics from database
+      
+      // Generate altcoin recommendation (no cointime metrics)
+      const recommendation = this.generateAltcoinRecommendation(
+        financialMetrics,
+        bitcoinMarketState,
+        coinPrice.market_cap
+      );
+      
+      console.log(`✅ Altcoin analysis completed with Glassnode data for ${symbol}`);
+      
+      return {
+        coinId,
+        symbol,
+        name: coinPrice.name,
+        isBitcoin: false,
+        dataSource: 'glassnode',
+        hasRealData: true,
+        currentPrice: coinPrice.current_price,
+        priceChange24h: coinPrice.price_change_percentage_24h || 0,
+        marketCap: coinPrice.market_cap,
+        financialMetrics: {
+          npv: financialMetrics.npv,
+          irr: financialMetrics.irr,
+          cagr: financialMetrics.cagr,
+          roi: financialMetrics.roi,
+          volatility: financialMetrics.volatility,
+          beta: financialMetrics.beta,
+          sharpeRatio: financialMetrics.sharpeRatio
+        },
+        bitcoinMarketState: {
+          condition: bitcoinMarketState.condition,
+          confidence: bitcoinMarketState.confidence,
+          summary: bitcoinMarketState.summary
+        },
+        recommendation,
+        betaCalculationDetails,
+        dataQuality: {
+          score: financialMetrics.confidenceScore,
+          source: 'Glassnode + CoinMarketCap',
+          freshness: 'Real-time'
+        },
+        lastUpdated: new Date().toISOString()
+      };
+      
+    } catch (error) {
+      console.error(`❌ Glassnode altcoin analysis failed for ${symbol}:`, error);
+      // Fallback to CoinMarketCap
+      return this.analyzeAltcoinWithCoinMarketCap(coinId, symbol, investmentAmount, timeHorizon, bitcoinMarketState);
+    }
+  }
+  
+  private async analyzeAltcoinWithCoinMarketCap(
+    coinId: string,
+    symbol: string,
+    investmentAmount: number,
+    timeHorizon: number,
+    bitcoinMarketState: any
+  ): Promise<DirectAnalysisResult> {
+    try {
+      const coinPrices = await fetchCoinPrices([symbol]);
+      const coinPrice = coinPrices[0];
+      
+      if (!coinPrice) {
+        throw new Error(`Unable to fetch price for ${symbol}`);
+      }
+      
+      // Calculate financial metrics using CoinMarketCap data
+      const financialMetrics = await realDataFinancialCalculations.calculateRealMetrics(
+        coinId,
+        symbol,
+        investmentAmount,
+        timeHorizon,
+        false
+      );
+      
+      // Calculate accurate beta using comprehensive beta calculation service
+      let betaCalculationDetails: BetaCalculationResult | undefined;
+      try {
+        console.log(`🔄 Calculating comprehensive beta for ${symbol}`);
+        const betaResult = await comprehensiveBetaCalculationService.calculateComprehensiveBeta(symbol);
+        if (betaResult?.beta && !isNaN(betaResult.beta)) {
+          financialMetrics.beta = betaResult.beta;
+          betaCalculationDetails = betaResult;
+          console.log(`✅ Updated beta for ${symbol}: ${betaResult.beta.toFixed(3)}`);
+        }
+      } catch (betaError) {
+        console.warn(`⚠️ Comprehensive beta calculation failed for ${symbol}, using fallback:`, betaError);
+      }
+      
+      // CAGR is already calculated correctly in financialMetrics from database
+      
+      // Generate conservative altcoin recommendation
+      const recommendation = this.generateAltcoinRecommendation(
+        financialMetrics,
+        bitcoinMarketState,
+        coinPrice.market_cap
+      );
+      
+      console.log(`⚠️ Altcoin analysis completed with CoinMarketCap data for ${symbol}`);
+      
+      return {
+        coinId,
+        symbol,
+        name: coinPrice.name,
+        isBitcoin: false,
+        dataSource: 'coinmarketcap',
+        hasRealData: false,
+        currentPrice: coinPrice.current_price,
+        priceChange24h: coinPrice.price_change_percentage_24h || 0,
+        marketCap: coinPrice.market_cap,
+        financialMetrics: {
+          npv: financialMetrics.npv,
+          irr: financialMetrics.irr,
+          cagr: financialMetrics.cagr,
+          roi: financialMetrics.roi,
+          volatility: financialMetrics.volatility,
+          beta: financialMetrics.beta,
+          sharpeRatio: financialMetrics.sharpeRatio
+        },
+        bitcoinMarketState: {
+          condition: bitcoinMarketState.condition,
+          confidence: bitcoinMarketState.confidence,
+          summary: bitcoinMarketState.summary
+        },
+        recommendation,
+        betaCalculationDetails,
+        dataQuality: {
+          score: financialMetrics.confidenceScore,
+          source: 'CoinMarketCap only',
+          freshness: 'Real-time'
+        },
+        lastUpdated: new Date().toISOString()
+      };
+      
+    } catch (error) {
+      console.error(`❌ CoinMarketCap altcoin analysis failed for ${symbol}:`, error);
+      throw error;
+    }
+  }
+  
+  private generateAltcoinRecommendation(
+    financialMetrics: any,
+    bitcoinMarketState: any,
+    marketCap: number
   ) {
     const reasoning: string[] = [];
     const riskWarnings: string[] = [];
     
     let action: 'Buy' | 'Hold' | 'Sell' | 'Not Recommended' = 'Hold';
-    let confidence = 60;
+    let confidence = 40; // Lower base confidence for altcoins
     
     // Financial metrics analysis
-    if (financial.npv > 0) {
-      reasoning.push(`Positive NPV of $${financial.npv.toLocaleString()} indicates good investment potential`);
+    if (financialMetrics.npv > 0) {
+      reasoning.push(`Positive NPV of $${financialMetrics.npv.toLocaleString()} indicates investment potential`);
       confidence += 10;
-    } else {
-      riskWarnings.push(`Negative NPV of $${financial.npv.toLocaleString()} suggests poor returns`);
+    }
+    
+    if (financialMetrics.cagr > 20) {
+      reasoning.push(`Strong historical performance with ${financialMetrics.cagr.toFixed(1)}% CAGR`);
+      confidence += 15;
+      if (action === 'Hold') action = 'Buy';
+    }
+    
+    // Market cap considerations
+    if (marketCap > 1000000000) {
+      reasoning.push(`Large market cap ($${(marketCap / 1000000000).toFixed(1)}B) provides some stability`);
+      confidence += 10;
+    } else if (marketCap < 100000000) {
+      riskWarnings.push(`Small market cap ($${(marketCap / 1000000).toFixed(1)}M) - high volatility risk`);
       confidence -= 10;
     }
     
-    if (financial.cagr > 20) {
-      reasoning.push(`Strong historical performance with ${financial.cagr}% CAGR`);
-      action = 'Buy';
-      confidence += 15;
-    } else if (financial.cagr < 0) {
-      riskWarnings.push(`Negative CAGR of ${financial.cagr}% shows declining value`);
-      action = 'Sell';
-      confidence += 10;
-    }
-    
-    if (financial.sharpeRatio > 1) {
-      reasoning.push(`Excellent risk-adjusted returns with Sharpe ratio of ${financial.sharpeRatio}`);
-      confidence += 10;
-    } else if (financial.sharpeRatio < 0) {
-      riskWarnings.push(`Poor risk-adjusted returns with negative Sharpe ratio`);
-    }
-    
-    // Volatility analysis
-    if (financial.volatility > 80) {
-      riskWarnings.push(`Very high volatility (${financial.volatility}%) - expect significant price swings`);
-      confidence -= 5;
-    } else if (financial.volatility < 40) {
-      reasoning.push(`Moderate volatility (${financial.volatility}%) for crypto asset`);
-      confidence += 5;
-    }
-    
-    // Beta analysis
-    if (financial.beta > 2) {
-      riskWarnings.push(`High beta (${financial.beta}) indicates higher risk than market average`);
-    } else if (financial.beta < 0.5) {
-      reasoning.push(`Low beta (${financial.beta}) provides some stability`);
-    }
-    
-    // On-chain metrics (if available)
-    if (onChain.avivRatio && onChain.avivRatio < 0.8) {
-      reasoning.push(`Low AVIV ratio (${onChain.avivRatio.toFixed(3)}) suggests undervaluation`);
-      action = 'Buy';
-      confidence += 15;
-    } else if (onChain.avivRatio && onChain.avivRatio > 2.0) {
-      riskWarnings.push(`High AVIV ratio (${onChain.avivRatio.toFixed(3)}) may indicate overvaluation`);
+    // Bitcoin market context
+    if (bitcoinMarketState.condition === 'bullish') {
+      reasoning.push(`Bitcoin bullish trend supports altcoin investment timing`);
+      confidence += 8;
+    } else if (bitcoinMarketState.condition === 'bearish') {
+      riskWarnings.push(`Bitcoin bearish trend may negatively impact altcoin performance`);
+      confidence -= 8;
       if (action === 'Buy') action = 'Hold';
-      confidence += 10;
     }
     
-    // Market timing integration
-    if (marketTiming.recommendation.includes('BUY')) {
-      reasoning.push(...marketTiming.signals);
-      if (action === 'Hold') action = 'Buy';
-      confidence = Math.max(confidence, marketTiming.confidence);
-    } else if (marketTiming.recommendation.includes('SELL')) {
-      riskWarnings.push(...marketTiming.signals);
-      if (action !== 'Buy') action = 'Sell';
+    // Risk warnings
+    if (financialMetrics.volatility > 80) {
+      riskWarnings.push(`High volatility (${financialMetrics.volatility.toFixed(1)}%) - significant price swings expected`);
+      confidence -= 10;
     }
     
-    // Risk factor adjustment
-    if (financial.riskFactor >= 8) {
-      riskWarnings.push(`High risk asset (${financial.riskFactor}/10) - only suitable for risk-tolerant investors`);
+    if (financialMetrics.beta > 1.5) {
+      riskWarnings.push(`High beta (${financialMetrics.beta.toFixed(2)}) - more volatile than market average`);
       confidence -= 5;
     }
     
-    // Ensure minimum reasoning
-    if (reasoning.length === 0) {
-      reasoning.push(`Analysis based on ${financial.dataSource === 'live_api' ? 'live' : 'test'} data for ${symbol}`);
+    // Data source warning
+    if (financialMetrics.dataSource === 'coinmarketcap') {
+      riskWarnings.push(`Limited on-chain data available - analysis based on price action only`);
+      confidence -= 5;
     }
     
-    confidence = Math.min(95, Math.max(25, confidence));
+    confidence = Math.min(85, Math.max(20, confidence)); // Cap altcoin confidence lower than Bitcoin
     
     return {
       action,
@@ -185,6 +430,11 @@ class DirectApiAnalysisService {
       reasoning,
       riskWarnings
     };
+  }
+  
+  private isBitcoinSymbol(symbol: string): boolean {
+    const btcSymbols = ['BTC', 'BITCOIN', 'bitcoin', 'btc'];
+    return btcSymbols.includes(symbol.toUpperCase()) || btcSymbols.includes(symbol.toLowerCase());
   }
 }
 
