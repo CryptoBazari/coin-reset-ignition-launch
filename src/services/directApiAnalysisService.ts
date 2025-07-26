@@ -1,4 +1,3 @@
-
 import { fetchGlassNodeMetric, GLASS_NODE_METRICS } from '@/services/glassNodeService';
 import { fetchCoinPrices, CoinMarketCapCoin } from '@/services/coinMarketCapService';
 import { symbolMappingService } from '@/services/symbolMappingService';
@@ -6,7 +5,7 @@ import { bitcoinAnalysisService } from '@/services/bitcoinAnalysisService';
 import { realDataFinancialCalculations } from '@/services/realDataFinancialCalculations';
 import { bitcoinMarketAnalyzer } from '@/services/bitcoinMarketAnalyzer';
 import { comprehensiveBetaCalculationService, type BetaCalculationResult } from '@/services/comprehensiveBetaCalculationService';
-
+import { realTimeCAGRCalculationService, type RealTimeCAGRResult } from '@/services/realTimeCAGRCalculationService';
 
 export interface DirectAnalysisResult {
   coinId: string;
@@ -31,6 +30,9 @@ export interface DirectAnalysisResult {
     beta: number;
     sharpeRatio: number;
   };
+  
+  // CAGR calculation details (enhanced for Hybrid Analyzer)
+  cagrCalculationDetails?: RealTimeCAGRResult;
   
   // Bitcoin-specific cointime metrics (only for Bitcoin)
   cointimeMetrics?: {
@@ -78,7 +80,7 @@ export class DirectApiAnalysisService {
     investmentAmount: number,
     timeHorizon: number
   ): Promise<DirectAnalysisResult> {
-    console.log(`🔄 Starting differentiated analysis for ${symbol} (${coinId})`);
+    console.log(`🔄 Starting enhanced hybrid analysis for ${symbol} (${coinId})`);
     
     const isBitcoin = this.isBitcoinSymbol(symbol);
     
@@ -86,15 +88,15 @@ export class DirectApiAnalysisService {
     const bitcoinMarketState = await bitcoinMarketAnalyzer.getBitcoinMarketState();
     
     if (isBitcoin) {
-      console.log('🟠 Detected Bitcoin - using full cointime analysis');
-      return this.analyzeBitcoinWithCointime(coinId, symbol, investmentAmount, timeHorizon, bitcoinMarketState);
+      console.log('🟠 Detected Bitcoin - using full cointime analysis with direct CAGR calculation');
+      return this.analyzeBitcoinWithEnhancedCAGR(coinId, symbol, investmentAmount, timeHorizon, bitcoinMarketState);
     } else {
-      console.log('🔵 Detected altcoin - using standard financial analysis');
-      return this.analyzeAltcoinStandard(coinId, symbol, investmentAmount, timeHorizon, bitcoinMarketState);
+      console.log('🔵 Detected altcoin - using enhanced financial analysis with direct CAGR calculation');
+      return this.analyzeAltcoinWithEnhancedCAGR(coinId, symbol, investmentAmount, timeHorizon, bitcoinMarketState);
     }
   }
   
-  private async analyzeBitcoinWithCointime(
+  private async analyzeBitcoinWithEnhancedCAGR(
     coinId: string,
     symbol: string,
     investmentAmount: number,
@@ -110,11 +112,32 @@ export class DirectApiAnalysisService {
         throw new Error(`Unable to fetch Bitcoin price`);
       }
       
+      // Direct CAGR calculation with detailed steps
+      console.log('📊 Calculating detailed CAGR directly in hybrid analyzer...');
+      let cagrCalculationDetails: RealTimeCAGRResult | undefined;
+      try {
+        cagrCalculationDetails = await realTimeCAGRCalculationService.calculateRealTimeCAGR(
+          coinId, 
+          symbol, 
+          3 // 3 years of data for Bitcoin analysis
+        );
+        console.log(`✅ Direct CAGR calculation completed: ${cagrCalculationDetails.cagr.toFixed(2)}%`);
+        console.log(`📈 Data points used: ${cagrCalculationDetails.dataPoints} from ${cagrCalculationDetails.dataSource}`);
+      } catch (error) {
+        console.warn('⚠️ Direct CAGR calculation failed, will use fallback in analysis service:', error);
+      }
+      
       // Use Bitcoin analysis service for comprehensive analysis
       const bitcoinAnalysis = await bitcoinAnalysisService.analyzeBitcoinInvestment(
         investmentAmount,
         timeHorizon
       );
+      
+      // Override CAGR with direct calculation if available
+      if (cagrCalculationDetails) {
+        bitcoinAnalysis.financialMetrics.cagr = cagrCalculationDetails.cagr;
+        console.log(`🔄 Updated Bitcoin CAGR from direct calculation: ${cagrCalculationDetails.cagr.toFixed(2)}%`);
+      }
       
       // Get comprehensive beta calculation details for Bitcoin
       console.log('🔄 Calculating detailed beta analysis for Bitcoin...');
@@ -126,9 +149,7 @@ export class DirectApiAnalysisService {
         console.warn('⚠️ Detailed beta calculation failed for Bitcoin, continuing without it:', error);
       }
       
-      // CAGR is already calculated correctly in Bitcoin analysis service
-      
-      console.log('✅ Bitcoin analysis completed with full cointime metrics');
+      console.log('✅ Enhanced Bitcoin analysis completed with direct CAGR calculation');
       
       return {
         coinId,
@@ -141,6 +162,7 @@ export class DirectApiAnalysisService {
         priceChange24h: coinPrice.price_change_percentage_24h || 0,
         marketCap: coinPrice.market_cap,
         financialMetrics: bitcoinAnalysis.financialMetrics,
+        cagrCalculationDetails, // Direct CAGR calculation details
         cointimeMetrics: bitcoinAnalysis.cointimeMetrics,
         bitcoinMarketState: {
           condition: bitcoinMarketState.condition,
@@ -154,12 +176,12 @@ export class DirectApiAnalysisService {
       };
       
     } catch (error) {
-      console.error(`❌ Bitcoin analysis failed:`, error);
+      console.error(`❌ Enhanced Bitcoin analysis failed:`, error);
       throw error;
     }
   }
   
-  private async analyzeAltcoinStandard(
+  private async analyzeAltcoinWithEnhancedCAGR(
     coinId: string,
     symbol: string,
     investmentAmount: number,
@@ -172,17 +194,17 @@ export class DirectApiAnalysisService {
     let result: DirectAnalysisResult;
     
     if (glassNodeAsset && mapping?.glassNodeSupported) {
-      console.log(`✅ Using Glassnode data for ${symbol} (no cointime metrics)`);
-      result = await this.analyzeAltcoinWithGlassNode(coinId, symbol, glassNodeAsset, investmentAmount, timeHorizon, bitcoinMarketState);
+      console.log(`✅ Using Glassnode data for ${symbol} with enhanced CAGR calculation`);
+      result = await this.analyzeAltcoinWithGlassNodeEnhanced(coinId, symbol, glassNodeAsset, investmentAmount, timeHorizon, bitcoinMarketState);
     } else {
-      console.log(`⚠️ Using CoinMarketCap data for ${symbol}`);
-      result = await this.analyzeAltcoinWithCoinMarketCap(coinId, symbol, investmentAmount, timeHorizon, bitcoinMarketState);
+      console.log(`⚠️ Using CoinMarketCap data for ${symbol} with enhanced CAGR calculation`);
+      result = await this.analyzeAltcoinWithCoinMarketCapEnhanced(coinId, symbol, investmentAmount, timeHorizon, bitcoinMarketState);
     }
     
     return result;
   }
   
-  private async analyzeAltcoinWithGlassNode(
+  private async analyzeAltcoinWithGlassNodeEnhanced(
     coinId: string,
     symbol: string,
     glassNodeAsset: string,
@@ -199,6 +221,21 @@ export class DirectApiAnalysisService {
         throw new Error(`Unable to fetch price for ${symbol}`);
       }
       
+      // Direct CAGR calculation with detailed steps
+      console.log(`📊 Calculating detailed CAGR directly for altcoin ${symbol}...`);
+      let cagrCalculationDetails: RealTimeCAGRResult | undefined;
+      try {
+        cagrCalculationDetails = await realTimeCAGRCalculationService.calculateRealTimeCAGR(
+          coinId, 
+          symbol, 
+          3 // 3 years of data for altcoin analysis
+        );
+        console.log(`✅ Direct CAGR calculation completed for ${symbol}: ${cagrCalculationDetails.cagr.toFixed(2)}%`);
+        console.log(`📈 Data points used: ${cagrCalculationDetails.dataPoints} from ${cagrCalculationDetails.dataSource}`);
+      } catch (error) {
+        console.warn(`⚠️ Direct CAGR calculation failed for ${symbol}, will use fallback:`, error);
+      }
+      
       // Calculate financial metrics using real Glassnode data
       const financialMetrics = await realDataFinancialCalculations.calculateRealMetrics(
         coinId,
@@ -207,6 +244,12 @@ export class DirectApiAnalysisService {
         timeHorizon,
         true
       );
+      
+      // Override CAGR with direct calculation if available
+      if (cagrCalculationDetails) {
+        financialMetrics.cagr = cagrCalculationDetails.cagr;
+        console.log(`🔄 Updated ${symbol} CAGR from direct calculation: ${cagrCalculationDetails.cagr.toFixed(2)}%`);
+      }
       
       // Calculate accurate beta using comprehensive beta calculation service
       let betaCalculationDetails: BetaCalculationResult | undefined;
@@ -222,16 +265,14 @@ export class DirectApiAnalysisService {
         console.warn(`⚠️ Comprehensive beta calculation failed for ${symbol}, using fallback:`, betaError);
       }
       
-      // CAGR is already calculated correctly in financialMetrics from database
-      
-      // Generate altcoin recommendation (no cointime metrics)
+      // Generate altcoin recommendation
       const recommendation = this.generateAltcoinRecommendation(
         financialMetrics,
         bitcoinMarketState,
         coinPrice.market_cap
       );
       
-      console.log(`✅ Altcoin analysis completed with Glassnode data for ${symbol}`);
+      console.log(`✅ Enhanced altcoin analysis completed with direct CAGR for ${symbol}`);
       
       return {
         coinId,
@@ -252,6 +293,7 @@ export class DirectApiAnalysisService {
           beta: financialMetrics.beta,
           sharpeRatio: financialMetrics.sharpeRatio
         },
+        cagrCalculationDetails, // Direct CAGR calculation details
         bitcoinMarketState: {
           condition: bitcoinMarketState.condition,
           confidence: bitcoinMarketState.confidence,
@@ -261,20 +303,20 @@ export class DirectApiAnalysisService {
         betaCalculationDetails,
         dataQuality: {
           score: financialMetrics.confidenceScore,
-          source: 'Glassnode + CoinMarketCap',
+          source: 'Enhanced Glassnode + CoinMarketCap',
           freshness: 'Real-time'
         },
         lastUpdated: new Date().toISOString()
       };
       
     } catch (error) {
-      console.error(`❌ Glassnode altcoin analysis failed for ${symbol}:`, error);
+      console.error(`❌ Enhanced Glassnode altcoin analysis failed for ${symbol}:`, error);
       // Fallback to CoinMarketCap
-      return this.analyzeAltcoinWithCoinMarketCap(coinId, symbol, investmentAmount, timeHorizon, bitcoinMarketState);
+      return this.analyzeAltcoinWithCoinMarketCapEnhanced(coinId, symbol, investmentAmount, timeHorizon, bitcoinMarketState);
     }
   }
   
-  private async analyzeAltcoinWithCoinMarketCap(
+  private async analyzeAltcoinWithCoinMarketCapEnhanced(
     coinId: string,
     symbol: string,
     investmentAmount: number,
@@ -289,6 +331,21 @@ export class DirectApiAnalysisService {
         throw new Error(`Unable to fetch price for ${symbol}`);
       }
       
+      // Direct CAGR calculation with detailed steps (will use database fallback)
+      console.log(`📊 Calculating detailed CAGR directly for altcoin ${symbol} (CoinMarketCap)...`);
+      let cagrCalculationDetails: RealTimeCAGRResult | undefined;
+      try {
+        cagrCalculationDetails = await realTimeCAGRCalculationService.calculateRealTimeCAGR(
+          coinId, 
+          symbol, 
+          3 // 3 years of data
+        );
+        console.log(`✅ Direct CAGR calculation completed for ${symbol}: ${cagrCalculationDetails.cagr.toFixed(2)}%`);
+        console.log(`📈 Data points used: ${cagrCalculationDetails.dataPoints} from ${cagrCalculationDetails.dataSource}`);
+      } catch (error) {
+        console.warn(`⚠️ Direct CAGR calculation failed for ${symbol}, will use fallback:`, error);
+      }
+      
       // Calculate financial metrics using CoinMarketCap data
       const financialMetrics = await realDataFinancialCalculations.calculateRealMetrics(
         coinId,
@@ -297,6 +354,12 @@ export class DirectApiAnalysisService {
         timeHorizon,
         false
       );
+      
+      // Override CAGR with direct calculation if available
+      if (cagrCalculationDetails) {
+        financialMetrics.cagr = cagrCalculationDetails.cagr;
+        console.log(`🔄 Updated ${symbol} CAGR from direct calculation: ${cagrCalculationDetails.cagr.toFixed(2)}%`);
+      }
       
       // Calculate accurate beta using comprehensive beta calculation service
       let betaCalculationDetails: BetaCalculationResult | undefined;
@@ -312,8 +375,6 @@ export class DirectApiAnalysisService {
         console.warn(`⚠️ Comprehensive beta calculation failed for ${symbol}, using fallback:`, betaError);
       }
       
-      // CAGR is already calculated correctly in financialMetrics from database
-      
       // Generate conservative altcoin recommendation
       const recommendation = this.generateAltcoinRecommendation(
         financialMetrics,
@@ -321,7 +382,7 @@ export class DirectApiAnalysisService {
         coinPrice.market_cap
       );
       
-      console.log(`⚠️ Altcoin analysis completed with CoinMarketCap data for ${symbol}`);
+      console.log(`⚠️ Enhanced altcoin analysis completed with CoinMarketCap data for ${symbol}`);
       
       return {
         coinId,
@@ -342,6 +403,7 @@ export class DirectApiAnalysisService {
           beta: financialMetrics.beta,
           sharpeRatio: financialMetrics.sharpeRatio
         },
+        cagrCalculationDetails, // Direct CAGR calculation details
         bitcoinMarketState: {
           condition: bitcoinMarketState.condition,
           confidence: bitcoinMarketState.confidence,
@@ -351,14 +413,14 @@ export class DirectApiAnalysisService {
         betaCalculationDetails,
         dataQuality: {
           score: financialMetrics.confidenceScore,
-          source: 'CoinMarketCap only',
+          source: 'Enhanced CoinMarketCap only',
           freshness: 'Real-time'
         },
         lastUpdated: new Date().toISOString()
       };
       
     } catch (error) {
-      console.error(`❌ CoinMarketCap altcoin analysis failed for ${symbol}:`, error);
+      console.error(`❌ Enhanced CoinMarketCap altcoin analysis failed for ${symbol}:`, error);
       throw error;
     }
   }
