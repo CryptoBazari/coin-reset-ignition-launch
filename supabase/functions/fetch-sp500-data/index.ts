@@ -1,11 +1,9 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -13,69 +11,80 @@ serve(async (req) => {
 
   try {
     const { series_id, observation_start, observation_end } = await req.json();
-    
     console.log(`🔄 Fetching FRED data: ${series_id} from ${observation_start} to ${observation_end}`);
-    
+
     const fredApiKey = Deno.env.get('FRED_API_KEY');
     if (!fredApiKey) {
-      throw new Error('FRED API key not configured');
+      return new Response(
+        JSON.stringify({ error: 'FRED API key not configured' }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
-    // Construct FRED API URL
-    const url = new URL('https://api.stlouisfed.org/fred/series/observations');
-    url.searchParams.set('series_id', series_id);
-    url.searchParams.set('api_key', fredApiKey);
-    url.searchParams.set('file_type', 'json');
-    url.searchParams.set('observation_start', observation_start);
-    url.searchParams.set('observation_end', observation_end);
-    url.searchParams.set('sort_order', 'asc');
-    url.searchParams.set('frequency', 'd'); // Daily frequency
+    // Build FRED API URL
+    const fredUrl = new URL('https://api.stlouisfed.org/fred/series/observations');
+    fredUrl.searchParams.set('series_id', series_id || 'SP500');
+    fredUrl.searchParams.set('api_key', fredApiKey);
+    fredUrl.searchParams.set('file_type', 'json');
+    fredUrl.searchParams.set('observation_start', observation_start);
+    fredUrl.searchParams.set('observation_end', observation_end);
+    fredUrl.searchParams.set('sort_order', 'asc');
+    fredUrl.searchParams.set('frequency', 'd'); // Daily frequency
 
-    console.log(`🌐 FRED URL: ${url.toString().replace(fredApiKey, 'API_KEY_HIDDEN')}`);
+    console.log('🌐 FRED URL:', fredUrl.toString().replace(fredApiKey, 'API_KEY_HIDDEN'));
 
-    const response = await fetch(url.toString(), {
-      headers: {
-        'User-Agent': 'CryptoAnalysis/1.0'
-      }
-    });
-
+    const response = await fetch(fredUrl.toString());
+    
     if (!response.ok) {
-      throw new Error(`FRED API error: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('FRED API error:', response.status, errorText);
+      return new Response(
+        JSON.stringify({ error: `FRED API error: ${response.status}` }),
+        { 
+          status: response.status, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
     const fredData = await response.json();
     
-    if (!fredData.observations || !Array.isArray(fredData.observations)) {
-      throw new Error('Invalid FRED API response format');
-    }
+    // Process and filter the data - remove weekends and invalid data points
+    const validData = fredData.observations
+      .filter((item: any) => item.value !== '.' && item.value !== '' && !isNaN(parseFloat(item.value)))
+      .map((item: any) => {
+        const date = new Date(item.date);
+        const dayOfWeek = date.getDay();
+        // Only include Monday-Friday (1-5) for S&P 500
+        return dayOfWeek >= 1 && dayOfWeek <= 5 ? {
+          date: item.date,
+          value: parseFloat(item.value),
+          realtime_start: item.realtime_start,
+          realtime_end: item.realtime_end
+        } : null;
+      })
+      .filter((item: any) => item !== null);
 
-    // Filter out non-numeric values and weekends/holidays
-    const validObservations = fredData.observations.filter((obs: any) => 
-      obs.value && obs.value !== '.' && !isNaN(parseFloat(obs.value))
+    console.log(`✅ Successfully fetched ${validData.length} FRED data points for ${series_id}`);
+
+    return new Response(
+      JSON.stringify(validData),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
     );
 
-    console.log(`✅ Successfully fetched ${validObservations.length} FRED data points for ${series_id}`);
-
-    return new Response(JSON.stringify({
-      success: true,
-      data: validObservations,
-      count: validObservations.length,
-      series_id,
-      period: `${observation_start} to ${observation_end}`
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
   } catch (error) {
-    console.error('❌ FRED API fetch failed:', error);
-    
-    return new Response(JSON.stringify({
-      success: false,
-      error: error.message,
-      timestamp: new Date().toISOString()
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error('Error in fetch-sp500-data function:', error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
   }
 });

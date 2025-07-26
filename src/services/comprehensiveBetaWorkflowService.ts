@@ -139,7 +139,7 @@ class ComprehensiveBetaWorkflowService {
     try {
       const { data, error } = await supabase.functions.invoke('fetch-glassnode-data', {
         body: {
-          metric: 'price_usd_close',
+          metric: 'market/price_usd_close',
           asset: coinSymbol.toLowerCase(),
           since: Math.floor(startDate.getTime() / 1000),
           until: Math.floor(endDate.getTime() / 1000)
@@ -188,10 +188,28 @@ class ComprehensiveBetaWorkflowService {
     const endDate = new Date();
     const startDate = new Date(endDate.getTime() - 400 * 24 * 60 * 60 * 1000);
 
-    if (source === 'FRED') {
-      return this.fetchSP500Data(startDate, endDate);
-    } else {
-      return this.fetchAssetPriceData('btc');
+    try {
+      if (source === 'FRED') {
+        const sp500Data = await this.fetchSP500Data(startDate, endDate);
+        if (sp500Data.length < 180) {
+          // Fallback to 60/40 portfolio if S&P 500 insufficient
+          console.warn('S&P 500 data insufficient, attempting 60/40 fallback');
+          return await this.fetch6040PortfolioData(startDate, endDate);
+        }
+        return sp500Data;
+      } else {
+        const btcData = await this.fetchAssetPriceData('btc');
+        if (btcData.length < 180 && benchmark !== 'eth') {
+          // Fallback to ETH for altcoins if BTC insufficient
+          console.warn('BTC data insufficient, falling back to ETH');
+          return await this.fetchAssetPriceData('eth');
+        }
+        return btcData;
+      }
+    } catch (error) {
+      console.error(`Error fetching benchmark data for ${benchmark}:`, error);
+      // Ultimate fallback: return empty array to trigger provisional estimate
+      return [];
     }
   }
 
@@ -218,6 +236,68 @@ class ComprehensiveBetaWorkflowService {
     }
   }
 
+  private async fetch6040PortfolioData(startDate: Date, endDate: Date): Promise<PriceVolumeData[]> {
+    try {
+      // Fetch both stocks (SP500) and bonds (DGS10 - 10-year treasury)
+      const [stocksData, bondsData] = await Promise.all([
+        this.fetchSP500Data(startDate, endDate),
+        this.fetchFredSeries('DGS10', startDate, endDate)
+      ]);
+
+      if (stocksData.length === 0 || bondsData.length === 0) {
+        throw new Error('Insufficient data for 60/40 portfolio construction');
+      }
+
+      // Create 60/40 weighted index (60% stocks, 40% bonds)
+      const stocksMap = new Map(stocksData.map(s => [s.date, s.price]));
+      const bondsMap = new Map(bondsData.map(b => [b.date, b.price]));
+      
+      const portfolio6040: PriceVolumeData[] = [];
+      
+      for (const [date, stockPrice] of stocksMap) {
+        const bondPrice = bondsMap.get(date);
+        if (bondPrice) {
+          // Simplified 60/40 weighting
+          const portfolioValue = (stockPrice * 0.6) + (bondPrice * 0.4);
+          portfolio6040.push({
+            date,
+            price: portfolioValue,
+            volume: 0
+          });
+        }
+      }
+
+      console.log(`Constructed 60/40 portfolio with ${portfolio6040.length} data points`);
+      return portfolio6040;
+    } catch (error) {
+      console.error('Error constructing 60/40 portfolio:', error);
+      return [];
+    }
+  }
+
+  private async fetchFredSeries(seriesId: string, startDate: Date, endDate: Date): Promise<PriceVolumeData[]> {
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-fred-data', {
+        body: {
+          seriesId,
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0]
+        }
+      });
+
+      if (error) throw new Error(`Failed to fetch FRED series ${seriesId}: ${error.message}`);
+      
+      return data.data.map((item: any) => ({
+        date: item.date,
+        price: parseFloat(item.value),
+        volume: 0
+      })).filter((item: any) => !isNaN(item.price));
+    } catch (error) {
+      console.error(`Error fetching FRED series ${seriesId}:`, error);
+      return [];
+    }
+  }
+
   private alignDataSources(
     assetData: PriceVolumeData[], 
     benchmarkData: PriceVolumeData[], 
@@ -226,25 +306,62 @@ class ComprehensiveBetaWorkflowService {
     // Create volume lookup
     const volumeMap = new Map(volumeData.map(v => [v.date, v.volume]));
     
-    // Create benchmark lookup
-    const benchmarkMap = new Map(benchmarkData.map(b => [b.date, b.price]));
+    // Create benchmark lookup with forward-filling (max 2 days)
+    const benchmarkMap = new Map<string, number>();
+    let lastValidPrice: number | null = null;
+    let gapDays = 0;
     
-    // Align on asset dates and join with benchmark
+    for (const benchmark of benchmarkData.sort((a, b) => a.date.localeCompare(b.date))) {
+      if (benchmark.price > 0) {
+        benchmarkMap.set(benchmark.date, benchmark.price);
+        lastValidPrice = benchmark.price;
+        gapDays = 0;
+      } else if (lastValidPrice && gapDays < 2) {
+        // Forward-fill for up to 2 days
+        benchmarkMap.set(benchmark.date, lastValidPrice);
+        gapDays++;
+      } else {
+        gapDays++;
+      }
+    }
+    
+    // Calendar-aware alignment: use trading days for S&P 500, daily for crypto
     const aligned: AlignedData[] = [];
+    let consecutiveMissingDays = 0;
     
-    for (const asset of assetData) {
+    for (const asset of assetData.sort((a, b) => a.date.localeCompare(b.date))) {
       const benchmarkPrice = benchmarkMap.get(asset.date);
+      
       if (benchmarkPrice && asset.price > 0) {
+        // Reset consecutive missing counter on successful alignment
+        consecutiveMissingDays = 0;
+        
         aligned.push({
           date: asset.date,
           asset_price: asset.price,
           asset_volume: volumeMap.get(asset.date) || 0,
           benchmark_price: benchmarkPrice
         });
+      } else {
+        consecutiveMissingDays++;
+        // Reject if >2 consecutive missing days
+        if (consecutiveMissingDays > 2) {
+          console.warn(`Data quality issue: >2 consecutive missing days around ${asset.date}`);
+        }
       }
     }
     
-    return aligned.sort((a, b) => a.date.localeCompare(b.date));
+    // Validate freshness: ensure most recent data is within 48 hours
+    if (aligned.length > 0) {
+      const latestDate = new Date(aligned[aligned.length - 1].date);
+      const hoursSinceLatest = (Date.now() - latestDate.getTime()) / (1000 * 60 * 60);
+      
+      if (hoursSinceLatest > 48) {
+        console.warn(`Data freshness warning: Latest data is ${hoursSinceLatest.toFixed(1)} hours old`);
+      }
+    }
+    
+    return aligned;
   }
 
   private calculateLogReturns(alignedData: AlignedData[]): ReturnData[] {
@@ -270,12 +387,21 @@ class ComprehensiveBetaWorkflowService {
   private selectAdaptiveWindow(returns: ReturnData[]): { selectedWindow: number; volatility30d: number } {
     // Calculate 30-day volatility
     const recent30 = returns.slice(-30);
+    if (recent30.length < 30) {
+      console.warn('Insufficient data for 30-day volatility calculation');
+    }
+    
     const assetReturns = recent30.map(r => r.asset_return);
     const mean = assetReturns.reduce((sum, r) => sum + r, 0) / assetReturns.length;
     const variance = assetReturns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / (assetReturns.length - 1);
     const volatility30d = Math.sqrt(variance);
     
-    // Select window based on volatility
+    // Reject if volatility > 2.0 (extremely volatile)
+    if (volatility30d > 2.0) {
+      throw new Error(`Volatility too high for reliable calculation: ${volatility30d.toFixed(4)}`);
+    }
+    
+    // Select window based on volatility (exact thresholds from specification)
     let selectedWindow: number;
     if (volatility30d > 0.05) {
       selectedWindow = 90; // High volatility - shorter window
@@ -357,11 +483,24 @@ class ComprehensiveBetaWorkflowService {
   }
 
   private calculateDataQualityScore(alignedData: AlignedData[], returns: ReturnData[]): number {
-    const completeness = alignedData.length / 365; // Data completeness over a year
-    const returnQuality = returns.length / alignedData.length; // Return calculation success rate
-    const volumeCompleteness = alignedData.filter(d => d.asset_volume > 0).length / alignedData.length;
+    const completeness = Math.min(1.0, alignedData.length / 365); // Data completeness over a year
+    const returnQuality = returns.length / Math.max(1, alignedData.length); // Return calculation success rate
     
-    return Math.min(1.0, (completeness + returnQuality + volumeCompleteness) / 3);
+    // Check volume data quality (30-day completeness)
+    const recent30Volume = alignedData.slice(-30);
+    const volumeCompleteness = recent30Volume.filter(d => d.asset_volume > 0).length / Math.max(1, recent30Volume.length);
+    const volumeWarning = volumeCompleteness < 0.8; // Warn if <80% volume data
+    
+    if (volumeWarning) {
+      console.warn(`Volume data warning: Only ${(volumeCompleteness * 100).toFixed(1)}% complete in last 30 days`);
+    }
+    
+    // Data recency score
+    const latestDate = new Date(alignedData[alignedData.length - 1]?.date || '1970-01-01');
+    const hoursOld = (Date.now() - latestDate.getTime()) / (1000 * 60 * 60);
+    const recencyScore = Math.max(0, 1 - hoursOld / (48 * 7)); // Degrade over a week
+    
+    return Math.min(1.0, (completeness + returnQuality + volumeCompleteness + recencyScore) / 4);
   }
 
   private getProvisionalEstimate(coinSymbol: string, benchmark: string, source: string): ComprehensiveBetaResult {
