@@ -163,10 +163,10 @@ Deno.serve(async (req) => {
       i: correctResolution // Use endpoint-specific resolution
     });
 
-    // Add time range if provided
+    // Add time range if provided (ensure Unix timestamps)
     if (since) {
-      const sinceTimestamp = Math.floor(new Date(since).getTime() / 1000);
-      const untilTimestamp = until ? Math.floor(new Date(until).getTime() / 1000) : Math.floor(Date.now() / 1000);
+      const sinceTimestamp = typeof since === 'string' ? Math.floor(new Date(since).getTime() / 1000) : since;
+      const untilTimestamp = until ? (typeof until === 'string' ? Math.floor(new Date(until).getTime() / 1000) : until) : Math.floor(Date.now() / 1000);
       
       params.append('s', sinceTimestamp.toString());
       if (until) params.append('u', untilTimestamp.toString());
@@ -231,11 +231,19 @@ Deno.serve(async (req) => {
     const data: GlassNodeResponse[] = await response.json();
     console.log(`Successfully fetched ${data.length} Glass Node data points for ${metric}`);
 
+    // Check if we got empty data and log for debugging
+    if (data.length === 0) {
+      console.warn(`⚠️ No data returned from Glassnode for ${metric} on asset ${asset}`);
+      console.warn(`Request params: since=${since}, until=${until}`);
+    }
+
     // Transform the data with proper monthly sampling
     let processedData = data.map(point => ({
       timestamp: new Date(point.t * 1000).toISOString(),
       value: point.v,
-      unix_timestamp: point.t
+      unix_timestamp: point.t,
+      t: point.t, // Keep original timestamp for compatibility
+      v: point.v  // Keep original value for compatibility
     }));
 
     // Apply monthly sampling if we have daily data spanning more than 2 months

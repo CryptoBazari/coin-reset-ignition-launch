@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
       .map(item => ({
         date: new Date(item.t * 1000).toISOString().split('T')[0], // Convert to YYYY-MM-DD
         timestamp: item.t,
-        volume: item.v,
+        value: item.v, // Use 'value' to match expected structure
         iso_timestamp: new Date(item.t * 1000).toISOString()
       }))
       .sort((a, b) => a.timestamp - b.timestamp); // Sort by timestamp

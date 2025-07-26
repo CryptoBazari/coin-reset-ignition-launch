@@ -155,7 +155,7 @@ class ComprehensiveBetaWorkflowService {
       const { data, error } = await supabase.functions.invoke('fetch-glassnode-data', {
         body: {
           metric: 'market/price_usd_close',
-          asset: coinSymbol.toUpperCase(), // Use uppercase for consistency
+          asset: coinSymbol.toLowerCase(), // Use lowercase for Glassnode API
           since: sinceUnix,
           until: untilUnix,
           disableSampling: true // Get all daily data points
@@ -168,7 +168,7 @@ class ComprehensiveBetaWorkflowService {
       }
 
       if (!data?.data || data.data.length === 0) {
-        console.warn(`⚠️ No price data returned for ${coinSymbol}`);
+        console.warn(`⚠️ No price data returned for ${coinSymbol}. Check asset symbol and date range.`);
         return [];
       }
 
@@ -218,7 +218,7 @@ class ComprehensiveBetaWorkflowService {
       
       return data.data.map((item: any) => ({
         date: new Date(item.timestamp * 1000).toISOString().split('T')[0], // Convert Unix timestamp to date string
-        volume: item.value || 0
+        volume: item.value || 0 // Use 'value' field from corrected volume API response
       }));
     } catch (error) {
       console.error('Error fetching volume data:', error);
