@@ -101,15 +101,15 @@ class RealTimeCAGRCalculationService {
     console.log(`📊 Received ${data.length} daily price points from Glassnode for ${symbol}`);
     
     // Sort by timestamp to ensure correct order
-    const sortedData = data.sort((a, b) => a.t - b.t);
+    const sortedData = data.sort((a, b) => a.unix_timestamp - b.unix_timestamp);
     
     // Extract initial and final values
-    const initialValue = sortedData[0].v;
-    const finalValue = sortedData[sortedData.length - 1].v;
+    const initialValue = sortedData[0].value;
+    const finalValue = sortedData[sortedData.length - 1].value;
     
     // Calculate exact time period in years
-    const initialDate = new Date(sortedData[0].t * 1000);
-    const finalDate = new Date(sortedData[sortedData.length - 1].t * 1000);
+    const initialDate = new Date(sortedData[0].unix_timestamp * 1000);
+    const finalDate = new Date(sortedData[sortedData.length - 1].unix_timestamp * 1000);
     const timeperiodYears = (finalDate.getTime() - initialDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
     
     console.log(`📈 ${symbol} Initial Value: $${initialValue.toLocaleString()}, Final Value: $${finalValue.toLocaleString()}, Period: ${timeperiodYears.toFixed(2)} years`);
