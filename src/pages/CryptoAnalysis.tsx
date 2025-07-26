@@ -279,16 +279,8 @@ const CryptoAnalysis = () => {
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       <Navbar />
       <div className="container mx-auto px-4 py-8">
-        {/* Real Data Status Banner */}
-        <div className="mb-6">
-          <RealDataStatus />
-        </div>
-
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-4 mb-4">
-            <h1 className="text-4xl font-bold text-gray-900">
-              Hybrid Crypto Investment Analyzer
-            </h1>
             <div className="flex gap-2">
               {selectedCoinSymbol === 'BTC' && hasAccess && (
                 <Button

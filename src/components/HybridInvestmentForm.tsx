@@ -98,17 +98,22 @@ export const HybridInvestmentForm: React.FC<HybridInvestmentFormProps> = ({
   const hasGlassNodeSupport = selectedCoinId ? symbolMappingService.isGlassNodeSupported(selectedCoinId) : false;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Calculator className="h-5 w-5" />
-          Hybrid Crypto Investment Analysis
-          <Badge variant="outline" className="bg-blue-100 text-blue-800">
-            REAL API DATA
+    <Card className="animate-fade-in hover-scale">
+      <CardHeader className="bg-gradient-to-r from-primary/5 to-accent/5 rounded-t-lg">
+        <CardTitle className="flex items-center gap-3 text-xl">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Calculator className="h-6 w-6 text-primary" />
+          </div>
+          <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent font-bold">
+            Real-Time Investment Analysis
+          </span>
+          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300 shadow-sm">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
+            LIVE DATA
           </Badge>
         </CardTitle>
-        <CardDescription>
-          Select any cryptocurrency and get real-time analysis using live API data
+        <CardDescription className="text-muted-foreground/80">
+          Professional cryptocurrency investment analysis with real-time market data
         </CardDescription>
       </CardHeader>
       
