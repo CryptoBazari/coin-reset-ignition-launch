@@ -73,8 +73,11 @@ class ComprehensiveBetaWorkflowService {
       const alignedData = this.alignDataSources(assetData, benchmarkData, volumeData);
       
       if (alignedData.length < 180) {
+        console.warn(`⚠️ Insufficient aligned data for reliable beta calculation (${alignedData.length} points)`);
         return this.getProvisionalEstimate(coinSymbol, benchmark, benchmarkSource);
       }
+
+      console.log(`📊 Proceeding with ${alignedData.length} aligned data points for beta calculation`);
 
       // Phase 4: Calculate returns
       const returns = this.calculateLogReturns(alignedData);
@@ -141,21 +144,39 @@ class ComprehensiveBetaWorkflowService {
     const endDate = new Date();
     const startDate = new Date(endDate.getTime() - 400 * 24 * 60 * 60 * 1000); // 400 days ago
     
+    // Convert to Unix timestamps (seconds)
+    const sinceUnix = Math.floor(startDate.getTime() / 1000);
+    const untilUnix = Math.floor(endDate.getTime() / 1000);
+
+    console.log(`🔍 Fetching price data for ${coinSymbol} from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    console.log(`📊 Unix timestamps: since=${sinceUnix}, until=${untilUnix}`);
+    
     try {
       const { data, error } = await supabase.functions.invoke('fetch-glassnode-data', {
         body: {
           metric: 'market/price_usd_close',
-          asset: coinSymbol.toLowerCase(),
-          since: Math.floor(startDate.getTime() / 1000),
-          until: Math.floor(endDate.getTime() / 1000)
+          asset: coinSymbol.toUpperCase(), // Use uppercase for consistency
+          since: sinceUnix,
+          until: untilUnix,
+          disableSampling: true // Get all daily data points
         }
       });
 
-      if (error) throw new Error(`Failed to fetch asset price data: ${error.message}`);
+      if (error) {
+        console.error('❌ Error fetching price data:', error);
+        return [];
+      }
+
+      if (!data?.data || data.data.length === 0) {
+        console.warn(`⚠️ No price data returned for ${coinSymbol}`);
+        return [];
+      }
+
+      console.log(`✅ Received ${data.data.length} price data points for ${coinSymbol}`);
       
       return data.data.map((item: any) => ({
-        date: item.date,
-        price: item.value,
+        date: new Date(item.t * 1000).toISOString().split('T')[0], // Convert Unix timestamp to date string
+        price: item.v,
         volume: 0 // Will be filled by volume data
       }));
     } catch (error) {
@@ -168,20 +189,36 @@ class ComprehensiveBetaWorkflowService {
     const endDate = new Date();
     const startDate = new Date(endDate.getTime() - 400 * 24 * 60 * 60 * 1000);
     
+    // Convert to Unix timestamps (seconds)
+    const sinceUnix = Math.floor(startDate.getTime() / 1000);
+    const untilUnix = Math.floor(endDate.getTime() / 1000);
+
+    console.log(`📊 Fetching volume data for ${coinSymbol}`);
+    
     try {
       const { data, error } = await supabase.functions.invoke('fetch-glassnode-volume', {
         body: {
           asset: coinSymbol.toLowerCase(),
-          since: Math.floor(startDate.getTime() / 1000),
-          until: Math.floor(endDate.getTime() / 1000)
+          since: sinceUnix,
+          until: untilUnix
         }
       });
 
-      if (error) throw new Error(`Failed to fetch volume data: ${error.message}`);
+      if (error) {
+        console.error('❌ Error fetching volume data:', error);
+        return [];
+      }
+
+      if (!data?.data || data.data.length === 0) {
+        console.warn(`⚠️ No volume data returned for ${coinSymbol}`);
+        return [];
+      }
+
+      console.log(`✅ Received ${data.data.length} volume data points for ${coinSymbol}`);
       
       return data.data.map((item: any) => ({
-        date: item.date,
-        volume: item.volume || 0
+        date: new Date(item.timestamp * 1000).toISOString().split('T')[0], // Convert Unix timestamp to date string
+        volume: item.value || 0
       }));
     } catch (error) {
       console.error('Error fetching volume data:', error);
@@ -219,18 +256,30 @@ class ComprehensiveBetaWorkflowService {
   }
 
   private async fetchSP500Data(startDate: Date, endDate: Date): Promise<PriceVolumeData[]> {
+    console.log(`📈 Fetching S&P 500 data from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+
     try {
-      const { data, error } = await supabase.functions.invoke('fetch-sp500-data', {
+      const { data, error } = await supabase.functions.invoke('fetch-fred-data', {
         body: {
-          series_id: 'SP500',
-          observation_start: startDate.toISOString().split('T')[0],
-          observation_end: endDate.toISOString().split('T')[0]
+          seriesId: 'SP500',
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0]
         }
       });
 
-      if (error) throw new Error(`Failed to fetch S&P 500 data: ${error.message}`);
+      if (error) {
+        console.error('❌ Error fetching S&P 500 data:', error);
+        return [];
+      }
+
+      if (!data?.data || data.data.length === 0) {
+        console.warn('⚠️ No S&P 500 data returned');
+        return [];
+      }
+
+      console.log(`✅ Received ${data.data.length} S&P 500 data points`);
       
-      return data.map((item: any) => ({
+      return data.data.map((item: any) => ({
         date: item.date,
         price: parseFloat(item.value),
         volume: 0 // Not applicable for S&P 500
