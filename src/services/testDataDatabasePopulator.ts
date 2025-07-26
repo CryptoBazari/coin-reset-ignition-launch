@@ -24,12 +24,12 @@ class TestDataDatabasePopulator {
   
   private async populateCoinsTable(): Promise<void> {
     const testCoins = [
-      { coinId: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', basket: 'bitcoin' },
-      { coinId: 'ethereum', symbol: 'ETH', name: 'Ethereum', basket: 'blue_chip' },
-      { coinId: 'solana', symbol: 'SOL', name: 'Solana', basket: 'small_cap' },
-      { coinId: 'cardano', symbol: 'ADA', name: 'Cardano', basket: 'small_cap' },
-      { coinId: 'chainlink', symbol: 'LINK', name: 'Chainlink', basket: 'small_cap' },
-      { coinId: 'avalanche-2', symbol: 'AVAX', name: 'Avalanche', basket: 'small_cap' }
+      { coinId: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', basket: 'bitcoin' as const },
+      { coinId: 'ethereum', symbol: 'ETH', name: 'Ethereum', basket: 'blue_chip' as const },
+      { coinId: 'solana', symbol: 'SOL', name: 'Solana', basket: 'small_cap' as const },
+      { coinId: 'cardano', symbol: 'ADA', name: 'Cardano', basket: 'small_cap' as const },
+      { coinId: 'chainlink', symbol: 'LINK', name: 'Chainlink', basket: 'small_cap' as const },
+      { coinId: 'avalanche-2', symbol: 'AVAX', name: 'Avalanche', basket: 'small_cap' as const }
     ];
     
     for (const coin of testCoins) {
@@ -55,6 +55,19 @@ class TestDataDatabasePopulator {
         data_quality_score: 85,
         calculation_data_source: 'test_data',
         confidence_level: 'high',
+        beta: null,
+        beta_last_calculated: null,
+        standard_deviation: null,
+        sharpe_ratio: null,
+        glass_node_data_quality: 85,
+        glass_node_last_discovered: new Date().toISOString(),
+        logo_url: null,
+        coingecko_id: coin.coinId,
+        glass_node_asset_name: coin.name,
+        beta_data_source: 'test_data',
+        beta_confidence: 'medium',
+        fundamentals_score: null,
+        staking_yield: null,
         updated_at: new Date().toISOString()
       };
       
