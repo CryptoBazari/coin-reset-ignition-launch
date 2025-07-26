@@ -2,10 +2,11 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Shield, Globe, AlertCircle, TrendingUp, Activity, Bitcoin, Coins, Calculator } from 'lucide-react';
+import { Shield, Globe, AlertCircle, TrendingUp, Activity, Bitcoin, Coins, Calculator, BarChart3 } from 'lucide-react';
 import type { DirectAnalysisResult } from '@/services/directApiAnalysisService';
 import { BetaCalculationCard } from '@/components/analysis/BetaCalculationCard';
 import { CAGRCalculationCard } from '@/components/CAGRCalculationCard';
+import { ComprehensiveBetaAnalysisCard } from '@/components/analysis/ComprehensiveBetaAnalysisCard';
 
 interface HybridAnalysisResultsProps {
   result: DirectAnalysisResult;
@@ -242,10 +243,37 @@ export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({ re
         </CardContent>
       </Card>
 
-      {/* Beta Calculation Details (when available) */}
+      {/* Standard Beta Calculation Details (when available) */}
       {result.betaCalculationDetails && (
-        <BetaCalculationCard betaDetails={result.betaCalculationDetails} />
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Calculator className="h-5 w-5 text-blue-600" />
+            <h3 className="text-lg font-semibold text-gray-800">Standard 3-Year Beta Analysis</h3>
+            <Badge variant="outline" className="bg-blue-100 text-blue-800 text-xs">
+              TRADITIONAL METHOD
+            </Badge>
+          </div>
+          <p className="text-sm text-gray-600">
+            Classic beta calculation using 3 years of daily price data with standard statistical methods
+          </p>
+          <BetaCalculationCard betaDetails={result.betaCalculationDetails} />
+        </div>
       )}
+
+      {/* Comprehensive Adaptive Beta Analysis */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="h-5 w-5 text-purple-600" />
+          <h3 className="text-lg font-semibold text-gray-800">Comprehensive Adaptive Beta Analysis</h3>
+          <Badge variant="outline" className="bg-purple-100 text-purple-800 text-xs">
+            ADVANCED WORKFLOW
+          </Badge>
+        </div>
+        <p className="text-sm text-gray-600">
+          Next-generation beta calculation with dynamic window selection, volume adjustments, and live API data integration
+        </p>
+        <ComprehensiveBetaAnalysisCard selectedCoin={result.symbol} />
+      </div>
 
       {/* Investment Recommendation */}
       <Card>
