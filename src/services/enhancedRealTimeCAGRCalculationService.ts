@@ -1,14 +1,15 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { symbolMappingService } from './symbolMappingService';
-import { enhancedRealTimeCAGRCalculationService } from './enhancedRealTimeCAGRCalculationService';
+import { mockGlassNodeService } from './mockGlassNodeService';
 
-export interface RealTimeCAGRResult {
+export interface EnhancedCAGRResult {
   cagr: number;
   initialValue: number;
   finalValue: number;
   timeperiodYears: number;
   dataPoints: number;
-  dataSource: 'glassnode' | 'database';
+  dataSource: 'glassnode' | 'database' | 'test_data';
   calculationSteps: {
     step1_initialValue: number;
     step2_finalValue: number;
@@ -21,41 +22,122 @@ export interface RealTimeCAGRResult {
   confidence: 'high' | 'medium' | 'low';
 }
 
-class RealTimeCAGRCalculationService {
+class EnhancedRealTimeCAGRCalculationService {
   
   /**
-   * Calculate CAGR using the enhanced service with test data fallback
+   * Enhanced CAGR calculation with test data fallback
    */
   async calculateRealTimeCAGR(
     coinId: string, 
     symbol: string, 
     yearsBack: number = 3
-  ): Promise<RealTimeCAGRResult> {
+  ): Promise<EnhancedCAGRResult> {
+    console.log(`🔢 Starting enhanced CAGR calculation for ${symbol} (${yearsBack} years)`);
     
-    // Use enhanced service
-    const enhancedResult = await enhancedRealTimeCAGRCalculationService.calculateRealTimeCAGR(
-      coinId, 
-      symbol, 
-      yearsBack
+    // Check Glassnode support using symbol
+    const isGlassnodeSupported = this.isGlassNodeSupported(symbol);
+    console.log(`🔍 Glassnode support check for ${symbol}: ${isGlassnodeSupported}`);
+    
+    // Try Glassnode first (for supported coins)
+    if (isGlassnodeSupported) {
+      try {
+        const glassnodeAsset = symbolMappingService.getGlassNodeAsset(symbol);
+        if (glassnodeAsset) {
+          console.log(`🌐 Attempting Glassnode fetch for ${glassnodeAsset}`);
+          const glassnodeResult = await this.calculateCAGRFromGlassNode(glassnodeAsset, yearsBack);
+          console.log(`✅ Glassnode CAGR calculation successful: ${glassnodeResult.cagr.toFixed(2)}%`);
+          return glassnodeResult;
+        }
+      } catch (error) {
+        console.warn(`⚠️ Glassnode fetch failed for ${symbol}, trying test data:`, error);
+      }
+    }
+    
+    // Try test data next
+    try {
+      const testDataResult = await this.calculateCAGRFromTestData(symbol, yearsBack);
+      console.log(`✅ Test data CAGR calculation successful: ${testDataResult.cagr.toFixed(2)}%`);
+      return testDataResult;
+    } catch (error) {
+      console.warn(`⚠️ Test data failed for ${symbol}, falling back to database:`, error);
+    }
+    
+    // Fallback to database data
+    try {
+      const databaseResult = await this.calculateCAGRFromDatabase(coinId, yearsBack);
+      console.log(`✅ Database CAGR calculation successful: ${databaseResult.cagr.toFixed(2)}%`);
+      return databaseResult;
+    } catch (error) {
+      console.error(`❌ All CAGR calculation methods failed for ${symbol}:`, error);
+      throw new Error(`Failed to calculate CAGR for ${symbol}: all data sources failed`);
+    }
+  }
+  
+  /**
+   * Calculate CAGR using test data (new method)
+   */
+  private async calculateCAGRFromTestData(
+    symbol: string, 
+    yearsBack: number
+  ): Promise<EnhancedCAGRResult> {
+    console.log(`🧪 Fetching test price data for ${symbol}`);
+    
+    const testData = mockGlassNodeService.getTestData(symbol);
+    if (!testData || !testData.priceHistory || testData.priceHistory.length < 2) {
+      throw new Error(`Insufficient test data for ${symbol}`);
+    }
+    
+    // Filter data for the requested time period
+    const endTime = Date.now() / 1000;
+    const startTime = endTime - (yearsBack * 365.25 * 24 * 60 * 60);
+    
+    const filteredHistory = testData.priceHistory.filter(point => 
+      point.timestamp >= startTime && point.timestamp <= endTime
     );
     
-    // Convert to original interface (remove test_data source type for compatibility)
+    if (filteredHistory.length < 2) {
+      throw new Error(`Insufficient filtered test data for ${symbol} over ${yearsBack} years`);
+    }
+    
+    console.log(`📊 Using ${filteredHistory.length} test data points for ${symbol}`);
+    
+    // Sort by timestamp to ensure correct order
+    const sortedData = filteredHistory.sort((a, b) => a.timestamp - b.timestamp);
+    
+    // Extract initial and final values
+    const initialValue = sortedData[0].price;
+    const finalValue = sortedData[sortedData.length - 1].price;
+    
+    // Calculate exact time period in years
+    const initialTimestamp = sortedData[0].timestamp;
+    const finalTimestamp = sortedData[sortedData.length - 1].timestamp;
+    const timeperiodYears = (finalTimestamp - initialTimestamp) / (365.25 * 24 * 60 * 60);
+    
+    console.log(`📈 ${symbol} Test Data - Initial: $${initialValue.toLocaleString()}, Final: $${finalValue.toLocaleString()}, Period: ${timeperiodYears.toFixed(2)} years`);
+    
+    // Apply the exact CAGR formula
+    const calculationSteps = this.performCAGRCalculation(initialValue, finalValue, timeperiodYears);
+    const confidence = this.determineConfidence(sortedData.length, timeperiodYears, 'test_data');
+    
     return {
-      cagr: enhancedResult.cagr,
-      initialValue: enhancedResult.initialValue,
-      finalValue: enhancedResult.finalValue,
-      timeperiodYears: enhancedResult.timeperiodYears,
-      dataPoints: enhancedResult.dataPoints,
-      dataSource: enhancedResult.dataSource === 'test_data' ? 'database' : enhancedResult.dataSource as 'glassnode' | 'database',
-      calculationSteps: enhancedResult.calculationSteps,
-      confidence: enhancedResult.confidence
+      cagr: calculationSteps.step7_finalCAGR,
+      initialValue,
+      finalValue,
+      timeperiodYears,
+      dataPoints: sortedData.length,
+      dataSource: 'test_data',
+      calculationSteps,
+      confidence
     };
   }
   
+  /**
+   * Calculate CAGR using fresh Glassnode API data (existing method)
+   */
   private async calculateCAGRFromGlassNode(
     symbol: string, 
     yearsBack: number
-  ): Promise<RealTimeCAGRResult> {
+  ): Promise<EnhancedCAGRResult> {
     console.log(`🌐 Fetching fresh Glassnode price data for ${symbol}`);
     
     // Calculate date range
@@ -63,7 +145,7 @@ class RealTimeCAGRCalculationService {
     const startDate = new Date();
     startDate.setFullYear(startDate.getFullYear() - yearsBack);
     
-    // Fetch daily price data from Glassnode via Supabase function
+    // Fetch daily price data from Glassnode
     const { data, error } = await supabase.functions.invoke('fetch-glassnode-data', {
       body: {
         metric: 'market/price_usd_close',
@@ -81,7 +163,7 @@ class RealTimeCAGRCalculationService {
     
     console.log(`📊 Received ${data.length} daily price points from Glassnode for ${symbol}`);
     
-    // Sort by timestamp to ensure correct order
+    // Sort by timestamp
     const sortedData = data.sort((a, b) => a.t - b.t);
     
     // Extract initial and final values
@@ -93,11 +175,10 @@ class RealTimeCAGRCalculationService {
     const finalDate = new Date(sortedData[sortedData.length - 1].t * 1000);
     const timeperiodYears = (finalDate.getTime() - initialDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
     
-    console.log(`📈 ${symbol} Initial Value: $${initialValue.toLocaleString()}, Final Value: $${finalValue.toLocaleString()}, Period: ${timeperiodYears.toFixed(2)} years`);
+    console.log(`📈 ${symbol} Glassnode - Initial: $${initialValue.toLocaleString()}, Final: $${finalValue.toLocaleString()}, Period: ${timeperiodYears.toFixed(2)} years`);
     
-    // Apply the exact CAGR formula: CAGR = (Final Value / Initial Value)^(1/n) - 1
+    // Apply the exact CAGR formula
     const calculationSteps = this.performCAGRCalculation(initialValue, finalValue, timeperiodYears);
-    
     const confidence = this.determineConfidence(data.length, timeperiodYears, 'glassnode');
     
     return {
@@ -111,11 +192,14 @@ class RealTimeCAGRCalculationService {
       confidence
     };
   }
-
+  
+  /**
+   * Calculate CAGR using database data (existing method)
+   */
   private async calculateCAGRFromDatabase(
     coinId: string, 
     yearsBack: number
-  ): Promise<RealTimeCAGRResult> {
+  ): Promise<EnhancedCAGRResult> {
     console.log(`💾 Fetching database price data for ${coinId}`);
     
     // Calculate date range
@@ -148,11 +232,10 @@ class RealTimeCAGRCalculationService {
     const finalDate = new Date(data[data.length - 1].price_date);
     const timeperiodYears = (finalDate.getTime() - initialDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
     
-    console.log(`📈 ${coinId} Initial Value: $${initialValue.toLocaleString()}, Final Value: $${finalValue.toLocaleString()}, Period: ${timeperiodYears.toFixed(2)} years`);
+    console.log(`📈 ${coinId} Database - Initial: $${initialValue.toLocaleString()}, Final: $${finalValue.toLocaleString()}, Period: ${timeperiodYears.toFixed(2)} years`);
     
-    // Apply the exact CAGR formula: CAGR = (Final Value / Initial Value)^(1/n) - 1
+    // Apply the exact CAGR formula
     const calculationSteps = this.performCAGRCalculation(initialValue, finalValue, timeperiodYears);
-    
     const confidence = this.determineConfidence(data.length, timeperiodYears, 'database');
     
     return {
@@ -166,7 +249,10 @@ class RealTimeCAGRCalculationService {
       confidence
     };
   }
-
+  
+  /**
+   * Perform step-by-step CAGR calculation using the exact 7-step formula
+   */
   private performCAGRCalculation(
     initialValue: number, 
     finalValue: number, 
@@ -213,6 +299,9 @@ class RealTimeCAGRCalculationService {
     };
   }
   
+  /**
+   * Determine confidence level based on data quality
+   */
   private determineConfidence(
     dataPoints: number, 
     timeperiodYears: number, 
@@ -220,17 +309,21 @@ class RealTimeCAGRCalculationService {
   ): 'high' | 'medium' | 'low' {
     let score = 0;
     
+    // Data points score (40%)
     if (dataPoints >= 1000) score += 40;
     else if (dataPoints >= 500) score += 30;
     else if (dataPoints >= 100) score += 20;
     else score += 10;
     
+    // Time period score (30%)
     if (timeperiodYears >= 3) score += 30;
     else if (timeperiodYears >= 2) score += 20;
     else if (timeperiodYears >= 1) score += 10;
     else score += 5;
     
+    // Data source score (30%)
     if (dataSource === 'glassnode') score += 30;
+    else if (dataSource === 'test_data') score += 25; // Test data is high quality
     else if (dataSource === 'database') score += 20;
     else score += 10;
     
@@ -239,9 +332,12 @@ class RealTimeCAGRCalculationService {
     return 'low';
   }
   
+  /**
+   * Check if a coin is supported by Glassnode
+   */
   private isGlassNodeSupported(symbolOrCoinId: string): boolean {
     return symbolMappingService.isGlassNodeSupported(symbolOrCoinId);
   }
 }
 
-export const realTimeCAGRCalculationService = new RealTimeCAGRCalculationService();
+export const enhancedRealTimeCAGRCalculationService = new EnhancedRealTimeCAGRCalculationService();

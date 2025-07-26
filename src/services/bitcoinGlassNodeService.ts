@@ -1,5 +1,5 @@
-
 import { supabase } from '@/integrations/supabase/client';
+import { enhancedBitcoinGlassNodeService } from './enhancedBitcoinGlassNodeService';
 
 export interface BitcoinGlassNodeData {
   avivRatio: number;
@@ -16,158 +16,38 @@ class BitcoinGlassNodeService {
   private cacheExpiry = 300000; // 5 minutes
 
   async fetchBitcoinAvivRatio(): Promise<number> {
-    try {
-      console.log('🔍 Fetching Bitcoin AVIV ratio from Glass Node API');
-      
-      const { data, error } = await supabase.functions.invoke('fetch-glassnode-data', {
-        body: { 
-          metric: 'indicators/aviv',
-          asset: 'BTC',
-          resolution: '24h'
-        }
-      });
-
-      if (error) {
-        console.error('❌ Failed to fetch Bitcoin AVIV ratio:', error);
-        return 1.0; // Fallback value
-      }
-
-      const latestData = data?.data?.[data.data.length - 1];
-      const avivRatio = latestData?.value || 1.0;
-      
-      console.log(`📊 Bitcoin AVIV Ratio: ${avivRatio.toFixed(3)}`);
-      return avivRatio;
-    } catch (error) {
-      console.error('❌ Error fetching Bitcoin AVIV ratio:', error);
-      return 1.0; // Fallback
-    }
+    const result = await enhancedBitcoinGlassNodeService.fetchBitcoinAvivRatio();
+    return result.value;
   }
 
   async fetchBitcoinCointimeDestroyed(): Promise<number> {
-    try {
-      console.log('🔍 Fetching Bitcoin cointime destroyed from Glass Node API');
-      
-      const { data, error } = await supabase.functions.invoke('fetch-glassnode-data', {
-        body: { 
-          metric: 'indicators/coin_blocks_destroyed',
-          asset: 'BTC',
-          resolution: '24h'
-        }
-      });
-
-      if (error) {
-        console.error('❌ Failed to fetch Bitcoin cointime destroyed:', error);
-        return 0;
-      }
-
-      const latestData = data?.data?.[data.data.length - 1];
-      const cointimeDestroyed = latestData?.value || 0;
-      
-      console.log(`📊 Bitcoin Cointime Destroyed: ${cointimeDestroyed.toFixed(0)}`);
-      return cointimeDestroyed;
-    } catch (error) {
-      console.error('❌ Error fetching Bitcoin cointime destroyed:', error);
-      return 0;
-    }
+    const result = await enhancedBitcoinGlassNodeService.fetchBitcoinCointimeDestroyed();
+    return result.value;
   }
 
   async fetchBitcoinLiquidSupply(): Promise<number> {
-    try {
-      console.log('🔍 Fetching Bitcoin liquid supply from Glass Node API');
-      
-      const { data, error } = await supabase.functions.invoke('fetch-glassnode-data', {
-        body: { 
-          metric: 'supply/liquid_sum',
-          asset: 'BTC',
-          resolution: '24h'
-        }
-      });
-
-      if (error) {
-        console.error('❌ Failed to fetch Bitcoin liquid supply:', error);
-        return 0;
-      }
-
-      const latestData = data?.data?.[data.data.length - 1];
-      const liquidSupply = latestData?.value || 0;
-      
-      console.log(`📊 Bitcoin Liquid Supply: ${liquidSupply.toFixed(0)}`);
-      return liquidSupply;
-    } catch (error) {
-      console.error('❌ Error fetching Bitcoin liquid supply:', error);
-      return 0;
-    }
+    const result = await enhancedBitcoinGlassNodeService.fetchBitcoinLiquidSupply();
+    return result.value;
   }
 
   async fetchBitcoinPrice(): Promise<number> {
-    try {
-      console.log('🔍 Fetching Bitcoin price from Glass Node API');
-      
-      const { data, error } = await supabase.functions.invoke('fetch-glassnode-data', {
-        body: { 
-          metric: 'market/price_usd_close',
-          asset: 'BTC',
-          resolution: '24h'
-        }
-      });
-
-      if (error) {
-        console.error('❌ Failed to fetch Bitcoin price:', error);
-        return 50000; // Fallback price
-      }
-
-      const latestData = data?.data?.[data.data.length - 1];
-      const price = latestData?.value || 50000;
-      
-      console.log(`📊 Bitcoin Price: $${price.toFixed(2)}`);
-      return price;
-    } catch (error) {
-      console.error('❌ Error fetching Bitcoin price:', error);
-      return 50000; // Fallback
-    }
+    const result = await enhancedBitcoinGlassNodeService.fetchBitcoinPrice();
+    return result.value;
   }
 
   async getBitcoinCointimeData(): Promise<BitcoinGlassNodeData> {
-    const cacheKey = 'bitcoin-cointime-data';
+    // Use enhanced service but maintain interface compatibility
+    const enhancedData = await enhancedBitcoinGlassNodeService.getBitcoinCointimeData();
     
-    if (this.isCacheValid(cacheKey)) {
-      return this.cache.get(cacheKey)!.data;
-    }
-
-    try {
-      console.log('🔄 Fetching comprehensive Bitcoin cointime data...');
-      
-      const [avivRatio, cointimeDestroyed, liquidSupply, price] = await Promise.all([
-        this.fetchBitcoinAvivRatio(),
-        this.fetchBitcoinCointimeDestroyed(),
-        this.fetchBitcoinLiquidSupply(),
-        this.fetchBitcoinPrice()
-      ]);
-
-      // Calculate cointime metrics using Bitcoin data
-      const cointimePrice = cointimeDestroyed > 0 ? price / cointimeDestroyed : 0;
-      const cointimeRatio = avivRatio; // AVIV ratio is essentially the cointime ratio
-
-      const bitcoinData: BitcoinGlassNodeData = {
-        avivRatio,
-        cointimeDestroyed,
-        liquidSupply,
-        price,
-        cointimePrice,
-        cointimeRatio,
-        lastUpdated: new Date().toISOString()
-      };
-
-      this.setCache(cacheKey, bitcoinData);
-      
-      console.log('✅ Bitcoin cointime data fetched successfully');
-      console.log(`📊 AVIV Ratio: ${avivRatio.toFixed(3)}, Cointime Price: ${cointimePrice.toFixed(2)}`);
-      
-      return bitcoinData;
-    } catch (error) {
-      console.error('❌ Failed to fetch Bitcoin cointime data:', error);
-      return this.getFallbackBitcoinData();
-    }
+    return {
+      avivRatio: enhancedData.avivRatio,
+      cointimeDestroyed: enhancedData.cointimeDestroyed,
+      liquidSupply: enhancedData.liquidSupply,
+      price: enhancedData.price,
+      cointimePrice: enhancedData.cointimePrice,
+      cointimeRatio: enhancedData.cointimeRatio,
+      lastUpdated: enhancedData.lastUpdated
+    };
   }
 
   private getFallbackBitcoinData(): BitcoinGlassNodeData {
