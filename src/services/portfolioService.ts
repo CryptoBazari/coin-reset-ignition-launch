@@ -16,6 +16,20 @@ class PortfolioService {
     console.log('PortfolioService: Adding transaction:', { portfolioId, transactionData });
 
     try {
+      // Check authentication first
+      const { data: { session }, error: authError } = await supabase.auth.getSession();
+      if (authError) {
+        console.error('PortfolioService: Auth error:', authError);
+        throw new Error(`Authentication error: ${authError.message}`);
+      }
+      
+      if (!session) {
+        console.error('PortfolioService: No active session found');
+        throw new Error('You must be logged in to add transactions');
+      }
+      
+      console.log('PortfolioService: User authenticated:', session.user.id);
+
       // Validate required data
       if (!transactionData.coin_symbol || !transactionData.category) {
         throw new Error('Missing required transaction data: coin_symbol and category are required');

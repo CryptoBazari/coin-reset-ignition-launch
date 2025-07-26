@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -8,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { portfolioService } from '@/services/portfolioService';
+import { useAuth } from '@/hooks/useAuth';
 import CoinSelector from './CoinSelector';
 import { CoinMarketCapCoin } from '@/services/coinMarketCapService';
 
@@ -32,6 +32,7 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
   });
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { isAuthenticated, user, session } = useAuth();
 
   const handleCoinSelect = (coinId: string, coinData: CoinMarketCapCoin) => {
     console.log('Coin selected:', { coinId, coinData });
@@ -46,6 +47,27 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    console.log('AddTransactionDialog: Submit started');
+    console.log('AddTransactionDialog: Auth status:', { 
+      isAuthenticated, 
+      hasUser: !!user, 
+      hasSession: !!session,
+      userId: user?.id,
+      userEmail: user?.email
+    });
+
+    // Check authentication first
+    if (!isAuthenticated || !session) {
+      console.error('AddTransactionDialog: User not authenticated');
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to add transactions.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!formData.coinSymbol || !formData.amount || !formData.price) {
       toast({
         title: "Validation Error",
@@ -136,6 +158,27 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
       setIsLoading(false);
     }
   };
+
+  // Show authentication warning if not logged in
+  if (open && !isAuthenticated) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Authentication Required</DialogTitle>
+            <DialogDescription>
+              You must be logged in to add transactions to your portfolio.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end">
+            <Button onClick={() => onOpenChange(false)}>
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
