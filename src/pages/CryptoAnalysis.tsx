@@ -459,52 +459,23 @@ const CryptoAnalysis = () => {
               </TabsContent>
 
               <TabsContent value="hybrid">
-                <div className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Zap className="h-5 w-5" />
-                        Hybrid Investment Analysis
-                        <Badge variant="outline" className="bg-blue-100 text-blue-800 text-xs">
-                          REAL API DATA ONLY
-                        </Badge>
-                        <Badge variant="outline" className="bg-green-100 text-green-800 text-xs">
-                          1000+ COINS
-                        </Badge>
-                        {accessType === 'admin' && (
-                          <Badge variant="outline" className="bg-blue-100 text-blue-800 text-xs">
-                            <Shield className="h-3 w-3 mr-1" />
-                            ADMIN ACCESS
-                          </Badge>
-                        )}
-                      </CardTitle>
-                      <CardDescription>
-                        Select any cryptocurrency and get real-time analysis. Comprehensive Glassnode data for supported coins, basic analysis for others.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-6">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                          <div>
-                            <HybridInvestmentForm 
-                              onSubmit={handleHybridAnalysis}
-                              loading={hybridLoading}
-                              onCoinSelect={(coinData) => {
-                                setSelectedCoinSymbol(coinData.symbol?.toUpperCase() || 'BTC');
-                              }}
-                            />
-                          </div>
-                          <div>
-                            {hybridResult && (
-                              <HybridAnalysisResults 
-                                result={hybridResult}
-                              />
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div>
+                    <HybridInvestmentForm 
+                      onSubmit={handleHybridAnalysis}
+                      loading={hybridLoading}
+                      onCoinSelect={(coinData) => {
+                        setSelectedCoinSymbol(coinData.symbol?.toUpperCase() || 'BTC');
+                      }}
+                    />
+                  </div>
+                  <div>
+                    {hybridResult && (
+                      <HybridAnalysisResults 
+                        result={hybridResult}
+                      />
+                    )}
+                  </div>
                 </div>
               </TabsContent>
 
