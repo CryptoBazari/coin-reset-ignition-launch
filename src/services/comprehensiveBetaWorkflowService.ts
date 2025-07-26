@@ -142,7 +142,7 @@ class ComprehensiveBetaWorkflowService {
 
   private async fetchAssetPriceData(coinSymbol: string): Promise<PriceVolumeData[]> {
     const endDate = new Date();
-    const startDate = new Date(endDate.getTime() - 400 * 24 * 60 * 60 * 1000); // 400 days ago
+    const startDate = new Date(endDate.getTime() - 450 * 24 * 60 * 60 * 1000); // 450 days to support 360-day max window + 30-day volatility + buffer
     
     // Convert to Unix timestamps (seconds)
     const sinceUnix = Math.floor(startDate.getTime() / 1000);
@@ -187,7 +187,7 @@ class ComprehensiveBetaWorkflowService {
 
   private async fetchAssetVolumeData(coinSymbol: string): Promise<Array<{date: string; volume: number}>> {
     const endDate = new Date();
-    const startDate = new Date(endDate.getTime() - 400 * 24 * 60 * 60 * 1000);
+    const startDate = new Date(endDate.getTime() - 450 * 24 * 60 * 60 * 1000);
     
     // Convert to Unix timestamps (seconds)
     const sinceUnix = Math.floor(startDate.getTime() / 1000);
@@ -228,7 +228,7 @@ class ComprehensiveBetaWorkflowService {
 
   private async fetchBenchmarkData(benchmark: string, source: string): Promise<PriceVolumeData[]> {
     const endDate = new Date();
-    const startDate = new Date(endDate.getTime() - 400 * 24 * 60 * 60 * 1000);
+    const startDate = new Date(endDate.getTime() - 450 * 24 * 60 * 60 * 1000);
 
     try {
       if (source === 'FRED') {
