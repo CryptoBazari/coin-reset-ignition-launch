@@ -17,6 +17,8 @@ interface ComprehensiveBetaResult {
   confidence_level: 'high' | 'medium' | 'low';
   data_quality_score: number;
   provisional_estimate?: boolean;
+  liquidity_warning?: boolean;
+  volume_completeness_warning?: boolean;
 }
 
 interface PriceVolumeData {
@@ -89,9 +91,10 @@ class ComprehensiveBetaWorkflowService {
       const adjustmentFactor = this.calculateLiquidityAdjustment(medianVolume);
       const adjustedBeta = baseBeta * adjustmentFactor;
       
-      // Phase 8: Quality assessment
+      // Phase 8: Quality assessment and warnings
       const confidenceLevel = this.assessConfidenceLevel(windowedReturns.length, variance, volatility30d);
-      const dataQualityScore = this.calculateDataQualityScore(alignedData, windowedReturns);
+      const { dataQualityScore, volumeWarning } = this.calculateDataQualityScoreWithWarnings(alignedData, windowedReturns);
+      const liquidityWarning = medianVolume < 1e6; // Warn if extremely low liquidity
 
       const result: ComprehensiveBetaResult = {
         asset: coinSymbol.toUpperCase(),
@@ -108,7 +111,9 @@ class ComprehensiveBetaWorkflowService {
         benchmark_source: benchmarkSource,
         methodology: "Log returns, sample covariance (n-1)",
         confidence_level: confidenceLevel,
-        data_quality_score: Math.round(dataQualityScore * 100) / 100
+        data_quality_score: Math.round(dataQualityScore * 100) / 100,
+        liquidity_warning: liquidityWarning,
+        volume_completeness_warning: volumeWarning
       };
 
       // Cache result
@@ -281,7 +286,8 @@ class ComprehensiveBetaWorkflowService {
         body: {
           seriesId,
           startDate: startDate.toISOString().split('T')[0],
-          endDate: endDate.toISOString().split('T')[0]
+          endDate: endDate.toISOString().split('T')[0],
+          limit: 1000
         }
       });
 
@@ -482,14 +488,14 @@ class ComprehensiveBetaWorkflowService {
     }
   }
 
-  private calculateDataQualityScore(alignedData: AlignedData[], returns: ReturnData[]): number {
-    const completeness = Math.min(1.0, alignedData.length / 365); // Data completeness over a year
-    const returnQuality = returns.length / Math.max(1, alignedData.length); // Return calculation success rate
+  private calculateDataQualityScoreWithWarnings(alignedData: AlignedData[], returns: ReturnData[]): { dataQualityScore: number; volumeWarning: boolean } {
+    const completeness = Math.min(1.0, alignedData.length / 365);
+    const returnQuality = returns.length / Math.max(1, alignedData.length);
     
     // Check volume data quality (30-day completeness)
     const recent30Volume = alignedData.slice(-30);
     const volumeCompleteness = recent30Volume.filter(d => d.asset_volume > 0).length / Math.max(1, recent30Volume.length);
-    const volumeWarning = volumeCompleteness < 0.8; // Warn if <80% volume data
+    const volumeWarning = volumeCompleteness < 0.8;
     
     if (volumeWarning) {
       console.warn(`Volume data warning: Only ${(volumeCompleteness * 100).toFixed(1)}% complete in last 30 days`);
@@ -498,9 +504,16 @@ class ComprehensiveBetaWorkflowService {
     // Data recency score
     const latestDate = new Date(alignedData[alignedData.length - 1]?.date || '1970-01-01');
     const hoursOld = (Date.now() - latestDate.getTime()) / (1000 * 60 * 60);
-    const recencyScore = Math.max(0, 1 - hoursOld / (48 * 7)); // Degrade over a week
+    const recencyScore = Math.max(0, 1 - hoursOld / (48 * 7));
     
-    return Math.min(1.0, (completeness + returnQuality + volumeCompleteness + recencyScore) / 4);
+    const dataQualityScore = Math.min(1.0, (completeness + returnQuality + volumeCompleteness + recencyScore) / 4);
+    
+    return { dataQualityScore, volumeWarning };
+  }
+
+  // Keep the old method for backward compatibility
+  private calculateDataQualityScore(alignedData: AlignedData[], returns: ReturnData[]): number {
+    return this.calculateDataQualityScoreWithWarnings(alignedData, returns).dataQualityScore;
   }
 
   private getProvisionalEstimate(coinSymbol: string, benchmark: string, source: string): ComprehensiveBetaResult {

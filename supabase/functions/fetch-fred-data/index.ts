@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { seriesId, limit = 20 } = await req.json();
+    const { seriesId, startDate, endDate, limit = 1000 } = await req.json();
     
     const fredApiKey = Deno.env.get('FRED_API_KEY');
     
@@ -45,11 +45,25 @@ Deno.serve(async (req) => {
       );
     }
 
-    const fredUrl = `https://api.stlouisfed.org/fred/series/observations?series_id=${seriesId}&api_key=${fredApiKey}&file_type=json&limit=${limit}&sort_order=desc`;
+    // Build FRED API URL with date range support
+    const fredUrl = new URL('https://api.stlouisfed.org/fred/series/observations');
+    fredUrl.searchParams.set('series_id', seriesId);
+    fredUrl.searchParams.set('api_key', fredApiKey);
+    fredUrl.searchParams.set('file_type', 'json');
+    fredUrl.searchParams.set('limit', limit.toString());
+    fredUrl.searchParams.set('sort_order', 'asc');
+    fredUrl.searchParams.set('frequency', 'd'); // Daily frequency
     
-    console.log(`Fetching FRED data for series: ${seriesId}`);
+    if (startDate) {
+      fredUrl.searchParams.set('observation_start', startDate);
+    }
+    if (endDate) {
+      fredUrl.searchParams.set('observation_end', endDate);
+    }
     
-    const response = await fetch(fredUrl);
+    console.log(`Fetching FRED data for series: ${seriesId} from ${startDate || 'earliest'} to ${endDate || 'latest'}`);
+    
+    const response = await fetch(fredUrl.toString());
 
     if (!response.ok) {
       console.error(`FRED API error: ${response.status}`);
