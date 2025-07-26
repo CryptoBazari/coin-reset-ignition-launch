@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Calculator, TrendingUp, Database, Clock } from 'lucide-react';
+import { Calculator, TrendingUp, Database, Clock, TestTube } from 'lucide-react';
 import type { RealTimeCAGRResult } from '@/services/realTimeCAGRCalculationService';
 
 interface CAGRCalculationCardProps {
@@ -24,9 +24,42 @@ export const CAGRCalculationCard: React.FC<CAGRCalculationCardProps> = ({ cagrDe
   };
 
   const getDataSourceBadgeColor = (dataSource: string) => {
-    return dataSource === 'glassnode' 
-      ? 'bg-blue-100 text-blue-800' 
-      : 'bg-purple-100 text-purple-800';
+    switch (dataSource) {
+      case 'glassnode':
+        return 'bg-blue-100 text-blue-800';
+      case 'database':
+        return 'bg-purple-100 text-purple-800';
+      case 'test_data':
+        return 'bg-orange-100 text-orange-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getDataSourceIcon = (dataSource: string) => {
+    switch (dataSource) {
+      case 'glassnode':
+        return <TrendingUp className="h-4 w-4" />;
+      case 'database':
+        return <Database className="h-4 w-4" />;
+      case 'test_data':
+        return <TestTube className="h-4 w-4" />;
+      default:
+        return <Database className="h-4 w-4" />;
+    }
+  };
+
+  const getDataSourceLabel = (dataSource: string) => {
+    switch (dataSource) {
+      case 'glassnode':
+        return 'LIVE GLASSNODE DATA';
+      case 'database':
+        return 'HISTORICAL DATABASE';
+      case 'test_data':
+        return 'REALISTIC TEST DATA';
+      default:
+        return 'UNKNOWN DATA SOURCE';
+    }
   };
 
   return (
@@ -35,15 +68,21 @@ export const CAGRCalculationCard: React.FC<CAGRCalculationCardProps> = ({ cagrDe
         <CardTitle className="flex items-center gap-2">
           <Calculator className="h-5 w-5 text-blue-600" />
           CAGR Calculation Details
-          <Badge variant="outline" className={getDataSourceBadgeColor(cagrDetails.dataSource)}>
-            {cagrDetails.dataSource.toUpperCase()} DATA
-          </Badge>
+          <div className="flex items-center gap-1">
+            {getDataSourceIcon(cagrDetails.dataSource)}
+            <Badge variant="outline" className={getDataSourceBadgeColor(cagrDetails.dataSource)}>
+              {getDataSourceLabel(cagrDetails.dataSource)}
+            </Badge>
+          </div>
           <Badge variant="outline" className={getConfidenceBadgeColor(cagrDetails.confidence)}>
             {cagrDetails.confidence.toUpperCase()} CONFIDENCE
           </Badge>
         </CardTitle>
         <CardDescription>
           7-step CAGR calculation using {cagrDetails.dataPoints} data points from {cagrDetails.dataSource}
+          {cagrDetails.dataSource === 'test_data' && (
+            <span className="text-orange-600 font-medium"> • Test data used due to API limitations</span>
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -162,8 +201,13 @@ export const CAGRCalculationCard: React.FC<CAGRCalculationCardProps> = ({ cagrDe
           {/* Data Quality Information */}
           <div className="pt-4 border-t border-gray-200">
             <div className="flex items-center gap-2 text-xs text-gray-600">
-              <Database className="h-3 w-3" />
-              <span>Data Quality: {cagrDetails.dataPoints} data points over {cagrDetails.timeperiodYears.toFixed(2)} years from {cagrDetails.dataSource} • Confidence: {cagrDetails.confidence}</span>
+              {getDataSourceIcon(cagrDetails.dataSource)}
+              <span>
+                Data Quality: {cagrDetails.dataPoints} data points over {cagrDetails.timeperiodYears.toFixed(2)} years from {cagrDetails.dataSource} • Confidence: {cagrDetails.confidence}
+                {cagrDetails.dataSource === 'test_data' && (
+                  <span className="text-orange-600 font-medium"> • Realistic test data used when live APIs are unavailable</span>
+                )}
+              </span>
             </div>
           </div>
         </div>

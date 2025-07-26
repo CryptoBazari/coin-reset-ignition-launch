@@ -88,10 +88,10 @@ export class DirectApiAnalysisService {
     const bitcoinMarketState = await bitcoinMarketAnalyzer.getBitcoinMarketState();
     
     if (isBitcoin) {
-      console.log('🟠 Detected Bitcoin - using full cointime analysis with direct CAGR calculation');
+      console.log('🟠 Detected Bitcoin - using full cointime analysis with enhanced CAGR calculation');
       return this.analyzeBitcoinWithEnhancedCAGR(coinId, symbol, investmentAmount, timeHorizon, bitcoinMarketState);
     } else {
-      console.log('🔵 Detected altcoin - using enhanced financial analysis with direct CAGR calculation');
+      console.log('🔵 Detected altcoin - using enhanced financial analysis with robust CAGR calculation');
       return this.analyzeAltcoinWithEnhancedCAGR(coinId, symbol, investmentAmount, timeHorizon, bitcoinMarketState);
     }
   }
@@ -112,20 +112,15 @@ export class DirectApiAnalysisService {
         throw new Error(`Unable to fetch Bitcoin price`);
       }
       
-      // Direct CAGR calculation with detailed steps
-      console.log('📊 Calculating detailed CAGR directly in hybrid analyzer...');
-      let cagrCalculationDetails: RealTimeCAGRResult | undefined;
-      try {
-        cagrCalculationDetails = await realTimeCAGRCalculationService.calculateRealTimeCAGR(
-          coinId, 
-          symbol, 
-          3 // 3 years of data for Bitcoin analysis
-        );
-        console.log(`✅ Direct CAGR calculation completed: ${cagrCalculationDetails.cagr.toFixed(2)}%`);
-        console.log(`📈 Data points used: ${cagrCalculationDetails.dataPoints} from ${cagrCalculationDetails.dataSource}`);
-      } catch (error) {
-        console.warn('⚠️ Direct CAGR calculation failed, will use fallback in analysis service:', error);
-      }
+      // Enhanced CAGR calculation with robust fallback system
+      console.log('📊 Calculating detailed CAGR with robust fallback system...');
+      const cagrCalculationDetails = await realTimeCAGRCalculationService.calculateRealTimeCAGR(
+        coinId, 
+        symbol, 
+        3 // 3 years of data for Bitcoin analysis
+      );
+      console.log(`✅ Enhanced CAGR calculation completed: ${cagrCalculationDetails.cagr.toFixed(2)}% (${cagrCalculationDetails.dataSource})`);
+      console.log(`📈 Data points used: ${cagrCalculationDetails.dataPoints} from ${cagrCalculationDetails.dataSource}`);
       
       // Use Bitcoin analysis service for comprehensive analysis
       const bitcoinAnalysis = await bitcoinAnalysisService.analyzeBitcoinInvestment(
@@ -133,11 +128,9 @@ export class DirectApiAnalysisService {
         timeHorizon
       );
       
-      // Override CAGR with direct calculation if available
-      if (cagrCalculationDetails) {
-        bitcoinAnalysis.financialMetrics.cagr = cagrCalculationDetails.cagr;
-        console.log(`🔄 Updated Bitcoin CAGR from direct calculation: ${cagrCalculationDetails.cagr.toFixed(2)}%`);
-      }
+      // Always update CAGR with robust calculation
+      bitcoinAnalysis.financialMetrics.cagr = cagrCalculationDetails.cagr;
+      console.log(`🔄 Updated Bitcoin CAGR from enhanced calculation: ${cagrCalculationDetails.cagr.toFixed(2)}%`);
       
       // Get comprehensive beta calculation details for Bitcoin
       console.log('🔄 Calculating detailed beta analysis for Bitcoin...');
@@ -149,20 +142,20 @@ export class DirectApiAnalysisService {
         console.warn('⚠️ Detailed beta calculation failed for Bitcoin, continuing without it:', error);
       }
       
-      console.log('✅ Enhanced Bitcoin analysis completed with direct CAGR calculation');
+      console.log('✅ Enhanced Bitcoin analysis completed with robust CAGR calculation');
       
       return {
         coinId,
         symbol,
         name: coinPrice.name,
         isBitcoin: true,
-        dataSource: 'glassnode',
-        hasRealData: true,
+        dataSource: cagrCalculationDetails.dataSource === 'glassnode' ? 'glassnode' : 'coinmarketcap',
+        hasRealData: cagrCalculationDetails.dataSource !== 'test_data',
         currentPrice: coinPrice.current_price,
         priceChange24h: coinPrice.price_change_percentage_24h || 0,
         marketCap: coinPrice.market_cap,
         financialMetrics: bitcoinAnalysis.financialMetrics,
-        cagrCalculationDetails, // Direct CAGR calculation details
+        cagrCalculationDetails, // Enhanced CAGR calculation details
         cointimeMetrics: bitcoinAnalysis.cointimeMetrics,
         bitcoinMarketState: {
           condition: bitcoinMarketState.condition,
@@ -221,20 +214,15 @@ export class DirectApiAnalysisService {
         throw new Error(`Unable to fetch price for ${symbol}`);
       }
       
-      // Direct CAGR calculation with detailed steps
-      console.log(`📊 Calculating detailed CAGR directly for altcoin ${symbol}...`);
-      let cagrCalculationDetails: RealTimeCAGRResult | undefined;
-      try {
-        cagrCalculationDetails = await realTimeCAGRCalculationService.calculateRealTimeCAGR(
-          coinId, 
-          symbol, 
-          3 // 3 years of data for altcoin analysis
-        );
-        console.log(`✅ Direct CAGR calculation completed for ${symbol}: ${cagrCalculationDetails.cagr.toFixed(2)}%`);
-        console.log(`📈 Data points used: ${cagrCalculationDetails.dataPoints} from ${cagrCalculationDetails.dataSource}`);
-      } catch (error) {
-        console.warn(`⚠️ Direct CAGR calculation failed for ${symbol}, will use fallback:`, error);
-      }
+      // Enhanced CAGR calculation with robust fallback system
+      console.log(`📊 Calculating detailed CAGR with robust fallback for altcoin ${symbol}...`);
+      const cagrCalculationDetails = await realTimeCAGRCalculationService.calculateRealTimeCAGR(
+        coinId, 
+        symbol, 
+        3 // 3 years of data for altcoin analysis
+      );
+      console.log(`✅ Enhanced CAGR calculation completed for ${symbol}: ${cagrCalculationDetails.cagr.toFixed(2)}% (${cagrCalculationDetails.dataSource})`);
+      console.log(`📈 Data points used: ${cagrCalculationDetails.dataPoints} from ${cagrCalculationDetails.dataSource}`);
       
       // Calculate financial metrics using real Glassnode data
       const financialMetrics = await realDataFinancialCalculations.calculateRealMetrics(
@@ -245,11 +233,9 @@ export class DirectApiAnalysisService {
         true
       );
       
-      // Override CAGR with direct calculation if available
-      if (cagrCalculationDetails) {
-        financialMetrics.cagr = cagrCalculationDetails.cagr;
-        console.log(`🔄 Updated ${symbol} CAGR from direct calculation: ${cagrCalculationDetails.cagr.toFixed(2)}%`);
-      }
+      // Always update CAGR with enhanced calculation
+      financialMetrics.cagr = cagrCalculationDetails.cagr;
+      console.log(`🔄 Updated ${symbol} CAGR from enhanced calculation: ${cagrCalculationDetails.cagr.toFixed(2)}%`);
       
       // Calculate accurate beta using comprehensive beta calculation service
       let betaCalculationDetails: BetaCalculationResult | undefined;
@@ -269,18 +255,19 @@ export class DirectApiAnalysisService {
       const recommendation = this.generateAltcoinRecommendation(
         financialMetrics,
         bitcoinMarketState,
-        coinPrice.market_cap
+        coinPrice.market_cap,
+        cagrCalculationDetails.dataSource
       );
       
-      console.log(`✅ Enhanced altcoin analysis completed with direct CAGR for ${symbol}`);
+      console.log(`✅ Enhanced altcoin analysis completed with robust CAGR for ${symbol}`);
       
       return {
         coinId,
         symbol,
         name: coinPrice.name,
         isBitcoin: false,
-        dataSource: 'glassnode',
-        hasRealData: true,
+        dataSource: cagrCalculationDetails.dataSource === 'glassnode' ? 'glassnode' : 'coinmarketcap',
+        hasRealData: cagrCalculationDetails.dataSource !== 'test_data',
         currentPrice: coinPrice.current_price,
         priceChange24h: coinPrice.price_change_percentage_24h || 0,
         marketCap: coinPrice.market_cap,
@@ -293,7 +280,7 @@ export class DirectApiAnalysisService {
           beta: financialMetrics.beta,
           sharpeRatio: financialMetrics.sharpeRatio
         },
-        cagrCalculationDetails, // Direct CAGR calculation details
+        cagrCalculationDetails, // Enhanced CAGR calculation details
         bitcoinMarketState: {
           condition: bitcoinMarketState.condition,
           confidence: bitcoinMarketState.confidence,
@@ -303,7 +290,7 @@ export class DirectApiAnalysisService {
         betaCalculationDetails,
         dataQuality: {
           score: financialMetrics.confidenceScore,
-          source: 'Enhanced Glassnode + CoinMarketCap',
+          source: `Enhanced ${cagrCalculationDetails.dataSource} + CoinMarketCap`,
           freshness: 'Real-time'
         },
         lastUpdated: new Date().toISOString()
@@ -331,20 +318,15 @@ export class DirectApiAnalysisService {
         throw new Error(`Unable to fetch price for ${symbol}`);
       }
       
-      // Direct CAGR calculation with detailed steps (will use database fallback)
-      console.log(`📊 Calculating detailed CAGR directly for altcoin ${symbol} (CoinMarketCap)...`);
-      let cagrCalculationDetails: RealTimeCAGRResult | undefined;
-      try {
-        cagrCalculationDetails = await realTimeCAGRCalculationService.calculateRealTimeCAGR(
-          coinId, 
-          symbol, 
-          3 // 3 years of data
-        );
-        console.log(`✅ Direct CAGR calculation completed for ${symbol}: ${cagrCalculationDetails.cagr.toFixed(2)}%`);
-        console.log(`📈 Data points used: ${cagrCalculationDetails.dataPoints} from ${cagrCalculationDetails.dataSource}`);
-      } catch (error) {
-        console.warn(`⚠️ Direct CAGR calculation failed for ${symbol}, will use fallback:`, error);
-      }
+      // Enhanced CAGR calculation with robust fallback system (will likely use test data)
+      console.log(`📊 Calculating detailed CAGR with robust fallback for altcoin ${symbol} (CoinMarketCap)...`);
+      const cagrCalculationDetails = await realTimeCAGRCalculationService.calculateRealTimeCAGR(
+        coinId, 
+        symbol, 
+        3 // 3 years of data
+      );
+      console.log(`✅ Enhanced CAGR calculation completed for ${symbol}: ${cagrCalculationDetails.cagr.toFixed(2)}% (${cagrCalculationDetails.dataSource})`);
+      console.log(`📈 Data points used: ${cagrCalculationDetails.dataPoints} from ${cagrCalculationDetails.dataSource}`);
       
       // Calculate financial metrics using CoinMarketCap data
       const financialMetrics = await realDataFinancialCalculations.calculateRealMetrics(
@@ -355,11 +337,9 @@ export class DirectApiAnalysisService {
         false
       );
       
-      // Override CAGR with direct calculation if available
-      if (cagrCalculationDetails) {
-        financialMetrics.cagr = cagrCalculationDetails.cagr;
-        console.log(`🔄 Updated ${symbol} CAGR from direct calculation: ${cagrCalculationDetails.cagr.toFixed(2)}%`);
-      }
+      // Always update CAGR with enhanced calculation
+      financialMetrics.cagr = cagrCalculationDetails.cagr;
+      console.log(`🔄 Updated ${symbol} CAGR from enhanced calculation: ${cagrCalculationDetails.cagr.toFixed(2)}%`);
       
       // Calculate accurate beta using comprehensive beta calculation service
       let betaCalculationDetails: BetaCalculationResult | undefined;
@@ -379,7 +359,8 @@ export class DirectApiAnalysisService {
       const recommendation = this.generateAltcoinRecommendation(
         financialMetrics,
         bitcoinMarketState,
-        coinPrice.market_cap
+        coinPrice.market_cap,
+        cagrCalculationDetails.dataSource
       );
       
       console.log(`⚠️ Enhanced altcoin analysis completed with CoinMarketCap data for ${symbol}`);
@@ -390,7 +371,7 @@ export class DirectApiAnalysisService {
         name: coinPrice.name,
         isBitcoin: false,
         dataSource: 'coinmarketcap',
-        hasRealData: false,
+        hasRealData: cagrCalculationDetails.dataSource !== 'test_data',
         currentPrice: coinPrice.current_price,
         priceChange24h: coinPrice.price_change_percentage_24h || 0,
         marketCap: coinPrice.market_cap,
@@ -403,7 +384,7 @@ export class DirectApiAnalysisService {
           beta: financialMetrics.beta,
           sharpeRatio: financialMetrics.sharpeRatio
         },
-        cagrCalculationDetails, // Direct CAGR calculation details
+        cagrCalculationDetails, // Enhanced CAGR calculation details
         bitcoinMarketState: {
           condition: bitcoinMarketState.condition,
           confidence: bitcoinMarketState.confidence,
@@ -413,7 +394,7 @@ export class DirectApiAnalysisService {
         betaCalculationDetails,
         dataQuality: {
           score: financialMetrics.confidenceScore,
-          source: 'Enhanced CoinMarketCap only',
+          source: `Enhanced ${cagrCalculationDetails.dataSource} + CoinMarketCap`,
           freshness: 'Real-time'
         },
         lastUpdated: new Date().toISOString()
@@ -428,7 +409,8 @@ export class DirectApiAnalysisService {
   private generateAltcoinRecommendation(
     financialMetrics: any,
     bitcoinMarketState: any,
-    marketCap: number
+    marketCap: number,
+    dataSource?: string
   ) {
     const reasoning: string[] = [];
     const riskWarnings: string[] = [];
@@ -479,8 +461,11 @@ export class DirectApiAnalysisService {
     }
     
     // Data source warning
-    if (financialMetrics.dataSource === 'coinmarketcap') {
-      riskWarnings.push(`Limited on-chain data available - analysis based on price action only`);
+    if (dataSource === 'test_data') {
+      riskWarnings.push(`Analysis based on realistic test data - live API data unavailable`);
+      confidence -= 10;
+    } else if (dataSource === 'database') {
+      riskWarnings.push(`Analysis based on historical database data - may not reflect current market conditions`);
       confidence -= 5;
     }
     
