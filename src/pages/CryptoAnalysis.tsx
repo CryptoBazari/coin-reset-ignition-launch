@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Navbar from '@/components/Navbar';
-import { EnhancedInvestmentForm } from '@/components/EnhancedInvestmentForm';
+
 import { RealDataStatus } from '@/components/analysis/RealDataStatus';
 import SubscriptionButton from '@/components/subscription/SubscriptionButton';
 import MarketOverview from '@/components/analysis/MarketOverview';
@@ -12,38 +12,33 @@ import GlassNodeDashboard from '@/components/analysis/GlassNodeDashboard';
 import { HybridInvestmentForm } from '@/components/HybridInvestmentForm';
 import { HybridAnalysisResults } from '@/components/HybridAnalysisResults';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
-import { useEnhancedInvestmentAnalysis } from '@/hooks/useEnhancedInvestmentAnalysis';
+
 import { useRealDataPopulation } from '@/hooks/useRealDataPopulation';
-import { enhancedGlassNodeAnalyzer } from '@/services/enhancedGlassNodeAnalyzer';
+
 import { directApiAnalysisService, DirectAnalysisResult } from '@/services/directApiAnalysisService';
 import { Lock, BarChart3, Globe, TrendingUp, Calculator, Activity, Shield, Zap, Download } from 'lucide-react';
 import type { InvestmentInputs } from '@/types/investment';
 import type { CoinData } from '@/services/realTimeMarketService';
-import { ComprehensiveInvestmentForm } from '@/components/ComprehensiveInvestmentForm';
-import { ComprehensiveAnalysisResults } from '@/components/ComprehensiveAnalysisResults';
-import { comprehensiveGlassNodeAnalyzer, AnalysisInputs, ComprehensiveAnalysisResult } from '@/services/comprehensiveGlassNodeAnalyzer';
 import { useGlassnodeDataInitialization } from '@/hooks/useGlassnodeDataInitialization';
 import { priceHistoryExportService } from '@/services/priceHistoryExportService';
 import { betaCalculationExportService } from '@/services/betaCalculationExportService';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { BetaCalculationCard } from '@/components/analysis/BetaCalculationCard';
-import { EnhancedAnalysisResults } from '@/components/EnhancedAnalysisResults';
+
 
 const CryptoAnalysis = () => {
-  const [realAnalysisResult, setRealAnalysisResult] = useState<any>(null);
-  const [comprehensiveResult, setComprehensiveResult] = useState<ComprehensiveAnalysisResult | null>(null);
   const [hybridResult, setHybridResult] = useState<DirectAnalysisResult | null>(null);
   const [selectedCoin, setSelectedCoin] = useState<CoinData | null>(null);
   const [selectedCoinSymbol, setSelectedCoinSymbol] = useState<string>('BTC');
   const [dataStatus, setDataStatus] = useState<any>(null);
-  const [analysisLoading, setAnalysisLoading] = useState(false);
+  
   const [hybridLoading, setHybridLoading] = useState(false);
   const [dataInitialized, setDataInitialized] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   
   const { hasAccess, hasActiveSubscription, isAdmin, accessType, user } = useAdminAccess();
-  const { analyzeInvestment, loading, error } = useEnhancedInvestmentAnalysis();
+  
   const { checkDataStatus } = useRealDataPopulation();
   const { toast } = useToast();
   const { 
@@ -61,18 +56,6 @@ const CryptoAnalysis = () => {
     loadDataStatus();
   }, [checkDataStatus]);
 
-  const handleRealAnalysis = async (inputs: InvestmentInputs) => {
-    console.log('🚀 Starting REAL Glass Node analysis with actual API data');
-    console.log('📊 Analysis inputs:', inputs);
-    
-    const result = await analyzeInvestment(inputs);
-    if (result) {
-      console.log('✅ REAL analysis completed with actual data:', result);
-      setRealAnalysisResult(result);
-    } else {
-      console.error('❌ REAL analysis failed');
-    }
-  };
 
   const handleCoinSelect = async (coinData: CoinData) => {
     setSelectedCoin(coinData);
@@ -82,30 +65,8 @@ const CryptoAnalysis = () => {
     
     console.log(`🚀 Auto-starting analysis for: ${symbol} (${coinId})`);
     
-    try {
-      const result = await enhancedGlassNodeAnalyzer.analyzeInvestment(symbol, 10000, 36);
-      console.log('✅ Auto-analysis completed with real data:', result);
-      setRealAnalysisResult(result);
-    } catch (error) {
-      console.error('❌ Auto-analysis failed:', error);
-    }
   };
 
-  const handleComprehensiveAnalysis = async (inputs: AnalysisInputs) => {
-    setAnalysisLoading(true);
-    console.log('🚀 Starting comprehensive Glass Node analysis with REAL DATA');
-    console.log('📊 Analysis inputs:', inputs);
-    
-    try {
-      const result = await comprehensiveGlassNodeAnalyzer.analyzeInvestment(inputs);
-      console.log('✅ Comprehensive analysis completed with REAL DATA:', result);
-      setComprehensiveResult(result);
-    } catch (error) {
-      console.error('❌ Comprehensive analysis failed:', error);
-    } finally {
-      setAnalysisLoading(false);
-    }
-  };
 
   const handleHybridAnalysis = async (data: {
     coinId: string;
@@ -391,7 +352,7 @@ const CryptoAnalysis = () => {
             </Card>
           ) : (
             <Tabs defaultValue="hybrid" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="overview" className="gap-2">
                   <Globe className="h-4 w-4" />
                   Market Overview
@@ -410,10 +371,6 @@ const CryptoAnalysis = () => {
                     1000+ COINS
                   </Badge>
                   Hybrid Analysis
-                </TabsTrigger>
-                <TabsTrigger value="legacy" className="gap-2">
-                  <TrendingUp className="h-4 w-4" />
-                  Legacy Analysis
                 </TabsTrigger>
               </TabsList>
 
@@ -471,60 +428,6 @@ const CryptoAnalysis = () => {
                 </div>
               </TabsContent>
 
-              <TabsContent value="legacy">
-                <div className="space-y-6">
-                  <Card className={`${dataStatus?.isPopulated ? 'border-green-200 bg-green-50' : 'border-yellow-200 bg-yellow-50'}`}>
-                    <CardContent className="pt-6">
-                      <div className={`flex items-center gap-2 ${dataStatus?.isPopulated ? 'text-green-800' : 'text-yellow-800'}`}>
-                        <Activity className="h-5 w-5" />
-                        <div>
-                          <div className="font-semibold">
-                            {dataStatus?.isPopulated ? 'REAL Data Analysis Active' : 'Data Initialization Required'}
-                            {accessType === 'admin' && (
-                              <Badge variant="outline" className="bg-blue-100 text-blue-800 text-xs ml-2">
-                                <Shield className="h-3 w-3 mr-1" />
-                                ADMIN ACCESS
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="text-sm">
-                            {dataStatus?.isPopulated 
-                              ? `Using live Glass Node API, Monte Carlo projections, and calculated volatility. ${dataStatus.coinsWithRealData}/${dataStatus.totalCoins} coins with real data (${dataStatus.dataQuality}% quality).`
-                              : 'Initialize the database above to start using real market data for calculations.'
-                            }
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {error && (
-                    <Card className="border-yellow-200 bg-yellow-50">
-                      <CardContent className="pt-6">
-                        <div className="flex items-center gap-2 text-yellow-800">
-                          <TrendingUp className="h-4 w-4" />
-                          <span className="text-sm">
-                            {error} - Check data initialization status above.
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                  
-                  <EnhancedInvestmentForm onSubmit={handleRealAnalysis} loading={loading} />
-                  
-                  {realAnalysisResult && (
-                    <EnhancedAnalysisResults result={realAnalysisResult} />
-                  )}
-
-                  {/* Comprehensive Analysis Section */}
-                  <ComprehensiveInvestmentForm onSubmit={handleComprehensiveAnalysis} loading={analysisLoading} />
-                  
-                  {comprehensiveResult && (
-                    <ComprehensiveAnalysisResults result={comprehensiveResult} />
-                  )}
-                </div>
-              </TabsContent>
             </Tabs>
           )}
         </div>
