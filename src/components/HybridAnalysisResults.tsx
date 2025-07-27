@@ -35,7 +35,7 @@ export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({ re
                   ? 'bg-green-100 text-green-800' 
                   : 'bg-blue-100 text-blue-800'
             }`}>
-              {isBitcoin ? 'FULL COINTIME + DIRECT CAGR' : isGlassNodeData ? 'GLASSNODE + DIRECT CAGR' : 'COINMARKETCAP + DIRECT CAGR'}
+              {isBitcoin ? 'FULL COINTIME' : isGlassNodeData ? 'GLASS NODE DATA' : 'COINMARKETCAP DATA'}
             </Badge>
           </CardTitle>
           <CardDescription>
