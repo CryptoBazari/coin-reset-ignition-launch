@@ -5,7 +5,7 @@ import { bitcoinAnalysisService } from '@/services/bitcoinAnalysisService';
 import { realDataFinancialCalculations } from '@/services/realDataFinancialCalculations';
 import { bitcoinMarketAnalyzer } from '@/services/bitcoinMarketAnalyzer';
 import { comprehensiveBetaCalculationService, type BetaCalculationResult } from '@/services/comprehensiveBetaCalculationService';
-import { realTimeCAGRCalculationService, type RealTimeCAGRResult } from '@/services/realTimeCAGRCalculationService';
+import { standaloneCAGRCalculationService, type StandaloneCAGRResult } from '@/services/standaloneCAGRCalculationService';
 
 export interface DirectAnalysisResult {
   coinId: string;
@@ -32,7 +32,7 @@ export interface DirectAnalysisResult {
   };
   
   // CAGR calculation details (enhanced for Hybrid Analyzer)
-  cagrCalculationDetails?: RealTimeCAGRResult;
+  cagrCalculationDetails?: StandaloneCAGRResult;
   
   // Bitcoin-specific cointime metrics (only for Bitcoin)
   cointimeMetrics?: {
@@ -112,15 +112,15 @@ export class DirectApiAnalysisService {
         throw new Error(`Unable to fetch Bitcoin price`);
       }
       
-      // Enhanced CAGR calculation with robust fallback system
-      console.log('📊 Calculating detailed CAGR with robust fallback system...');
-      const cagrCalculationDetails = await realTimeCAGRCalculationService.calculateRealTimeCAGR(
+      // Enhanced Standalone CAGR calculation with advanced volatility adjustment
+      console.log('📊 Calculating standalone CAGR with volatility adjustment and liquidity analysis...');
+      const cagrCalculationDetails = await standaloneCAGRCalculationService.calculateStandaloneCAGR(
         coinId, 
         symbol, 
         3 // 3 years of data for Bitcoin analysis
       );
-      console.log(`✅ Enhanced CAGR calculation completed: ${cagrCalculationDetails.cagr.toFixed(2)}% (${cagrCalculationDetails.dataSource})`);
-      console.log(`📈 Data points used: ${cagrCalculationDetails.dataPoints} from ${cagrCalculationDetails.dataSource}`);
+      console.log(`✅ Standalone CAGR calculation completed: Basic ${cagrCalculationDetails.basic.toFixed(2)}%, Adjusted ${cagrCalculationDetails.adjusted.toFixed(2)}% (${cagrCalculationDetails.dataSource})`);
+      console.log(`📈 Data points used: ${cagrCalculationDetails.dataPoints} from ${cagrCalculationDetails.dataSource}, Liquidity: ${cagrCalculationDetails.liquidityStatus}`);
       
       // Use Bitcoin analysis service for comprehensive analysis
       const bitcoinAnalysis = await bitcoinAnalysisService.analyzeBitcoinInvestment(
@@ -128,9 +128,9 @@ export class DirectApiAnalysisService {
         timeHorizon
       );
       
-      // Always update CAGR with robust calculation
-      bitcoinAnalysis.financialMetrics.cagr = cagrCalculationDetails.cagr;
-      console.log(`🔄 Updated Bitcoin CAGR from enhanced calculation: ${cagrCalculationDetails.cagr.toFixed(2)}%`);
+      // Always update CAGR with standalone adjusted calculation
+      bitcoinAnalysis.financialMetrics.cagr = cagrCalculationDetails.adjusted;
+      console.log(`🔄 Updated Bitcoin CAGR from standalone calculation: Basic ${cagrCalculationDetails.basic.toFixed(2)}%, Adjusted ${cagrCalculationDetails.adjusted.toFixed(2)}%`);
       
       // Get comprehensive beta calculation details for Bitcoin
       console.log('🔄 Calculating detailed beta analysis for Bitcoin...');
@@ -214,15 +214,15 @@ export class DirectApiAnalysisService {
         throw new Error(`Unable to fetch price for ${symbol}`);
       }
       
-      // Enhanced CAGR calculation with robust fallback system
-      console.log(`📊 Calculating detailed CAGR with robust fallback for altcoin ${symbol}...`);
-      const cagrCalculationDetails = await realTimeCAGRCalculationService.calculateRealTimeCAGR(
+      // Enhanced Standalone CAGR calculation with advanced volatility adjustment
+      console.log(`📊 Calculating standalone CAGR with volatility adjustment for altcoin ${symbol}...`);
+      const cagrCalculationDetails = await standaloneCAGRCalculationService.calculateStandaloneCAGR(
         coinId, 
         symbol, 
         3 // 3 years of data for altcoin analysis
       );
-      console.log(`✅ Enhanced CAGR calculation completed for ${symbol}: ${cagrCalculationDetails.cagr.toFixed(2)}% (${cagrCalculationDetails.dataSource})`);
-      console.log(`📈 Data points used: ${cagrCalculationDetails.dataPoints} from ${cagrCalculationDetails.dataSource}`);
+      console.log(`✅ Standalone CAGR calculation completed for ${symbol}: Basic ${cagrCalculationDetails.basic.toFixed(2)}%, Adjusted ${cagrCalculationDetails.adjusted.toFixed(2)}% (${cagrCalculationDetails.dataSource})`);
+      console.log(`📈 Data points used: ${cagrCalculationDetails.dataPoints} from ${cagrCalculationDetails.dataSource}, Liquidity: ${cagrCalculationDetails.liquidityStatus}`);
       
       // Calculate financial metrics using real Glassnode data
       const financialMetrics = await realDataFinancialCalculations.calculateRealMetrics(
@@ -233,9 +233,9 @@ export class DirectApiAnalysisService {
         true
       );
       
-      // Always update CAGR with enhanced calculation
-      financialMetrics.cagr = cagrCalculationDetails.cagr;
-      console.log(`🔄 Updated ${symbol} CAGR from enhanced calculation: ${cagrCalculationDetails.cagr.toFixed(2)}%`);
+      // Always update CAGR with standalone adjusted calculation
+      financialMetrics.cagr = cagrCalculationDetails.adjusted;
+      console.log(`🔄 Updated ${symbol} CAGR from standalone calculation: Basic ${cagrCalculationDetails.basic.toFixed(2)}%, Adjusted ${cagrCalculationDetails.adjusted.toFixed(2)}%`);
       
       // Calculate accurate beta using comprehensive beta calculation service
       let betaCalculationDetails: BetaCalculationResult | undefined;
@@ -318,15 +318,15 @@ export class DirectApiAnalysisService {
         throw new Error(`Unable to fetch price for ${symbol}`);
       }
       
-      // Enhanced CAGR calculation with robust fallback system (will likely use test data)
-      console.log(`📊 Calculating detailed CAGR with robust fallback for altcoin ${symbol} (CoinMarketCap)...`);
-      const cagrCalculationDetails = await realTimeCAGRCalculationService.calculateRealTimeCAGR(
+      // Enhanced Standalone CAGR calculation with fallback handling
+      console.log(`📊 Calculating standalone CAGR with volatility adjustment for altcoin ${symbol} (CoinMarketCap fallback)...`);
+      const cagrCalculationDetails = await standaloneCAGRCalculationService.calculateStandaloneCAGR(
         coinId, 
         symbol, 
         3 // 3 years of data
       );
-      console.log(`✅ Enhanced CAGR calculation completed for ${symbol}: ${cagrCalculationDetails.cagr.toFixed(2)}% (${cagrCalculationDetails.dataSource})`);
-      console.log(`📈 Data points used: ${cagrCalculationDetails.dataPoints} from ${cagrCalculationDetails.dataSource}`);
+      console.log(`✅ Standalone CAGR calculation completed for ${symbol}: Basic ${cagrCalculationDetails.basic.toFixed(2)}%, Adjusted ${cagrCalculationDetails.adjusted.toFixed(2)}% (${cagrCalculationDetails.dataSource})`);
+      console.log(`📈 Data points used: ${cagrCalculationDetails.dataPoints} from ${cagrCalculationDetails.dataSource}, Liquidity: ${cagrCalculationDetails.liquidityStatus}`);
       
       // Calculate financial metrics using CoinMarketCap data
       const financialMetrics = await realDataFinancialCalculations.calculateRealMetrics(
@@ -337,9 +337,9 @@ export class DirectApiAnalysisService {
         false
       );
       
-      // Always update CAGR with enhanced calculation
-      financialMetrics.cagr = cagrCalculationDetails.cagr;
-      console.log(`🔄 Updated ${symbol} CAGR from enhanced calculation: ${cagrCalculationDetails.cagr.toFixed(2)}%`);
+      // Always update CAGR with standalone adjusted calculation
+      financialMetrics.cagr = cagrCalculationDetails.adjusted;
+      console.log(`🔄 Updated ${symbol} CAGR from standalone calculation: Basic ${cagrCalculationDetails.basic.toFixed(2)}%, Adjusted ${cagrCalculationDetails.adjusted.toFixed(2)}%`);
       
       // Calculate accurate beta using comprehensive beta calculation service
       let betaCalculationDetails: BetaCalculationResult | undefined;

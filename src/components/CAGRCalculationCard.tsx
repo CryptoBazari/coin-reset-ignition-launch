@@ -3,10 +3,10 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Calculator, TrendingUp, Database, Clock, TestTube } from 'lucide-react';
-import type { RealTimeCAGRResult } from '@/services/realTimeCAGRCalculationService';
+import type { StandaloneCAGRResult } from '@/services/standaloneCAGRCalculationService';
 
 interface CAGRCalculationCardProps {
-  cagrDetails: RealTimeCAGRResult;
+  cagrDetails: StandaloneCAGRResult;
 }
 
 export const CAGRCalculationCard: React.FC<CAGRCalculationCardProps> = ({ cagrDetails }) => {
@@ -87,25 +87,35 @@ export const CAGRCalculationCard: React.FC<CAGRCalculationCardProps> = ({ cagrDe
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-          {/* CAGR Result */}
-          <div className="text-center p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
-            <div className="text-3xl font-bold text-blue-700">
-              {cagrDetails.cagr.toFixed(2)}%
+          {/* CAGR Results - Basic and Adjusted */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="text-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg">
+              <div className="text-2xl font-bold text-blue-700">
+                {cagrDetails.basic.toFixed(2)}%
+              </div>
+              <div className="text-sm text-blue-600">
+                Basic CAGR ({cagrDetails.timeperiodYears.toFixed(2)} years)
+              </div>
             </div>
-            <div className="text-sm text-blue-600">
-              Compound Annual Growth Rate ({cagrDetails.timeperiodYears.toFixed(2)} years)
+            <div className="text-center p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border-2 border-purple-200">
+              <div className="text-2xl font-bold text-purple-700">
+                {cagrDetails.adjusted.toFixed(2)}%
+              </div>
+              <div className="text-sm text-purple-600">
+                Volatility-Adjusted CAGR (Primary)
+              </div>
             </div>
           </div>
 
           {/* Data Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="text-center p-3 bg-slate-50 rounded-lg">
               <div className="flex items-center justify-center gap-1 mb-2">
                 <TrendingUp className="h-4 w-4 text-green-600" />
-                <span className="text-sm font-medium">Initial Value</span>
+                <span className="text-sm font-medium">Start Price</span>
               </div>
-              <div className="text-xl font-bold text-green-700">
-                ${cagrDetails.initialValue.toLocaleString(undefined, {
+              <div className="text-lg font-bold text-green-700">
+                ${cagrDetails.startPrice.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2
                 })}
@@ -114,10 +124,10 @@ export const CAGRCalculationCard: React.FC<CAGRCalculationCardProps> = ({ cagrDe
             <div className="text-center p-3 bg-slate-50 rounded-lg">
               <div className="flex items-center justify-center gap-1 mb-2">
                 <TrendingUp className="h-4 w-4 text-blue-600" />
-                <span className="text-sm font-medium">Final Value</span>
+                <span className="text-sm font-medium">End Price</span>
               </div>
-              <div className="text-xl font-bold text-blue-700">
-                ${cagrDetails.finalValue.toLocaleString(undefined, {
+              <div className="text-lg font-bold text-blue-700">
+                ${cagrDetails.endPrice.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2
                 })}
@@ -126,23 +136,32 @@ export const CAGRCalculationCard: React.FC<CAGRCalculationCardProps> = ({ cagrDe
             <div className="text-center p-3 bg-slate-50 rounded-lg">
               <div className="flex items-center justify-center gap-1 mb-2">
                 <Clock className="h-4 w-4 text-purple-600" />
-                <span className="text-sm font-medium">Time Period</span>
+                <span className="text-sm font-medium">90D Volatility</span>
               </div>
-              <div className="text-xl font-bold text-purple-700">
-                {cagrDetails.timeperiodYears.toFixed(2)} years
+              <div className="text-lg font-bold text-purple-700">
+                {(cagrDetails.volatility90d * 100).toFixed(2)}%
+              </div>
+            </div>
+            <div className="text-center p-3 bg-slate-50 rounded-lg">
+              <div className="flex items-center justify-center gap-1 mb-2">
+                <Database className="h-4 w-4 text-orange-600" />
+                <span className="text-sm font-medium">Liquidity</span>
+              </div>
+              <div className="text-lg font-bold text-orange-700 capitalize">
+                {cagrDetails.liquidityStatus}
               </div>
             </div>
           </div>
 
-          {/* 7-Step Calculation Breakdown */}
+          {/* 8-Step Enhanced Calculation Breakdown */}
           <div>
             <h5 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
               <Calculator className="h-4 w-4" />
-              7-Step CAGR Formula Breakdown
+              8-Step Enhanced CAGR Formula Breakdown
             </h5>
             <div className="space-y-3">
               <div className="flex justify-between items-center py-2 px-3 bg-blue-50 rounded">
-                <span className="text-sm font-medium">Step 1: Initial Value</span>
+                <span className="text-sm font-medium">Step 1: Initial Price</span>
                 <span className="font-bold text-blue-700">
                   ${cagrDetails.calculationSteps.step1_initialValue.toLocaleString(undefined, {
                     minimumFractionDigits: 2,
@@ -152,7 +171,7 @@ export const CAGRCalculationCard: React.FC<CAGRCalculationCardProps> = ({ cagrDe
               </div>
               
               <div className="flex justify-between items-center py-2 px-3 bg-green-50 rounded">
-                <span className="text-sm font-medium">Step 2: Final Value</span>
+                <span className="text-sm font-medium">Step 2: Final Price</span>
                 <span className="font-bold text-green-700">
                   ${cagrDetails.calculationSteps.step2_finalValue.toLocaleString(undefined, {
                     minimumFractionDigits: 2,
@@ -189,10 +208,17 @@ export const CAGRCalculationCard: React.FC<CAGRCalculationCardProps> = ({ cagrDe
                 </span>
               </div>
               
-              <div className="flex justify-between items-center py-2 px-3 bg-gradient-to-r from-blue-100 to-purple-100 rounded border-2 border-blue-200">
-                <span className="text-sm font-medium">Step 7: Final CAGR ((Base-1)*100)</span>
-                <span className="font-bold text-xl text-blue-700">
+              <div className="flex justify-between items-center py-2 px-3 bg-gradient-to-r from-blue-100 to-indigo-100 rounded border border-blue-200">
+                <span className="text-sm font-medium">Step 7: Basic CAGR ((Base-1)*100)</span>
+                <span className="font-bold text-lg text-blue-700">
                   {cagrDetails.calculationSteps.step7_finalCAGR.toFixed(2)}%
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center py-2 px-3 bg-gradient-to-r from-purple-100 to-pink-100 rounded border-2 border-purple-200">
+                <span className="text-sm font-medium">Step 8: Volatility-Adjusted CAGR</span>
+                <span className="font-bold text-xl text-purple-700">
+                  {cagrDetails.calculationSteps.step8_adjustedCAGR.toFixed(2)}%
                 </span>
               </div>
             </div>
