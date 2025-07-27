@@ -57,7 +57,7 @@ export const EnhancedFinancialMetrics: React.FC<EnhancedFinancialMetricsProps> =
           </div>
 
           <div className="text-center p-4 bg-muted/50 rounded-lg">
-            <div className="text-sm text-muted-foreground mb-1">Price CAGR</div>
+            <div className="text-sm text-muted-foreground mb-1">Volatility-Adjusted CAGR (Primary)</div>
             <div className={`text-xl font-bold ${getMetricColor(metrics.cagr, 20)}`}>
               {metrics.cagr.toFixed(1)}%
             </div>
