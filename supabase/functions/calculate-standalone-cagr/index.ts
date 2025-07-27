@@ -6,6 +6,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Initialize Supabase client for caching
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
 interface CagrInput {
   asset: string;
   startDate: string;
@@ -66,7 +71,19 @@ serve(async (req) => {
     
     console.log(`🚀 Starting standalone CAGR calculation for ${asset} from ${startDate} to ${endDate}`);
     
+    // Check cache first
+    const cachedResult = await checkCache(asset, startDate, endDate);
+    if (cachedResult) {
+      console.log(`📦 Returning cached CAGR result for ${asset}`);
+      return new Response(JSON.stringify(cachedResult), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
     const result = await calculateStandaloneCagr({ asset, startDate, endDate });
+    
+    // Store result in cache
+    await storeInCache(result, asset, startDate, endDate);
     
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -370,6 +387,78 @@ function validateConsecutiveMissingDays(prices: PricePoint[], totalDays: number)
   }
   
   return maxConsecutiveMissing;
+}
+
+// Cache management functions
+async function checkCache(asset: string, startDate: string, endDate: string): Promise<CagrResult | null> {
+  try {
+    const { data, error } = await supabase
+      .from('standalone_cagr_cache')
+      .select('*')
+      .eq('asset', asset)
+      .eq('start_date', startDate)
+      .eq('end_date', endDate)
+      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // 24 hour cache
+      .single();
+
+    if (error || !data) {
+      return null;
+    }
+
+    // Transform database result back to CagrResult format
+    return {
+      basic: Number(data.basic_cagr),
+      adjusted: Number(data.adjusted_cagr),
+      startPrice: Number(data.start_price),
+      endPrice: Number(data.end_price),
+      daysHeld: data.days_held,
+      volatility90d: Number(data.volatility_90d),
+      liquidityStatus: data.liquidity_status as 'liquid' | 'moderate' | 'illiquid',
+      dataPoints: data.data_points,
+      dataSource: data.data_source,
+      confidence: data.confidence as 'high' | 'medium' | 'low',
+      calculationSteps: data.calculation_steps,
+      timeperiodYears: Number(data.timeperiod_years)
+    };
+  } catch (error) {
+    console.error('Cache check failed:', error);
+    return null;
+  }
+}
+
+async function storeInCache(result: CagrResult, asset: string, startDate: string, endDate: string): Promise<void> {
+  try {
+    const yearsBack = (new Date(endDate).getTime() - new Date(startDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+    
+    const { error } = await supabase
+      .from('standalone_cagr_cache')
+      .upsert({
+        asset,
+        start_date: startDate,
+        end_date: endDate,
+        years_back: yearsBack,
+        basic_cagr: result.basic,
+        adjusted_cagr: result.adjusted,
+        start_price: result.startPrice,
+        end_price: result.endPrice,
+        days_held: result.daysHeld,
+        volatility_90d: result.volatility90d,
+        liquidity_status: result.liquidityStatus,
+        data_points: result.dataPoints,
+        data_source: result.dataSource,
+        confidence: result.confidence,
+        calculation_steps: result.calculationSteps,
+        timeperiod_years: result.timeperiodYears
+      });
+
+    if (error) {
+      console.error('Failed to cache result:', error);
+    } else {
+      console.log(`💾 Cached CAGR result for ${asset}`);
+    }
+  } catch (error) {
+    console.error('Cache storage failed:', error);
+  }
 }
 
 function createDeadAssetResult(

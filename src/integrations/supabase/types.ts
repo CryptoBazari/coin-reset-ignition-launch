@@ -863,6 +863,72 @@ export type Database = {
         }
         Relationships: []
       }
+      standalone_cagr_cache: {
+        Row: {
+          adjusted_cagr: number
+          asset: string
+          basic_cagr: number
+          calculation_steps: Json
+          confidence: string
+          created_at: string
+          data_points: number
+          data_source: string
+          days_held: number
+          end_date: string
+          end_price: number
+          id: string
+          liquidity_status: string
+          start_date: string
+          start_price: number
+          timeperiod_years: number
+          updated_at: string
+          volatility_90d: number
+          years_back: number
+        }
+        Insert: {
+          adjusted_cagr: number
+          asset: string
+          basic_cagr: number
+          calculation_steps: Json
+          confidence: string
+          created_at?: string
+          data_points: number
+          data_source?: string
+          days_held: number
+          end_date: string
+          end_price: number
+          id?: string
+          liquidity_status: string
+          start_date: string
+          start_price: number
+          timeperiod_years: number
+          updated_at?: string
+          volatility_90d: number
+          years_back: number
+        }
+        Update: {
+          adjusted_cagr?: number
+          asset?: string
+          basic_cagr?: number
+          calculation_steps?: Json
+          confidence?: string
+          created_at?: string
+          data_points?: number
+          data_source?: string
+          days_held?: number
+          end_date?: string
+          end_price?: number
+          id?: string
+          liquidity_status?: string
+          start_date?: string
+          start_price?: number
+          timeperiod_years?: number
+          updated_at?: string
+          volatility_90d?: number
+          years_back?: number
+        }
+        Relationships: []
+      }
       subscription_plans: {
         Row: {
           created_at: string
