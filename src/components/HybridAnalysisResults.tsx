@@ -169,9 +169,9 @@ export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({ re
               </div>
               <div className="text-center p-3 bg-red-50 rounded-lg">
                 <div className="text-xl font-bold text-red-700">
-                  ${result.cointimeMetrics.cointimePrice.toFixed(2)}
+                  {result.cointimeMetrics.stockToFlowRatio.toFixed(2)}
                 </div>
-                <div className="text-sm text-red-600">Cointime Price</div>
+                <div className="text-sm text-red-600">Stock-to-Flow Ratio</div>
               </div>
               <div className="text-center p-3 bg-indigo-50 rounded-lg">
                 <div className="text-xl font-bold text-indigo-700">

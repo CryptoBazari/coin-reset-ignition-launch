@@ -22,7 +22,7 @@ export interface BitcoinAnalysisResult {
     activeSupply: number;
     vaultedSupply: number;
     cointimeDestroyed: number;
-    cointimePrice: number;
+    stockToFlowRatio: number;
     liquidSupply: number;
   };
   
@@ -92,7 +92,7 @@ export class BitcoinAnalysisService {
         activeSupply: total > 0 ? (latestLiquid / total) * 100 : 0,
         vaultedSupply: total > 0 ? (latestIlliquid / total) * 100 : 0,
         cointimeDestroyed: bitcoinData.cointimeDestroyed,
-        cointimePrice: bitcoinData.cointimePrice,
+        stockToFlowRatio: bitcoinData.stockToFlowRatio,
         liquidSupply: latestLiquid
       };
       

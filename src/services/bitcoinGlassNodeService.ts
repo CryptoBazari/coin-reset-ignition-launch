@@ -6,7 +6,7 @@ export interface BitcoinGlassNodeData {
   cointimeDestroyed: number;
   liquidSupply: number;
   price: number;
-  cointimePrice: number;
+  stockToFlowRatio: number;
   cointimeRatio: number;
   lastUpdated: string;
 }
@@ -127,6 +127,34 @@ class BitcoinGlassNodeService {
     }
   }
 
+  async fetchBitcoinStockToFlowRatio(): Promise<number> {
+    try {
+      console.log('🔍 Fetching Bitcoin Stock-to-Flow ratio from Glass Node API');
+      
+      const { data, error } = await supabase.functions.invoke('fetch-glassnode-data', {
+        body: { 
+          metric: 'indicators/stock_to_flow_ratio',
+          asset: 'BTC',
+          resolution: '24h'
+        }
+      });
+
+      if (error) {
+        console.error('❌ Failed to fetch Bitcoin Stock-to-Flow ratio:', error);
+        return 0; // Fallback value
+      }
+
+      const latestData = data?.data?.[data.data.length - 1];
+      const stockToFlowRatio = latestData?.value || 0;
+      
+      console.log(`📊 Bitcoin Stock-to-Flow Ratio: ${stockToFlowRatio.toFixed(2)}`);
+      return stockToFlowRatio;
+    } catch (error) {
+      console.error('❌ Error fetching Bitcoin Stock-to-Flow ratio:', error);
+      return 0; // Fallback
+    }
+  }
+
   async getBitcoinCointimeData(): Promise<BitcoinGlassNodeData> {
     const cacheKey = 'bitcoin-cointime-data';
     
@@ -137,15 +165,15 @@ class BitcoinGlassNodeService {
     try {
       console.log('🔄 Fetching comprehensive Bitcoin cointime data...');
       
-      const [avivRatio, cointimeDestroyed, liquidSupply, price] = await Promise.all([
+      const [avivRatio, cointimeDestroyed, liquidSupply, price, stockToFlowRatio] = await Promise.all([
         this.fetchBitcoinAvivRatio(),
         this.fetchBitcoinCointimeDestroyed(),
         this.fetchBitcoinLiquidSupply(),
-        this.fetchBitcoinPrice()
+        this.fetchBitcoinPrice(),
+        this.fetchBitcoinStockToFlowRatio()
       ]);
 
       // Calculate cointime metrics using Bitcoin data
-      const cointimePrice = cointimeDestroyed > 0 ? price / cointimeDestroyed : 0;
       const cointimeRatio = avivRatio; // AVIV ratio is essentially the cointime ratio
 
       const bitcoinData: BitcoinGlassNodeData = {
@@ -153,7 +181,7 @@ class BitcoinGlassNodeService {
         cointimeDestroyed,
         liquidSupply,
         price,
-        cointimePrice,
+        stockToFlowRatio,
         cointimeRatio,
         lastUpdated: new Date().toISOString()
       };
@@ -161,7 +189,7 @@ class BitcoinGlassNodeService {
       this.setCache(cacheKey, bitcoinData);
       
       console.log('✅ Bitcoin cointime data fetched successfully');
-      console.log(`📊 AVIV Ratio: ${avivRatio.toFixed(3)}, Cointime Price: ${cointimePrice.toFixed(2)}`);
+      console.log(`📊 AVIV Ratio: ${avivRatio.toFixed(3)}, Stock-to-Flow Ratio: ${stockToFlowRatio.toFixed(2)}`);
       
       return bitcoinData;
     } catch (error) {
@@ -177,7 +205,7 @@ class BitcoinGlassNodeService {
       cointimeDestroyed: 0,
       liquidSupply: 0,
       price: 50000,
-      cointimePrice: 0,
+      stockToFlowRatio: 0,
       cointimeRatio: 1.0,
       lastUpdated: new Date().toISOString()
     };

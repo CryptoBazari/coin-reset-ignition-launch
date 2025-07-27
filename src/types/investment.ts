@@ -84,7 +84,7 @@ export interface FinancialMetrics {
   betaConfidence: 'low' | 'medium' | 'high';
   dataQuality: 'estimated' | 'calculated' | 'api' | 'database';
   // Glass Node specific metrics
-  cointimePrice?: number;
+  stockToFlowRatio?: number;
   cointimeRatio?: number;
   onChainScore?: number;
   bitcoinAvivRatio?: number;

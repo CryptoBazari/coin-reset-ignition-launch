@@ -38,7 +38,7 @@ export const useEnhancedGlassNodeAnalysis = () => {
       
       // 4. Calculate cointime metrics using BITCOIN data (not selected coin)
       const cointimeMetrics = {
-        cointimePrice: bitcoinCointimeData.cointimePrice,
+        stockToFlowRatio: bitcoinCointimeData.stockToFlowRatio,
         cointimeRatio: bitcoinCointimeData.cointimeRatio
       };
 
@@ -131,7 +131,7 @@ export const useEnhancedGlassNodeAnalysis = () => {
           ...metrics,
           // Add Bitcoin-specific metrics
           bitcoinAvivRatio: bitcoinCointimeData.avivRatio, // Always Bitcoin
-          cointimePrice: cointimeMetrics.cointimePrice, // Always Bitcoin
+          stockToFlowRatio: cointimeMetrics.stockToFlowRatio, // Always Bitcoin
           cointimeRatio: cointimeMetrics.cointimeRatio, // Always Bitcoin
           onChainScore: calculateOnChainHealthScore(enhancedCoinData.onChainMetrics)
         },
@@ -198,7 +198,7 @@ async function convertToCoinData(enhancedData: any, cointimeMetrics: any, bitcoi
     aviv_ratio: bitcoinAvivRatio, // ALWAYS Bitcoin AVIV ratio
     active_supply: enhancedData.onChainMetrics?.liquidSupply || 0,
     vaulted_supply: enhancedData.onChainMetrics?.illiquidSupply || 0,
-    cointime_inflation: cointimeMetrics.cointimePrice, // Bitcoin-based
+    cointime_inflation: cointimeMetrics.stockToFlowRatio, // Bitcoin-based
     staking_yield: 0,
     beta: 1.0
   };

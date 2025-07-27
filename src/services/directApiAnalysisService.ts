@@ -40,7 +40,7 @@ export interface DirectAnalysisResult {
     activeSupply: number;
     vaultedSupply: number;
     cointimeDestroyed: number;
-    cointimePrice: number;
+    stockToFlowRatio: number;
     liquidSupply: number;
   };
   
@@ -156,7 +156,14 @@ export class DirectApiAnalysisService {
         marketCap: coinPrice.market_cap,
         financialMetrics: bitcoinAnalysis.financialMetrics,
         cagrCalculationDetails, // Enhanced CAGR calculation details
-        cointimeMetrics: bitcoinAnalysis.cointimeMetrics,
+        cointimeMetrics: {
+          avivRatio: bitcoinAnalysis.cointimeMetrics.avivRatio,
+          activeSupply: bitcoinAnalysis.cointimeMetrics.activeSupply,
+          vaultedSupply: bitcoinAnalysis.cointimeMetrics.vaultedSupply,
+          cointimeDestroyed: bitcoinAnalysis.cointimeMetrics.cointimeDestroyed,
+          stockToFlowRatio: bitcoinAnalysis.cointimeMetrics.stockToFlowRatio,
+          liquidSupply: bitcoinAnalysis.cointimeMetrics.liquidSupply
+        },
         bitcoinMarketState: {
           condition: bitcoinMarketState.condition,
           confidence: bitcoinMarketState.confidence,
