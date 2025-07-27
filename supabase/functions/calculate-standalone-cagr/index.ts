@@ -92,10 +92,11 @@ serve(async (req) => {
 async function calculateStandaloneCagr(input: CagrInput): Promise<CagrResult> {
   console.log(`📊 Fetching data for ${input.asset} from Glassnode endpoints...`);
   
-  // 1. Fetch data from Glassnode endpoints
-  const [prices, volumes] = await Promise.all([
+  // 1. Fetch data from all three Glassnode endpoints
+  const [prices, volumes, ohlc] = await Promise.all([
     fetchGlassnodeData('market/price_usd_close', input),
-    fetchGlassnodeData('transactions/transfers_volume_sum', input)
+    fetchGlassnodeData('transactions/transfers_volume_sum', input),
+    fetchGlassnodeData('market/price_usd_ohlc', input)
   ]);
   
   // 2. Sort and validate data
@@ -104,52 +105,97 @@ async function calculateStandaloneCagr(input: CagrInput): Promise<CagrResult> {
   
   const daysHeld = calculateDaysBetween(prices[0].date, prices[prices.length - 1].date);
   
+  // Enhanced validation rules
   if (daysHeld < 90) {
     throw new Error('Insufficient data: Minimum 90 days required');
   }
   
-  console.log(`✅ Data validation passed: ${prices.length} price points, ${daysHeld} days`);
+  // Data completeness validation (≥95%)
+  const expectedDataPoints = daysHeld;
+  const dataCompletenessRatio = prices.length / expectedDataPoints;
+  if (dataCompletenessRatio < 0.95) {
+    throw new Error(`Insufficient data completeness: ${(dataCompletenessRatio * 100).toFixed(1)}% (required: ≥95%)`);
+  }
+  
+  // Check for maximum 3 consecutive missing days
+  const missingDays = validateConsecutiveMissingDays(prices, daysHeld);
+  if (missingDays > 3) {
+    throw new Error(`Too many consecutive missing days: ${missingDays} (max allowed: 3)`);
+  }
+  
+  console.log(`✅ Data validation passed: ${prices.length} price points, ${daysHeld} days, ${(dataCompletenessRatio * 100).toFixed(1)}% completeness`);
   
   // 3. Basic CAGR calculation
   const startPrice = prices[0].price;
   const endPrice = prices[prices.length - 1].price;
   const timeperiodYears = daysHeld / 365.25;
   
-  // Check for dead asset
-  if (endPrice < 0.01) {
+  // Enhanced dead asset detection (ATH-based)
+  const allTimePrices = prices.map(p => p.price);
+  const allTimeHigh = Math.max(...allTimePrices);
+  const isDeadAsset = endPrice < (allTimeHigh * 0.01);
+  
+  if (isDeadAsset) {
+    console.log(`⚠️ Dead asset detected: End price ${endPrice} < 1% of ATH ${allTimeHigh}`);
     return createDeadAssetResult(input, startPrice, endPrice, daysHeld, timeperiodYears);
   }
   
   const cagrBasic = Math.pow(endPrice / startPrice, 1 / timeperiodYears) - 1;
   
-  // 4. Calculate daily log returns (capped at ±50%)
+  // 4. Calculate daily log returns with boundary validation
   const returns: number[] = [];
   for (let i = 1; i < prices.length; i++) {
-    const ret = Math.log(prices[i].price / prices[i - 1].price);
-    returns.push(Math.max(-0.5, Math.min(0.5, ret)));
+    const dailyReturn = Math.log(prices[i].price / prices[i - 1].price);
+    
+    // Boundary validation: ±50% daily returns
+    if (Math.abs(dailyReturn) > 0.5) {
+      console.log(`⚠️ Extreme return detected on ${prices[i].date}: ${(dailyReturn * 100).toFixed(2)}%`);
+    }
+    
+    const boundedReturn = Math.max(-0.5, Math.min(0.5, dailyReturn));
+    returns.push(boundedReturn);
   }
   
-  // 5. Calculate 90-day rolling volatility
+  // 5. Calculate 90-day rolling volatility with proper annualization
   const volatilities: number[] = [];
-  for (let i = 0; i < returns.length; i++) {
-    const startIdx = Math.max(0, i - 89);
-    const window = returns.slice(startIdx, i + 1);
-    const volatility = calculateStandardDeviation(window);
-    volatilities.push(volatility);
+  for (let i = 89; i < returns.length; i++) { // Start from index 89 to ensure full 90-day window
+    const window = returns.slice(i - 89, i + 1); // 90-day window
+    const dailyVolatility = calculateStandardDeviation(window);
+    const annualizedVolatility = dailyVolatility * Math.sqrt(365.25); // Annualize volatility
+    volatilities.push(annualizedVolatility);
   }
   
-  // 6. Calculate volatility-adjusted CAGR
-  const weights = volatilities.map(v => 1 / (1 + v));
-  const weightedReturnSum = returns.reduce((sum, r, i) => sum + r * weights[i], 0);
-  const cagrAdjusted = Math.exp(365.25 / daysHeld * weightedReturnSum) - 1;
+  // 6. Calculate volatility-adjusted CAGR with proper math checks
+  let cagrAdjusted = cagrBasic; // Default to basic CAGR if adjustment fails
   
-  // 7. Liquidity classification
+  if (volatilities.length > 0 && returns.length >= 90) {
+    // Use median volatility for stability
+    const medianVolatility = calculateMedian(volatilities);
+    
+    // Volatility adjustment factor (ensures it's always positive and reasonable)
+    const volatilityAdjustment = Math.max(0.1, Math.min(2.0, 1 / (1 + medianVolatility)));
+    
+    // Apply volatility adjustment to basic CAGR
+    cagrAdjusted = cagrBasic * volatilityAdjustment;
+    
+    console.log(`📊 Volatility analysis: Median ${(medianVolatility * 100).toFixed(2)}%, Adjustment factor: ${volatilityAdjustment.toFixed(3)}`);
+  } else {
+    console.log(`⚠️ Insufficient data for volatility adjustment, using basic CAGR`);
+  }
+  
+  // 7. Enhanced liquidity classification with floor validation
   const medianVol = calculateMedian(volumes.map(v => v.volume));
   const liquidityStatus = classifyLiquidity(medianVol);
   
-  // 8. Data quality and confidence scoring
-  const avgVolatility = volatilities.reduce((sum, v) => sum + v, 0) / volatilities.length;
-  const confidence = determineConfidence(prices.length, daysHeld, 'glassnode');
+  // Liquidity floor validation
+  if (medianVol < 1000) {
+    console.log(`⚠️ Low liquidity warning: Median volume ${medianVol} < $1,000`);
+  }
+  
+  // 8. Enhanced data quality and confidence scoring
+  const avgVolatility = volatilities.length > 0 ? 
+    volatilities.reduce((sum, v) => sum + v, 0) / volatilities.length : 0;
+  const confidence = determineConfidence(prices.length, daysHeld, 'glassnode', dataCompletenessRatio);
   
   // 9. Detailed calculation steps
   const growthRatio = endPrice / startPrice;
@@ -200,6 +246,13 @@ async function fetchGlassnodeData(endpoint: string, input: CagrInput): Promise<P
   
   const response = await fetch(url);
   if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('Glassnode API authentication failed - check API key');
+    } else if (response.status === 429) {
+      throw new Error('Glassnode API rate limit exceeded - please retry later');
+    } else if (response.status === 404) {
+      throw new Error(`Glassnode endpoint not found: ${endpoint} for asset ${input.asset}`);
+    }
     throw new Error(`Glassnode API error: ${response.status} ${response.statusText}`);
   }
   
@@ -209,12 +262,26 @@ async function fetchGlassnodeData(endpoint: string, input: CagrInput): Promise<P
     throw new Error(`No data returned from Glassnode for ${endpoint}`);
   }
   
-  return data.map(item => ({
-    timestamp: item.t,
-    date: new Date(item.t * 1000).toISOString().split('T')[0],
-    price: endpoint.includes('price') ? item.v : undefined,
-    volume: endpoint.includes('volume') ? item.v : undefined
-  })).filter(item => item.price !== undefined || item.volume !== undefined);
+  // Enhanced data processing with validation
+  const processedData = data
+    .map(item => {
+      // Validate data point structure
+      if (!item.t || item.v === null || item.v === undefined) {
+        return null;
+      }
+      
+      return {
+        timestamp: item.t,
+        date: new Date(item.t * 1000).toISOString().split('T')[0],
+        price: endpoint.includes('price') ? item.v : undefined,
+        volume: endpoint.includes('volume') ? item.v : undefined
+      };
+    })
+    .filter(item => item !== null && (item.price !== undefined || item.volume !== undefined));
+  
+  console.log(`📊 Processed ${processedData.length} valid data points from ${data.length} raw points`);
+  
+  return processedData;
 }
 
 function calculateDaysBetween(startDate: string, endDate: string): number {
@@ -250,7 +317,7 @@ function classifyLiquidity(medianVol: number): 'liquid' | 'moderate' | 'illiquid
   return 'illiquid';
 }
 
-function determineConfidence(dataPoints: number, daysHeld: number, dataSource: string): 'high' | 'medium' | 'low' {
+function determineConfidence(dataPoints: number, daysHeld: number, dataSource: string, dataCompleteness: number = 1): 'high' | 'medium' | 'low' {
   let score = 0;
   
   // Data points scoring
@@ -258,18 +325,51 @@ function determineConfidence(dataPoints: number, daysHeld: number, dataSource: s
   else if (dataPoints >= 500) score += 2;
   else if (dataPoints >= 250) score += 1;
   
-  // Time period scoring
+  // Time period scoring with short history warning
   if (daysHeld >= 1095) score += 3; // 3+ years
   else if (daysHeld >= 730) score += 2; // 2+ years
   else if (daysHeld >= 365) score += 1; // 1+ year
+  else if (daysHeld < 365) {
+    console.log(`⚠️ Short history warning: Only ${daysHeld} days of data (recommended: ≥365 days)`);
+  }
   
   // Data source scoring
   if (dataSource === 'glassnode') score += 2;
   else if (dataSource === 'database') score += 1;
   
-  if (score >= 6) return 'high';
-  if (score >= 3) return 'medium';
+  // Data completeness scoring
+  if (dataCompleteness >= 0.99) score += 2;
+  else if (dataCompleteness >= 0.95) score += 1;
+  
+  if (score >= 7) return 'high';
+  if (score >= 4) return 'medium';
   return 'low';
+}
+
+// New helper function for consecutive missing days validation
+function validateConsecutiveMissingDays(prices: PricePoint[], totalDays: number): number {
+  if (prices.length === 0) return totalDays;
+  
+  const pricesMap = new Map<string, number>();
+  prices.forEach(p => pricesMap.set(p.date, p.price));
+  
+  const startDate = new Date(prices[0].date);
+  let maxConsecutiveMissing = 0;
+  let currentConsecutiveMissing = 0;
+  
+  for (let i = 0; i < totalDays; i++) {
+    const currentDate = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
+    const dateStr = currentDate.toISOString().split('T')[0];
+    
+    if (!pricesMap.has(dateStr)) {
+      currentConsecutiveMissing++;
+      maxConsecutiveMissing = Math.max(maxConsecutiveMissing, currentConsecutiveMissing);
+    } else {
+      currentConsecutiveMissing = 0;
+    }
+  }
+  
+  return maxConsecutiveMissing;
 }
 
 function createDeadAssetResult(
