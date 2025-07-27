@@ -306,7 +306,7 @@ export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({ re
                 {result.recommendation.confidence}% confidence
               </div>
               <Badge variant="outline" className="text-xs">
-                {isBitcoin ? 'Cointime + Direct CAGR' : isGlassNodeData ? 'Glassnode + Direct CAGR' : 'Enhanced + Direct CAGR'}
+                Cointime
               </Badge>
             </div>
             
