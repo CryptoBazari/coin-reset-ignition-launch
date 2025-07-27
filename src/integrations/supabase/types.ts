@@ -114,6 +114,7 @@ export type Database = {
         Row: {
           active_supply: number | null
           api_status: string | null
+          avg_volume_30d: number | null
           aviv_ratio: number | null
           basket: Database["public"]["Enums"]["basket_type"]
           beta: number | null
@@ -132,6 +133,7 @@ export type Database = {
           glass_node_supported: boolean | null
           id: string
           last_glass_node_update: string | null
+          liquidity_status: string | null
           logo_url: string | null
           market_cap: number | null
           name: string
@@ -147,6 +149,7 @@ export type Database = {
         Insert: {
           active_supply?: number | null
           api_status?: string | null
+          avg_volume_30d?: number | null
           aviv_ratio?: number | null
           basket?: Database["public"]["Enums"]["basket_type"]
           beta?: number | null
@@ -165,6 +168,7 @@ export type Database = {
           glass_node_supported?: boolean | null
           id?: string
           last_glass_node_update?: string | null
+          liquidity_status?: string | null
           logo_url?: string | null
           market_cap?: number | null
           name: string
@@ -180,6 +184,7 @@ export type Database = {
         Update: {
           active_supply?: number | null
           api_status?: string | null
+          avg_volume_30d?: number | null
           aviv_ratio?: number | null
           basket?: Database["public"]["Enums"]["basket_type"]
           beta?: number | null
@@ -198,6 +203,7 @@ export type Database = {
           glass_node_supported?: boolean | null
           id?: string
           last_glass_node_update?: string | null
+          liquidity_status?: string | null
           logo_url?: string | null
           market_cap?: number | null
           name?: string
@@ -486,6 +492,11 @@ export type Database = {
           investment_horizon: number | null
           irr: number | null
           npv: number | null
+          npv_benchmark_type: string | null
+          npv_discount_rate: number | null
+          npv_liquidity_status: string | null
+          npv_terminal_value: number | null
+          npv_yearly_breakdown: Json | null
           portfolio_compliant: boolean | null
           price_cagr: number | null
           price_roi: number | null
@@ -513,6 +524,11 @@ export type Database = {
           investment_horizon?: number | null
           irr?: number | null
           npv?: number | null
+          npv_benchmark_type?: string | null
+          npv_discount_rate?: number | null
+          npv_liquidity_status?: string | null
+          npv_terminal_value?: number | null
+          npv_yearly_breakdown?: Json | null
           portfolio_compliant?: boolean | null
           price_cagr?: number | null
           price_roi?: number | null
@@ -540,6 +556,11 @@ export type Database = {
           investment_horizon?: number | null
           irr?: number | null
           npv?: number | null
+          npv_benchmark_type?: string | null
+          npv_discount_rate?: number | null
+          npv_liquidity_status?: string | null
+          npv_terminal_value?: number | null
+          npv_yearly_breakdown?: Json | null
           portfolio_compliant?: boolean | null
           price_cagr?: number | null
           price_roi?: number | null
@@ -680,6 +701,45 @@ export type Database = {
           tags?: string[] | null
           title?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      npv_cache: {
+        Row: {
+          advanced_beta: number | null
+          amount: number
+          asset: string
+          benchmark_type: string
+          created_at: string
+          expires_at: string
+          id: string
+          liquidity_status: string
+          result: Json
+          years: number
+        }
+        Insert: {
+          advanced_beta?: number | null
+          amount: number
+          asset: string
+          benchmark_type: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          liquidity_status: string
+          result: Json
+          years: number
+        }
+        Update: {
+          advanced_beta?: number | null
+          amount?: number
+          asset?: string
+          benchmark_type?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          liquidity_status?: string
+          result?: Json
+          years?: number
         }
         Relationships: []
       }
@@ -1282,6 +1342,10 @@ export type Database = {
       check_admin_access: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      clean_expired_npv_cache: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       cleanup_expired_payments: {
         Args: Record<PropertyKey, never>
