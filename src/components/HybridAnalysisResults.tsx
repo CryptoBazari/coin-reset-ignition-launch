@@ -219,7 +219,7 @@ export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({ re
                 <Calculator className="h-4 w-4" />
                 {result.financialMetrics.cagr.toFixed(1)}%
               </div>
-              <div className="text-sm text-purple-600 font-medium">CAGR (Direct Calc)</div>
+              <div className="text-sm text-purple-600 font-medium">Volatility-Adjusted CAGR (Primary)</div>
             </div>
             <div className="text-center p-3 bg-slate-50 rounded-lg">
               <div className="text-xl font-bold text-orange-700">
