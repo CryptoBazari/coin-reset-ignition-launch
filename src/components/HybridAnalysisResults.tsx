@@ -287,7 +287,7 @@ export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({ re
               </Badge>
             )}
             <Badge variant="outline" className="bg-purple-100 text-purple-800 text-xs">
-              DIRECT CAGR ANALYSIS
+              GLASS NODE DATA
             </Badge>
           </CardTitle>
         </CardHeader>
