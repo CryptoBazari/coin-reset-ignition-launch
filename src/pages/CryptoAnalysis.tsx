@@ -11,6 +11,7 @@ import AssetLiveData from '@/components/analysis/AssetLiveData';
 import GlassNodeDashboard from '@/components/analysis/GlassNodeDashboard';
 import { HybridInvestmentForm } from '@/components/HybridInvestmentForm';
 import { HybridAnalysisResults } from '@/components/HybridAnalysisResults';
+import { CalculationDebugger } from '@/components/analysis/CalculationDebugger';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 
 import { useRealDataPopulation } from '@/hooks/useRealDataPopulation';
@@ -398,7 +399,7 @@ const CryptoAnalysis = () => {
             </Card>
           ) : (
             <Tabs defaultValue="hybrid" className="space-y-6">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="overview" className="gap-2">
                   <Globe className="h-4 w-4" />
                   Market Overview
@@ -417,6 +418,10 @@ const CryptoAnalysis = () => {
                     1000+ COINS
                   </Badge>
                   Hybrid Analysis
+                </TabsTrigger>
+                <TabsTrigger value="debug" className="gap-2">
+                  <Calculator className="h-4 w-4" />
+                  API Debug
                 </TabsTrigger>
               </TabsList>
 
@@ -473,6 +478,10 @@ const CryptoAnalysis = () => {
                     )}
                   </div>
                 </div>
+              </TabsContent>
+
+              <TabsContent value="debug">
+                <CalculationDebugger />
               </TabsContent>
 
             </Tabs>
