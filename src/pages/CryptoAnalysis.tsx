@@ -16,6 +16,7 @@ import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { useRealDataPopulation } from '@/hooks/useRealDataPopulation';
 
 import { directApiAnalysisService, DirectAnalysisResult } from '@/services/directApiAnalysisService';
+import { hybridNPVCalculationService } from '@/services/hybridNPVCalculationService';
 import { Lock, BarChart3, Globe, TrendingUp, Calculator, Activity, Shield, Zap, Download } from 'lucide-react';
 import type { InvestmentInputs } from '@/types/investment';
 import type { CoinData } from '@/services/realTimeMarketService';
@@ -108,7 +109,8 @@ const CryptoAnalysis = () => {
       const amount = hybridResult.npvCalculationDetails.yearlyBreakdown.reduce((sum, year) => sum + year.cashFlow, 0);
       const years = hybridResult.npvCalculationDetails.yearlyBreakdown.length;
       
-      const updatedNPV = await directApiAnalysisService.calculateNPVWithAdvancedBeta(
+      // Use the hybrid NPV service directly with correct types
+      const updatedNPV = await hybridNPVCalculationService.calculateHybridNPV(
         hybridResult.symbol,
         amount,
         years,
