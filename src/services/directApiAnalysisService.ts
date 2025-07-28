@@ -6,6 +6,7 @@ import { realDataFinancialCalculations } from '@/services/realDataFinancialCalcu
 import { bitcoinMarketAnalyzer } from '@/services/bitcoinMarketAnalyzer';
 import { comprehensiveBetaCalculationService, type BetaCalculationResult } from '@/services/comprehensiveBetaCalculationService';
 import { standaloneCAGRCalculationService, type StandaloneCAGRResult } from '@/services/standaloneCAGRCalculationService';
+import { hybridNPVCalculationService, type NPVCalculationResult } from '@/services/hybridNPVCalculationService';
 
 export interface DirectAnalysisResult {
   coinId: string;
@@ -62,6 +63,9 @@ export interface DirectAnalysisResult {
   // Beta calculation details (when available)
   betaCalculationDetails?: BetaCalculationResult;
   
+  // NPV calculation details (enhanced comprehensive NPV)
+  npvCalculationDetails?: NPVCalculationResult;
+  
   // Data quality indicators
   dataQuality: {
     score: number;
@@ -93,6 +97,48 @@ export class DirectApiAnalysisService {
     } else {
       console.log('🔵 Detected altcoin - using enhanced financial analysis with robust CAGR calculation');
       return this.analyzeAltcoinWithEnhancedCAGR(coinId, symbol, investmentAmount, timeHorizon, bitcoinMarketState);
+    }
+  }
+
+  /**
+   * Calculate comprehensive NPV with advanced beta integration
+   */
+  async calculateNPVWithAdvancedBeta(
+    coinId: string,
+    symbol: string,
+    investmentAmount: number,
+    timeHorizon: number,
+    advancedBeta?: number
+  ): Promise<NPVCalculationResult> {
+    console.log(`💰 Calculating comprehensive NPV for ${symbol.toUpperCase()}`);
+    console.log(`   Investment: $${investmentAmount}, Horizon: ${timeHorizon} years`);
+    console.log(`   Advanced Beta: ${advancedBeta ? advancedBeta.toFixed(3) : 'None provided'}`);
+
+    try {
+      // Use hybrid NPV service for comprehensive calculation
+      const npvResult = await hybridNPVCalculationService.calculateHybridNPV(
+        symbol,
+        investmentAmount,
+        timeHorizon,
+        advancedBeta
+      );
+
+      console.log(`✅ NPV calculation completed: $${npvResult.npv.toFixed(2)}`);
+      console.log(`   IRR: ${(npvResult.irr * 100).toFixed(2)}%`);
+      console.log(`   Benchmark: ${npvResult.benchmark}`);
+      console.log(`   Confidence: ${npvResult.confidenceScore}%`);
+
+      return npvResult;
+    } catch (error) {
+      console.warn('⚠️ Hybrid NPV calculation failed, attempting local fallback:', error);
+      
+      // Fallback to local calculation
+      return await hybridNPVCalculationService.calculateLocalNPV(
+        symbol,
+        investmentAmount,
+        timeHorizon,
+        advancedBeta
+      );
     }
   }
   
