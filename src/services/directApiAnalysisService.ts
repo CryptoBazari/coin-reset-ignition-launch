@@ -190,6 +190,20 @@ export class DirectApiAnalysisService {
       
       console.log('✅ Enhanced Bitcoin analysis completed with robust CAGR calculation');
       
+      // Calculate NPV using hybrid service
+      let npvCalculationDetails: NPVCalculationResult | undefined;
+      try {
+        console.log('🧮 Calculating NPV for Bitcoin...');
+        npvCalculationDetails = await hybridNPVCalculationService.calculateHybridNPV(
+          symbol,
+          investmentAmount,
+          timeHorizon
+        );
+        console.log(`💰 NPV calculated: $${npvCalculationDetails.npv.toFixed(2)} (${npvCalculationDetails.betaType} beta)`);
+      } catch (npvError) {
+        console.warn('⚠️ NPV calculation failed for Bitcoin:', npvError);
+      }
+      
       return {
         coinId,
         symbol,
@@ -217,6 +231,7 @@ export class DirectApiAnalysisService {
         },
         recommendation: bitcoinAnalysis.recommendation,
         betaCalculationDetails,
+        npvCalculationDetails,
         dataQuality: bitcoinAnalysis.dataQuality,
         lastUpdated: new Date().toISOString()
       };
@@ -314,6 +329,20 @@ export class DirectApiAnalysisService {
       
       console.log(`✅ Enhanced altcoin analysis completed with robust CAGR for ${symbol}`);
       
+      // Calculate NPV using hybrid service
+      let npvCalculationDetails: NPVCalculationResult | undefined;
+      try {
+        console.log(`🧮 Calculating NPV for ${symbol}...`);
+        npvCalculationDetails = await hybridNPVCalculationService.calculateHybridNPV(
+          symbol,
+          investmentAmount,
+          timeHorizon
+        );
+        console.log(`💰 NPV calculated: $${npvCalculationDetails.npv.toFixed(2)} (${npvCalculationDetails.betaType} beta)`);
+      } catch (npvError) {
+        console.warn(`⚠️ NPV calculation failed for ${symbol}:`, npvError);
+      }
+      
       return {
         coinId,
         symbol,
@@ -341,6 +370,7 @@ export class DirectApiAnalysisService {
         },
         recommendation,
         betaCalculationDetails,
+        npvCalculationDetails,
         dataQuality: {
           score: financialMetrics.confidenceScore,
           source: `Enhanced ${cagrCalculationDetails.dataSource} + CoinMarketCap`,
@@ -418,6 +448,20 @@ export class DirectApiAnalysisService {
       
       console.log(`⚠️ Enhanced altcoin analysis completed with CoinMarketCap data for ${symbol}`);
       
+      // Calculate NPV using hybrid service
+      let npvCalculationDetails: NPVCalculationResult | undefined;
+      try {
+        console.log(`🧮 Calculating NPV for ${symbol}...`);
+        npvCalculationDetails = await hybridNPVCalculationService.calculateHybridNPV(
+          symbol,
+          investmentAmount,
+          timeHorizon
+        );
+        console.log(`💰 NPV calculated: $${npvCalculationDetails.npv.toFixed(2)} (${npvCalculationDetails.betaType} beta)`);
+      } catch (npvError) {
+        console.warn(`⚠️ NPV calculation failed for ${symbol}:`, npvError);
+      }
+      
       return {
         coinId,
         symbol,
@@ -445,6 +489,7 @@ export class DirectApiAnalysisService {
         },
         recommendation,
         betaCalculationDetails,
+        npvCalculationDetails,
         dataQuality: {
           score: financialMetrics.confidenceScore,
           source: `Enhanced ${cagrCalculationDetails.dataSource} + CoinMarketCap`,

@@ -7,12 +7,14 @@ import type { DirectAnalysisResult } from '@/services/directApiAnalysisService';
 import { BetaCalculationCard } from '@/components/analysis/BetaCalculationCard';
 import { CAGRCalculationCard } from '@/components/CAGRCalculationCard';
 import { ComprehensiveBetaAnalysisCard } from '@/components/analysis/ComprehensiveBetaAnalysisCard';
+import NPVCalculationCard from '@/components/analysis/NPVCalculationCard';
 
 interface HybridAnalysisResultsProps {
   result: DirectAnalysisResult;
+  onRecalculateNPV?: () => void;
 }
 
-export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({ result }) => {
+export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({ result, onRecalculateNPV }) => {
   const isGlassNodeData = result.dataSource === 'glassnode';
   const isBitcoin = result.isBitcoin;
   
@@ -258,6 +260,16 @@ export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({ re
           </p>
           <BetaCalculationCard betaDetails={result.betaCalculationDetails} />
         </div>
+      )}
+
+      {/* NPV Analysis Results */}
+      {result.npvCalculationDetails && (
+        <NPVCalculationCard 
+          npvData={result.npvCalculationDetails} 
+          assetSymbol={result.symbol}
+          onRecalculateWithAdvancedBeta={onRecalculateNPV}
+          showRecalculateButton={result.npvCalculationDetails.betaType === 'basic'}
+        />
       )}
 
       {/* Comprehensive Adaptive Beta Analysis */}

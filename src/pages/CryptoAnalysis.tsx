@@ -95,6 +95,50 @@ const CryptoAnalysis = () => {
     }
   };
 
+  const handleRecalculateNPV = async () => {
+    if (!hybridResult?.npvCalculationDetails) return;
+    
+    setHybridLoading(true);
+    try {
+      console.log('🔄 Recalculating NPV with advanced beta...');
+      
+      // Get comprehensive beta from the existing result
+      const advancedBeta = hybridResult.betaCalculationDetails?.beta || hybridResult.financialMetrics.beta;
+      
+      const amount = hybridResult.npvCalculationDetails.yearlyBreakdown.reduce((sum, year) => sum + year.cashFlow, 0);
+      const years = hybridResult.npvCalculationDetails.yearlyBreakdown.length;
+      
+      const updatedNPV = await directApiAnalysisService.calculateNPVWithAdvancedBeta(
+        hybridResult.symbol,
+        amount,
+        years,
+        advancedBeta
+      );
+      
+      // Update the result with new NPV data
+      setHybridResult({
+        ...hybridResult,
+        npvCalculationDetails: updatedNPV
+      });
+      
+      toast({
+        title: "NPV Recalculated",
+        description: `Updated NPV: $${updatedNPV.npv.toFixed(2)} using advanced beta (${updatedNPV.beta.toFixed(3)})`,
+      });
+      
+      console.log('✅ NPV recalculation completed');
+    } catch (error) {
+      console.error('❌ NPV recalculation failed:', error);
+      toast({
+        title: "Recalculation Failed",
+        description: error instanceof Error ? error.message : "Failed to recalculate NPV",
+        variant: "destructive",
+      });
+    } finally {
+      setHybridLoading(false);
+    }
+  };
+
   const handleExportBTCHistory = async () => {
     setExportLoading(true);
     try {
@@ -422,6 +466,7 @@ const CryptoAnalysis = () => {
                     {hybridResult && (
                       <HybridAnalysisResults 
                         result={hybridResult}
+                        onRecalculateNPV={handleRecalculateNPV}
                       />
                     )}
                   </div>
