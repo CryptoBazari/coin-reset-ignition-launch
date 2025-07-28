@@ -190,14 +190,19 @@ export class DirectApiAnalysisService {
       
       console.log('✅ Enhanced Bitcoin analysis completed with robust CAGR calculation');
       
-      // Calculate NPV using hybrid service
+      // Calculate NPV using hybrid service with comprehensive beta
       let npvCalculationDetails: NPVCalculationResult | undefined;
       try {
         console.log('🧮 Calculating NPV for Bitcoin...');
+        const advancedBeta = betaCalculationDetails?.beta;
+        if (advancedBeta) {
+          console.log(`📊 Using comprehensive beta: ${advancedBeta.toFixed(3)} for NPV calculation`);
+        }
         npvCalculationDetails = await hybridNPVCalculationService.calculateHybridNPV(
           symbol,
           investmentAmount,
-          timeHorizon
+          timeHorizon,
+          advancedBeta
         );
         console.log(`💰 NPV calculated: $${npvCalculationDetails.npv.toFixed(2)} (${npvCalculationDetails.betaType} beta)`);
       } catch (npvError) {
@@ -329,14 +334,19 @@ export class DirectApiAnalysisService {
       
       console.log(`✅ Enhanced altcoin analysis completed with robust CAGR for ${symbol}`);
       
-      // Calculate NPV using hybrid service
+      // Calculate NPV using hybrid service with comprehensive beta
       let npvCalculationDetails: NPVCalculationResult | undefined;
       try {
         console.log(`🧮 Calculating NPV for ${symbol}...`);
+        const advancedBeta = betaCalculationDetails?.beta;
+        if (advancedBeta) {
+          console.log(`📊 Using comprehensive beta: ${advancedBeta.toFixed(3)} for NPV calculation`);
+        }
         npvCalculationDetails = await hybridNPVCalculationService.calculateHybridNPV(
           symbol,
           investmentAmount,
-          timeHorizon
+          timeHorizon,
+          advancedBeta
         );
         console.log(`💰 NPV calculated: $${npvCalculationDetails.npv.toFixed(2)} (${npvCalculationDetails.betaType} beta)`);
       } catch (npvError) {
@@ -448,14 +458,19 @@ export class DirectApiAnalysisService {
       
       console.log(`⚠️ Enhanced altcoin analysis completed with CoinMarketCap data for ${symbol}`);
       
-      // Calculate NPV using hybrid service
+      // Calculate NPV using hybrid service with comprehensive beta
       let npvCalculationDetails: NPVCalculationResult | undefined;
       try {
         console.log(`🧮 Calculating NPV for ${symbol}...`);
+        const advancedBeta = betaCalculationDetails?.beta;
+        if (advancedBeta) {
+          console.log(`📊 Using comprehensive beta: ${advancedBeta.toFixed(3)} for NPV calculation`);
+        }
         npvCalculationDetails = await hybridNPVCalculationService.calculateHybridNPV(
           symbol,
           investmentAmount,
-          timeHorizon
+          timeHorizon,
+          advancedBeta
         );
         console.log(`💰 NPV calculated: $${npvCalculationDetails.npv.toFixed(2)} (${npvCalculationDetails.betaType} beta)`);
       } catch (npvError) {
