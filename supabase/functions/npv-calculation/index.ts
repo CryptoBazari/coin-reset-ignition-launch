@@ -185,7 +185,7 @@ async function fetchGlassnodeData(metric: string, asset: string, days: number = 
   const startDate = new Date();
   startDate.setDate(endDate.getDate() - (days * 365)); // Convert years to days
 
-  const url = `https://api.glassnode.com/v1/${metric}?a=${asset.toUpperCase()}&api_key=${apiKey}&f=JSON&s=${Math.floor(startDate.getTime() / 1000)}&u=${Math.floor(endDate.getTime() / 1000)}`;
+  const url = `https://api.glassnode.com/v1/metrics/${metric}?a=${asset.toUpperCase()}&api_key=${apiKey}&f=JSON&s=${Math.floor(startDate.getTime() / 1000)}&u=${Math.floor(endDate.getTime() / 1000)}`;
 
   console.log(`📡 Fetching Glassnode: ${metric} for ${asset.toUpperCase()}`);
   
