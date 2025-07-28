@@ -204,11 +204,18 @@ export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({ re
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="text-center p-3 bg-slate-50 rounded-lg">
               <div className={`text-xl font-bold ${
-                result.financialMetrics.npv > 0 ? 'text-green-600' : 'text-red-600'
+                (result.npvCalculationDetails?.npv ?? result.financialMetrics.npv) > 0 ? 'text-green-600' : 'text-red-600'
               }`}>
-                ${result.financialMetrics.npv.toLocaleString()}
+                ${(result.npvCalculationDetails?.npv ?? result.financialMetrics.npv).toLocaleString()}
               </div>
-              <div className="text-sm text-gray-600">NPV</div>
+              <div className="text-sm text-gray-600 flex items-center justify-center gap-1">
+                NPV
+                {result.npvCalculationDetails && (
+                  <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700">
+                    {result.npvCalculationDetails.betaType}
+                  </Badge>
+                )}
+              </div>
             </div>
             <div className="text-center p-3 bg-slate-50 rounded-lg">
               <div className="text-xl font-bold text-blue-700">
@@ -237,9 +244,16 @@ export const HybridAnalysisResults: React.FC<HybridAnalysisResultsProps> = ({ re
             </div>
             <div className="text-center p-3 bg-slate-50 rounded-lg">
               <div className="text-xl font-bold text-indigo-700">
-                {result.financialMetrics.beta.toFixed(2)}
+                {(result.npvCalculationDetails?.betaDetails?.beta ?? result.financialMetrics.beta).toFixed(2)}
               </div>
-              <div className="text-sm text-gray-600">Beta</div>
+              <div className="text-sm text-gray-600 flex items-center justify-center gap-1">
+                Beta
+                {result.npvCalculationDetails?.betaDetails && (
+                  <Badge variant="outline" className="text-xs bg-indigo-50 text-indigo-700">
+                    {result.npvCalculationDetails.betaType}
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
         </CardContent>
