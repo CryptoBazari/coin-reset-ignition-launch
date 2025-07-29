@@ -6,7 +6,7 @@ import { MoreVertical, Edit, Trash2, Plus, Minus } from 'lucide-react';
 import { AssetHolding } from '@/types/assetHoldings';
 import { CoinMarketCapCoin } from '@/services/coinMarketCapService';
 
-import AssetLiveData from './AssetLiveData';
+
 
 interface AssetHoldingCardProps {
   asset: AssetHolding;
@@ -134,9 +134,6 @@ const AssetHoldingCard = ({ asset, liveCoinData, onEditAsset, onDeleteAsset, onB
       />
       */}
 
-      {liveCoinData && (
-        <AssetLiveData liveCoinData={liveCoinData} />
-      )}
     </div>
   );
 };
