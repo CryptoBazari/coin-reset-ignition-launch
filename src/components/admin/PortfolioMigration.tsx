@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Database, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { portfolioDataMigrationService } from '@/services/portfolioDataMigrationService';
+import { historicalSnapshotService } from '@/services/historicalSnapshotService';
 import { toast } from 'sonner';
 
 const PortfolioMigration = () => {

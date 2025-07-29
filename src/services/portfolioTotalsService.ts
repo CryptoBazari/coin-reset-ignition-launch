@@ -119,31 +119,60 @@ class PortfolioTotalsService {
       // Check if snapshot already exists for today
       const { data: existingSnapshot } = await supabase
         .from('portfolio_daily_snapshots')
-        .select('id')
+        .select('id, total_value')
         .eq('portfolio_id', portfolioId)
         .eq('snapshot_date', today)
-        .single();
+        .maybeSingle();
 
+      // If snapshot exists, update it instead of creating new one
       if (existingSnapshot) {
-        console.log('Daily snapshot already exists for today');
+        console.log('Updating existing daily snapshot for today');
+        
+        // Get yesterday's snapshot for calculating day change
+        const { data: yesterdaySnapshot } = await supabase
+          .from('portfolio_daily_snapshots')
+          .select('total_value, total_profit')
+          .eq('portfolio_id', portfolioId)
+          .lt('snapshot_date', today)
+          .order('snapshot_date', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const dayChange = yesterdaySnapshot ? totalValue - yesterdaySnapshot.total_value : 0;
+        const dayChangePercent = yesterdaySnapshot && yesterdaySnapshot.total_value > 0 
+          ? ((totalValue - yesterdaySnapshot.total_value) / yesterdaySnapshot.total_value) * 100 
+          : 0;
+
+        const { error: updateError } = await supabase
+          .from('portfolio_daily_snapshots')
+          .update({
+            total_value: totalValue,
+            total_profit: totalProfit,
+            day_change: dayChange,
+            day_change_percent: dayChangePercent
+          })
+          .eq('id', existingSnapshot.id);
+
+        if (updateError) {
+          console.error('Error updating daily snapshot:', updateError);
+        } else {
+          console.log('Daily snapshot updated successfully');
+        }
         return;
       }
 
-      // Get yesterday's snapshot for calculating day change
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayDate = yesterday.toISOString().split('T')[0];
-
-      const { data: yesterdaySnapshot } = await supabase
+      // Get most recent snapshot for calculating day change
+      const { data: lastSnapshot } = await supabase
         .from('portfolio_daily_snapshots')
         .select('total_value, total_profit')
         .eq('portfolio_id', portfolioId)
-        .eq('snapshot_date', yesterdayDate)
-        .single();
+        .order('snapshot_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      const dayChange = yesterdaySnapshot ? totalValue - yesterdaySnapshot.total_value : 0;
-      const dayChangePercent = yesterdaySnapshot && yesterdaySnapshot.total_value > 0 
-        ? ((totalValue - yesterdaySnapshot.total_value) / yesterdaySnapshot.total_value) * 100 
+      const dayChange = lastSnapshot ? totalValue - lastSnapshot.total_value : 0;
+      const dayChangePercent = lastSnapshot && lastSnapshot.total_value > 0 
+        ? ((totalValue - lastSnapshot.total_value) / lastSnapshot.total_value) * 100 
         : 0;
 
       // Create new snapshot
@@ -162,7 +191,7 @@ class PortfolioTotalsService {
       if (error) {
         console.error('Error creating daily snapshot:', error);
       } else {
-        console.log('Daily snapshot created successfully');
+        console.log('Daily snapshot created successfully with day change:', dayChange);
       }
     } catch (error) {
       console.error('Error in createDailySnapshot:', error);
