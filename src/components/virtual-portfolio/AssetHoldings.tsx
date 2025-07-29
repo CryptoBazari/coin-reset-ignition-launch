@@ -4,7 +4,7 @@ import { useAssetHoldings } from '@/hooks/useAssetHoldings';
 import { AssetHoldingsProps } from '@/types/assetHoldings';
 import AssetSummaryStats from './AssetSummaryStats';
 import AssetFiltersControls from './AssetFiltersControls';
-import AssetGrid from './AssetGrid';
+import AssetTable from './AssetTable';
 
 const AssetHoldings = ({ portfolioId }: AssetHoldingsProps) => {
   const {
@@ -61,11 +61,15 @@ const AssetHoldings = ({ portfolioId }: AssetHoldingsProps) => {
             categories={categories}
           />
 
-          <AssetGrid 
+          <AssetTable 
             assets={filteredAssets}
             isEmpty={assets.length === 0}
             isFiltered={filteredAssets.length === 0 && assets.length > 0}
             liveCoinsData={liveCoinsData}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            sortOrder={sortOrder}
+            setSortOrder={setSortOrder}
             onAssetsUpdated={fetchAssets}
           />
         </CardContent>
