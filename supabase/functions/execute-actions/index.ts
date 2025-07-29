@@ -116,6 +116,22 @@ async function handleMarketAction(supabase: any, portfolioId: string, params: an
 async function handleBuyAction(supabase: any, portfolioId: string, params: any) {
   const { symbol, amount, price } = params;
   
+  // Get current market price if not provided
+  let actualPrice = price;
+  if (!actualPrice) {
+    const response = await fetch(`https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${symbol}`, {
+      headers: {
+        'X-CMC_PRO_API_KEY': Deno.env.get('COINMARKETCAP_API_KEY')!
+      }
+    });
+    const data = await response.json();
+    actualPrice = data.data?.[symbol]?.quote?.USD?.price || 0;
+  }
+
+  if (actualPrice <= 0) {
+    throw new Error(`Unable to fetch current price for ${symbol}`);
+  }
+
   // Get or create coin
   let { data: coin } = await supabase
     .from('virtual_coins')
@@ -143,7 +159,7 @@ async function handleBuyAction(supabase: any, portfolioId: string, params: any) 
                   'Small-Cap';
 
   // Calculate purchase details
-  const quantity = amount / price;
+  const quantity = amount / actualPrice;
   const fee = amount * 0.001; // 0.1% fee
 
   // Add transaction
@@ -154,11 +170,12 @@ async function handleBuyAction(supabase: any, portfolioId: string, params: any) 
       coin_id: coin.id,
       transaction_type: 'buy',
       amount: quantity,
-      price: price,
+      price: actualPrice,
       value: amount,
       fee: fee,
       category: category,
-      note: `Executed via portfolio action`
+      note: `Auto-executed buy order`,
+      transaction_date: new Date().toISOString()
     });
 
   if (txError) throw txError;
@@ -192,24 +209,46 @@ async function handleBuyAction(supabase: any, portfolioId: string, params: any) 
         portfolio_id: portfolioId,
         coin_id: coin.id,
         total_amount: quantity,
-        average_price: price,
+        average_price: actualPrice,
         cost_basis: amount,
         category: category
       });
   }
 
+  // Create portfolio snapshot after transaction
+  await supabase.functions.invoke('portfolio-snapshot', {
+    body: { portfolioId }
+  });
+
   return {
     message: `Successfully bought ${quantity.toFixed(6)} ${symbol.toUpperCase()}`,
     symbol: symbol.toUpperCase(),
     quantity: quantity,
-    price: price,
+    price: actualPrice,
     totalCost: amount + fee,
-    fee: fee
+    fee: fee,
+    executed: true
   };
 }
 
 async function handleSellAction(supabase: any, portfolioId: string, params: any) {
   const { symbol, amount, price } = params;
+
+  // Get current market price if not provided
+  let actualPrice = price;
+  if (!actualPrice) {
+    const response = await fetch(`https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${symbol}`, {
+      headers: {
+        'X-CMC_PRO_API_KEY': Deno.env.get('COINMARKETCAP_API_KEY')!
+      }
+    });
+    const data = await response.json();
+    actualPrice = data.data?.[symbol]?.quote?.USD?.price || 0;
+  }
+
+  if (actualPrice <= 0) {
+    throw new Error(`Unable to fetch current price for ${symbol}`);
+  }
 
   // Get asset
   const { data: asset, error: assetError } = await supabase
@@ -224,14 +263,14 @@ async function handleSellAction(supabase: any, portfolioId: string, params: any)
 
   if (assetError || !asset) throw new Error(`Asset ${symbol} not found in portfolio`);
 
-  const quantity = amount / price;
+  const quantity = amount / actualPrice;
   
   if (quantity > asset.total_amount) {
     throw new Error(`Insufficient ${symbol} balance`);
   }
 
   const fee = amount * 0.001; // 0.1% fee
-  const realizedProfit = (price - asset.average_price) * quantity;
+  const realizedProfit = (actualPrice - asset.average_price) * quantity;
 
   // Add transaction
   await supabase
@@ -242,11 +281,12 @@ async function handleSellAction(supabase: any, portfolioId: string, params: any)
       asset_id: asset.id,
       transaction_type: 'sell',
       amount: quantity,
-      price: price,
+      price: actualPrice,
       value: amount,
       fee: fee,
       category: asset.category,
-      note: `Executed via portfolio action`
+      note: `Auto-executed sell order`,
+      transaction_date: new Date().toISOString()
     });
 
   // Update asset
@@ -272,32 +312,123 @@ async function handleSellAction(supabase: any, portfolioId: string, params: any)
       .eq('id', asset.id);
   }
 
+  // Create portfolio snapshot after transaction
+  await supabase.functions.invoke('portfolio-snapshot', {
+    body: { portfolioId }
+  });
+
   return {
     message: `Successfully sold ${quantity.toFixed(6)} ${symbol.toUpperCase()}`,
     symbol: symbol.toUpperCase(),
     quantity: quantity,
-    price: price,
+    price: actualPrice,
     proceeds: amount - fee,
     realizedProfit: realizedProfit,
-    fee: fee
+    fee: fee,
+    executed: true
   };
 }
 
 async function handleRebalanceAction(supabase: any, portfolioId: string, params: any) {
   const { targetAllocations } = params;
   
-  // This would implement portfolio rebalancing logic
-  // For now, return a simulation result
-  
+  // Get current portfolio state
+  const { data: portfolio } = await supabase
+    .from('virtual_portfolios')
+    .select('total_value')
+    .eq('id', portfolioId)
+    .single();
+
+  const { data: assets, error: assetsError } = await supabase
+    .from('virtual_assets')
+    .select(`
+      *,
+      virtual_coins!inner(symbol, name)
+    `)
+    .eq('portfolio_id', portfolioId);
+
+  if (assetsError) throw assetsError;
+
+  const totalValue = portfolio?.total_value || 0;
+  const executedTrades = [];
+  let totalFees = 0;
+
+  // Calculate required trades
+  for (const [category, targetPercent] of Object.entries(targetAllocations)) {
+    const targetValue = totalValue * (targetPercent as number);
+    const currentValue = assets
+      .filter(asset => asset.category.toLowerCase() === category.toLowerCase())
+      .reduce((sum, asset) => {
+        // Get current price and calculate value
+        return sum + (asset.total_amount * asset.average_price); // Using average price as approximation
+      }, 0);
+
+    const difference = targetValue - currentValue;
+    
+    if (Math.abs(difference) > totalValue * 0.01) { // Only rebalance if difference > 1%
+      if (difference > 0) {
+        // Need to buy more of this category
+        const buySymbol = category.toLowerCase() === 'bitcoin' ? 'BTC' : 'ETH'; // Simplified
+        
+        try {
+          const buyResult = await handleBuyAction(supabase, portfolioId, {
+            symbol: buySymbol,
+            amount: Math.abs(difference),
+            price: null // Will fetch current price
+          });
+          
+          executedTrades.push({
+            action: 'buy',
+            ...buyResult
+          });
+          totalFees += buyResult.fee;
+        } catch (error) {
+          console.error(`Failed to execute buy for ${category}:`, error);
+        }
+      } else {
+        // Need to sell some of this category
+        const categoryAssets = assets.filter(asset => 
+          asset.category.toLowerCase() === category.toLowerCase()
+        );
+        
+        if (categoryAssets.length > 0) {
+          const sellAmount = Math.abs(difference);
+          const largestAsset = categoryAssets.reduce((largest, current) => 
+            current.total_amount * current.average_price > largest.total_amount * largest.average_price 
+              ? current : largest
+          );
+
+          try {
+            const sellResult = await handleSellAction(supabase, portfolioId, {
+              symbol: largestAsset.virtual_coins.symbol,
+              amount: sellAmount,
+              price: null // Will fetch current price
+            });
+            
+            executedTrades.push({
+              action: 'sell',
+              ...sellResult
+            });
+            totalFees += sellResult.fee;
+          } catch (error) {
+            console.error(`Failed to execute sell for ${category}:`, error);
+          }
+        }
+      }
+    }
+  }
+
+  // Create portfolio snapshot after rebalancing
+  await supabase.functions.invoke('portfolio-snapshot', {
+    body: { portfolioId }
+  });
+
   return {
-    message: "Portfolio rebalancing simulation completed",
-    targetAllocations,
-    requiredTrades: [
-      { action: "sell", symbol: "ALTCOIN", amount: 1000 },
-      { action: "buy", symbol: "BTC", amount: 1000 }
-    ],
-    estimatedFees: 20,
-    projectedImprovement: "5% better risk-adjusted returns"
+    message: `Portfolio rebalanced successfully`,
+    executedTrades,
+    totalFees: Number(totalFees.toFixed(2)),
+    tradesCount: executedTrades.length,
+    rebalanced: true
   };
 }
 

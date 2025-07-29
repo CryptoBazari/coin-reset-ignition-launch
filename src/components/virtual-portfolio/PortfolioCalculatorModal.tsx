@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import BitcoinMarketIndicator from './BitcoinMarketIndicator';
 import AllocationCompliance from './AllocationCompliance';
 import PortfolioRecommendations from './PortfolioRecommendations';
+import HistoricalPerformanceTracker from './HistoricalPerformanceTracker';
 
 interface PortfolioCalculatorModalProps {
   portfolioId: string;
@@ -223,6 +224,11 @@ export default function PortfolioCalculatorModal({ portfolioId, trigger }: Portf
                 recommendations={analysis.recommendations}
                 portfolioId={portfolioId}
               />
+
+              {/* Historical Performance */}
+              <div className="lg:col-span-2">
+                <HistoricalPerformanceTracker portfolioId={portfolioId} />
+              </div>
 
               {/* Asset Breakdown */}
               <Card className="lg:col-span-2">
