@@ -459,9 +459,13 @@ const VirtualPortfolio = () => {
               <CardTitle>Portfolio Allocation</CardTitle>
             </CardHeader>
             <CardContent>
-              {riskAnalysis && (
+              {portfolioAnalysis?.basketAllocations && (
                 <CategoryAllocationDisplay 
-                  allocations={riskAnalysis.allocations}
+                  allocations={{
+                    bitcoin: portfolioAnalysis.basketAllocations['Bitcoin'] || 0,
+                    bluechip: portfolioAnalysis.basketAllocations['Blue Chip'] || 0,
+                    smallcap: portfolioAnalysis.basketAllocations['Small-Cap'] || 0
+                  }}
                   totalValue={enhancedPortfolio?.total_value || 0}
                 />
               )}
