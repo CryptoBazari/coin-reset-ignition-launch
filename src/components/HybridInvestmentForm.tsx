@@ -119,30 +119,66 @@ export const HybridInvestmentForm: React.FC<HybridInvestmentFormProps> = ({
       
       <CardContent>
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
-          {/* Cryptocurrency Selection */}
-          <div className="space-y-2">
-            <Label htmlFor="coinId" className="flex items-center gap-2">
-              <Globe className="h-4 w-4 text-blue-600" />
-              Cryptocurrency
-              <Badge variant="outline" className="text-xs">
-                1000+ Coins Available
-              </Badge>
-            </Label>
-            <CoinSelector
-              value={selectedCoinId}
-              onValueChange={handleCoinSelect}
-              placeholder="Search any cryptocurrency (e.g., Bitcoin, Ethereum, Solana)"
-            />
-            {errors.coinId && (
-              <p className="text-sm text-red-600">{errors.coinId.message}</p>
-            )}
-            
-            {selectedCoin && (
-              <div className={`mt-2 p-3 rounded-lg border ${
-                hasGlassNodeSupport 
-                  ? 'bg-green-50 border-green-200' 
-                  : 'bg-yellow-50 border-yellow-200'
-              }`}>
+          {/* Main Input Row - Horizontal Layout */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Cryptocurrency Selection */}
+            <div className="space-y-2 md:col-span-1">
+              <Label htmlFor="coinId" className="flex items-center gap-2 text-sm">
+                <Globe className="h-4 w-4 text-blue-600" />
+                Cryptocurrency
+              </Label>
+              <CoinSelector
+                value={selectedCoinId}
+                onValueChange={handleCoinSelect}
+                placeholder="Search cryptocurrency..."
+              />
+              {errors.coinId && (
+                <p className="text-xs text-red-600">{errors.coinId.message}</p>
+              )}
+            </div>
+
+            {/* Investment Amount */}
+            <div className="space-y-2">
+              <Label htmlFor="investmentAmount" className="text-sm">Investment Amount ($)</Label>
+              <Input
+                id="investmentAmount"
+                type="number"
+                step="100"
+                {...register('investmentAmount', { valueAsNumber: true })}
+                placeholder="10000"
+                className="h-10"
+              />
+              {errors.investmentAmount && (
+                <p className="text-xs text-red-600">{errors.investmentAmount.message}</p>
+              )}
+            </div>
+
+            {/* Time Horizon */}
+            <div className="space-y-2">
+              <Label htmlFor="timeHorizon" className="text-sm">Time Horizon (Years)</Label>
+              <Input
+                id="timeHorizon"
+                type="number"
+                min="1"
+                max="10"
+                {...register('timeHorizon', { valueAsNumber: true })}
+                placeholder="3"
+                className="h-10"
+              />
+              {errors.timeHorizon && (
+                <p className="text-xs text-red-600">{errors.timeHorizon.message}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Selected Coin Info - Compact */}
+          {selectedCoin && (
+            <div className={`p-3 rounded-lg border ${
+              hasGlassNodeSupport 
+                ? 'bg-green-50 border-green-200' 
+                : 'bg-yellow-50 border-yellow-200'
+            }`}>
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm">
                   {hasGlassNodeSupport ? (
                     <Shield className="h-4 w-4 text-green-600" />
@@ -155,85 +191,27 @@ export const HybridInvestmentForm: React.FC<HybridInvestmentFormProps> = ({
                       ? 'bg-green-100 text-green-800' 
                       : 'bg-yellow-100 text-yellow-800'
                   }`}>
-                    {hasGlassNodeSupport ? 'Full Glassnode Analysis' : 'Basic Price Analysis'}
+                    {hasGlassNodeSupport ? 'Full Analysis' : 'Basic Analysis'}
                   </Badge>
                 </div>
-                <p className={`text-xs mt-1 ${
-                  hasGlassNodeSupport ? 'text-green-700' : 'text-yellow-700'
-                }`}>
-                  {hasGlassNodeSupport 
-                    ? 'Premium on-chain metrics available: AVIV ratio, supply metrics, volatility analysis'
-                    : 'Analysis based on price data only - on-chain metrics not available'
-                  }
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Investment Amount */}
-          <div className="space-y-2">
-            <Label htmlFor="investmentAmount">Investment Amount ($)</Label>
-            <Input
-              id="investmentAmount"
-              type="number"
-              step="100"
-              {...register('investmentAmount', { valueAsNumber: true })}
-              placeholder="10000"
-            />
-            {errors.investmentAmount && (
-              <p className="text-sm text-red-600">{errors.investmentAmount.message}</p>
-            )}
-          </div>
-
-          {/* Time Horizon */}
-          <div className="space-y-2">
-            <Label htmlFor="timeHorizon">Time Horizon (Years)</Label>
-            <Input
-              id="timeHorizon"
-              type="number"
-              min="1"
-              max="10"
-              {...register('timeHorizon', { valueAsNumber: true })}
-              placeholder="3"
-            />
-            {errors.timeHorizon && (
-              <p className="text-sm text-red-600">{errors.timeHorizon.message}</p>
-            )}
-          </div>
-
-          {/* Analysis Preview */}
-          <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <h4 className="font-medium text-blue-900 mb-2">Analysis Preview</h4>
-            <div className="text-sm text-blue-800 space-y-1">
-              <p>• Investment: ${watchedValues.investmentAmount?.toLocaleString() || '10,000'}</p>
-              <p>• Time Horizon: {watchedValues.timeHorizon || 3} years</p>
-              <p>• Cryptocurrency: {selectedCoin?.name || 'None selected'}</p>
-              <p>• Data Source: {hasGlassNodeSupport ? 'Glassnode + CoinMarketCap' : 'CoinMarketCap only'}</p>
-              <p>• Analysis Type: {hasGlassNodeSupport ? 'Comprehensive' : 'Basic'}</p>
-            </div>
-          </div>
-
-          {/* Data Quality Notice */}
-          <div className="p-3 bg-gray-50 rounded-lg border">
-            <div className="flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 text-gray-600 mt-0.5" />
-              <div className="text-xs text-gray-600">
-                <p className="font-medium">Real Data Only Policy:</p>
-                <p>• All analysis uses live API data - no mock or estimated data</p>
-                <p>• Clear indication when metrics are unavailable</p>
-                <p>• Transparent data source labeling</p>
+                <Badge variant="outline" className="text-xs">
+                  {hasGlassNodeSupport ? 'On-chain + Price Data' : 'Price Data Only'}
+                </Badge>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Submit Button */}
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={loading || !selectedCoin}
-          >
-            {loading ? 'Analyzing...' : 'Run Real-Time Analysis'}
-          </Button>
+          <div className="flex justify-center">
+            <Button
+              type="submit"
+              size="lg"
+              disabled={loading || !selectedCoin}
+              className="px-8"
+            >
+              {loading ? 'Analyzing...' : 'Run Analysis'}
+            </Button>
+          </div>
         </form>
       </CardContent>
     </Card>

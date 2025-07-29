@@ -459,8 +459,9 @@ const CryptoAnalysis = () => {
               </TabsContent>
 
               <TabsContent value="hybrid">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <div>
+                <div className="space-y-8">
+                  {/* Horizontal Form at Top */}
+                  <div className="w-full">
                     <HybridInvestmentForm 
                       onSubmit={handleHybridAnalysis}
                       loading={hybridLoading}
@@ -469,14 +470,16 @@ const CryptoAnalysis = () => {
                       }}
                     />
                   </div>
-                  <div>
-                    {hybridResult && (
+                  
+                  {/* Full-Width Results Below */}
+                  {hybridResult && (
+                    <div className="w-full">
                       <HybridAnalysisResults 
                         result={hybridResult}
                         onRecalculateNPV={handleRecalculateNPV}
                       />
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </TabsContent>
 
