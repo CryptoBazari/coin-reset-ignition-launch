@@ -13,7 +13,7 @@ import SubscriptionButton from '@/components/subscription/SubscriptionButton';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useRealTimePortfolio } from '@/hooks/useRealTimePortfolio';
 import { useVirtualPortfolioAnalysis } from '@/hooks/useVirtualPortfolioAnalysis';
-import { fetchCoinListings } from '@/services/coinMarketCapService';
+import { fetchCoinListings as getCoinListings } from '@/services/coinMarketCapService';
 import { realTimeDataService } from '@/services/realTimeDataService';
 import { VirtualPortfolio as VirtualPortfolioType, VirtualAsset } from '@/types/virtualPortfolio';
 import { Lock, Database, RefreshCw, CheckCircle, AlertCircle, Plus, TrendingUp, TrendingDown } from 'lucide-react';
@@ -21,6 +21,7 @@ import { Lock, Database, RefreshCw, CheckCircle, AlertCircle, Plus, TrendingUp, 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 const VirtualPortfolio = () => {
+  console.log('VirtualPortfolio component loading...');
   // Portfolio state
   const [portfolios, setPortfolios] = useState<VirtualPortfolioType[]>([]);
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
@@ -82,8 +83,9 @@ const VirtualPortfolio = () => {
   };
 
   const fetchCryptocurrencies = async () => {
+    console.log('Starting fetchCryptocurrencies...');
     try {
-      const coins = await fetchCoinListings(100);
+      const coins = await getCoinListings(100);
       setCryptoList(coins);
       
       // Extract current prices for holdings calculation
