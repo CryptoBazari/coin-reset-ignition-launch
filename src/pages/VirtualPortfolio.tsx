@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { Pie } from 'react-chartjs-2';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,8 +10,6 @@ import Navbar from '@/components/Navbar';
 import AddTransactionDialog from '@/components/virtual-portfolio/AddTransactionDialog';
 import CreatePortfolioDialog from '@/components/virtual-portfolio/CreatePortfolioDialog';
 import AssetHoldings from '@/components/virtual-portfolio/AssetHoldings';
-import PortfolioAllocationChart from '@/components/virtual-portfolio/PortfolioAllocationChart';
-import RiskAnalysisCard from '@/components/virtual-portfolio/RiskAnalysisCard';
 import { LiveAvivIndicator } from '@/components/virtual-portfolio/LiveAvivIndicator';
 import PortfolioCalculatorModal from '@/components/virtual-portfolio/PortfolioCalculatorModal';
 import SubscriptionButton from '@/components/subscription/SubscriptionButton';
@@ -20,6 +20,8 @@ import { fetchCoinListings as getCoinListings } from '@/services/coinMarketCapSe
 import { realTimeDataService } from '@/services/realTimeDataService';
 import { VirtualPortfolio as VirtualPortfolioType, VirtualAsset } from '@/types/virtualPortfolio';
 import { Lock, Database, RefreshCw, CheckCircle, AlertCircle, Plus, TrendingUp, TrendingDown } from 'lucide-react';
+
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 const VirtualPortfolio = () => {
   console.log('VirtualPortfolio component loading...');
@@ -187,6 +189,30 @@ const VirtualPortfolio = () => {
   const realizedPL = 0; // Will be populated by migration service
   const roi = totalInvestment > 0 ? (unrealizedPL / totalInvestment) * 100 : 0;
 
+  // Prepare data for allocation chart
+  const allocationData = {
+    labels: ['Bitcoin', 'Blue Chip', 'Small Cap'],
+    datasets: [
+      {
+        data: riskAnalysis ? [
+          riskAnalysis.allocations?.bitcoin || 0,
+          riskAnalysis.allocations?.bluechip || 0,
+          riskAnalysis.allocations?.smallcap || 0
+        ] : [0, 0, 0],
+        backgroundColor: [
+          'hsl(var(--warning))',
+          'hsl(var(--primary))', 
+          'hsl(var(--accent))'
+        ],
+        borderColor: [
+          'hsl(var(--warning))',
+          'hsl(var(--primary))',
+          'hsl(var(--accent))'
+        ],
+        borderWidth: 1
+      }
+    ]
+  };
 
   if (!user) {
     return (
@@ -426,17 +452,76 @@ const VirtualPortfolio = () => {
           {/* Live AVIV Indicator */}
           <LiveAvivIndicator />
           
-          {/* Portfolio Allocation Chart */}
-          {selectedPortfolio && (
-            <PortfolioAllocationChart 
-              portfolioId={selectedPortfolio.id} 
-              title="Portfolio Allocation"
-            />
-          )}
+          {/* Allocation Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Portfolio Allocation</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <Pie data={allocationData} />
+              </div>
+            </CardContent>
+          </Card>
           
           {/* Risk Analysis */}
-          {selectedPortfolio && (
-            <RiskAnalysisCard portfolioId={selectedPortfolio.id} />
+          {riskAnalysis && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Risk Analysis</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-4">
+                  <div className="flex justify-between mb-1">
+                    <span className="font-medium">Compliance Status:</span>
+                    <span className={`font-bold ${riskAnalysis.complianceStatus === 'compliant' ? 'text-green-500' : 'text-red-500'}`}>
+                      {riskAnalysis.complianceStatus?.toUpperCase() || 'UNKNOWN'}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <span className="font-medium">Bitcoin:</span>
+                      <span>{(riskAnalysis.allocations?.bitcoin || 0).toFixed(1)}%</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2.5">
+                      <div 
+                        className="bg-warning h-2.5 rounded-full" 
+                        style={{ width: `${Math.min(riskAnalysis.allocations?.bitcoin || 0, 100)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <span className="font-medium">Blue Chip:</span>
+                      <span>{(riskAnalysis.allocations?.bluechip || 0).toFixed(1)}%</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2.5">
+                      <div 
+                        className="bg-primary h-2.5 rounded-full" 
+                        style={{ width: `${Math.min(riskAnalysis.allocations?.bluechip || 0, 100)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <span className="font-medium">Small Cap:</span>
+                      <span>{(riskAnalysis.allocations?.smallcap || 0).toFixed(1)}%</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2.5">
+                      <div 
+                        className="bg-accent h-2.5 rounded-full" 
+                        style={{ width: `${Math.min(riskAnalysis.allocations?.smallcap || 0, 100)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           )}
           
           {/* Recommendations */}
