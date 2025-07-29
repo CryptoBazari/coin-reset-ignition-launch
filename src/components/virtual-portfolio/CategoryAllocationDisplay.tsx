@@ -2,34 +2,40 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 
 interface CategoryAllocationDisplayProps {
-  allocations: {
-    bitcoin: number;
-    bluechip: number;
-    smallcap: number;
+  allocations?: {
+    bitcoin?: number;
+    bluechip?: number;
+    smallcap?: number;
   };
   totalValue: number;
 }
 
 export const CategoryAllocationDisplay = ({ allocations, totalValue }: CategoryAllocationDisplayProps) => {
+  // Provide default values if allocations is undefined
+  const safeAllocations = {
+    bitcoin: allocations?.bitcoin || 0,
+    bluechip: allocations?.bluechip || 0,
+    smallcap: allocations?.smallcap || 0
+  };
   const categories = [
     {
       name: "Bitcoin",
-      percentage: allocations.bitcoin,
-      value: (totalValue * allocations.bitcoin) / 100,
+      percentage: safeAllocations.bitcoin,
+      value: (totalValue * safeAllocations.bitcoin) / 100,
       color: "hsl(var(--warning))",
       bgColor: "bg-warning/10"
     },
     {
       name: "Blue Chip",
-      percentage: allocations.bluechip,
-      value: (totalValue * allocations.bluechip) / 100,
+      percentage: safeAllocations.bluechip,
+      value: (totalValue * safeAllocations.bluechip) / 100,
       color: "hsl(var(--primary))",
       bgColor: "bg-primary/10"
     },
     {
       name: "Small-Cap",
-      percentage: allocations.smallcap,
-      value: (totalValue * allocations.smallcap) / 100,
+      percentage: safeAllocations.smallcap,
+      value: (totalValue * safeAllocations.smallcap) / 100,
       color: "hsl(var(--accent))",
       bgColor: "bg-accent/10"
     }
