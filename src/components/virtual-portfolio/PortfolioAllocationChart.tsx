@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchCoinPrices } from '@/services/coinMarketCapService';
 
 interface AllocationData {
   name: string;
@@ -43,14 +44,31 @@ const PortfolioAllocationChart = ({ portfolioId, title = "Portfolio Allocation" 
 
       if (error) throw error;
 
-      // Calculate allocation data
-      const totalValue = assets.reduce((sum, asset) => sum + asset.cost_basis, 0);
+      // Fetch live prices for current market value calculation
+      const symbols = assets.map(asset => asset.virtual_coins.symbol);
+      let liveCoinsData = [];
       
-      const allocationData: AllocationData[] = assets.map((asset, index) => {
-        const percentage = totalValue > 0 ? (asset.cost_basis / totalValue) * 100 : 0;
+      try {
+        liveCoinsData = await fetchCoinPrices(symbols);
+      } catch (error) {
+        console.warn('Could not fetch live prices, using average price:', error);
+      }
+
+      // Calculate allocation data using current market values
+      let totalValue = 0;
+      const assetValues = assets.map(asset => {
+        const liveCoinData = liveCoinsData.find(coin => coin.symbol === asset.virtual_coins.symbol);
+        const currentPrice = liveCoinData?.current_price || asset.average_price;
+        const currentValue = asset.total_amount * currentPrice;
+        totalValue += currentValue;
+        return { asset, currentValue };
+      });
+      
+      const allocationData: AllocationData[] = assetValues.map(({ asset, currentValue }, index) => {
+        const percentage = totalValue > 0 ? (currentValue / totalValue) * 100 : 0;
         return {
           name: asset.virtual_coins.symbol,
-          value: asset.cost_basis,
+          value: currentValue,
           percentage,
           color: COLORS[index % COLORS.length]
         };

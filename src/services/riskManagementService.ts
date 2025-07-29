@@ -34,7 +34,7 @@ class RiskManagementService {
   }
 
   /**
-   * Calculate current BTC allocation percentage
+   * Calculate current BTC allocation percentage using current market values
    */
   calculateBtcAllocation(assets: VirtualAsset[], liveCoinsData: CoinMarketCapCoin[]): number {
     let totalValue = 0;
@@ -47,6 +47,7 @@ class RiskManagementService {
       
       totalValue += assetValue;
       
+      // Check if this is Bitcoin
       if (asset.virtual_coins.symbol === 'BTC') {
         btcValue += assetValue;
       }

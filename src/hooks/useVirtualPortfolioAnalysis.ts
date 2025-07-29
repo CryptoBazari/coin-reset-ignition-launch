@@ -195,7 +195,8 @@ export const useVirtualPortfolioAnalysis = () => {
 // Helper functions
 function getBasketForSymbol(symbol: string): 'Bitcoin' | 'Blue Chip' | 'Small-Cap' {
   if (symbol === 'BTC') return 'Bitcoin';
-  if (['ETH'].includes(symbol)) return 'Blue Chip';
+  if (['ETH', 'BNB', 'ADA', 'DOT', 'AVAX', 'MATIC', 'LINK', 'UNI'].includes(symbol)) return 'Blue Chip';
+  // All other cryptocurrencies including SOL, DOGE, SHIB, etc. are Small-Cap
   return 'Small-Cap';
 }
 
