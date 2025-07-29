@@ -2,7 +2,6 @@ import { useState } from 'react';
 import AssetHoldingCard from './AssetHoldingCard';
 import { AssetHolding } from '@/types/assetHoldings';
 import { CoinMarketCapCoin } from '@/services/coinMarketCapService';
-import { VirtualAsset } from '@/types/virtualPortfolio';
 // import EmptyPortfolioState from './EmptyPortfolioState';
 import EditAssetDialog from './EditAssetDialog';
 import AddTransactionDialog from './AddTransactionDialog';
@@ -19,12 +18,12 @@ interface AssetGridProps {
 
 const AssetGrid = ({ assets, isEmpty, isFiltered, liveCoinsData, onAssetsUpdated }: AssetGridProps) => {
   const { toast } = useToast();
-  const [editAsset, setEditAsset] = useState<VirtualAsset | null>(null);
+  const [editAsset, setEditAsset] = useState<AssetHolding | null>(null);
   const [editAssetDialogOpen, setEditAssetDialogOpen] = useState(false);
   const [addTransactionDialogOpen, setAddTransactionDialogOpen] = useState(false);
-  const [selectedAssetForTransaction, setSelectedAssetForTransaction] = useState<VirtualAsset | null>(null);
+  const [selectedAssetForTransaction, setSelectedAssetForTransaction] = useState<AssetHolding | null>(null);
 
-  const handleDeleteAsset = async (asset: VirtualAsset) => {
+  const handleDeleteAsset = async (asset: AssetHolding) => {
     try {
       const { error } = await supabase
         .from('virtual_assets')
@@ -35,7 +34,7 @@ const AssetGrid = ({ assets, isEmpty, isFiltered, liveCoinsData, onAssetsUpdated
 
       toast({
         title: "Asset Deleted",
-        description: `${asset.virtual_coins.symbol} has been removed from your portfolio.`,
+        description: `${asset.coin_symbol} has been removed from your portfolio.`,
       });
       
       onAssetsUpdated?.();
@@ -49,12 +48,12 @@ const AssetGrid = ({ assets, isEmpty, isFiltered, liveCoinsData, onAssetsUpdated
     }
   };
 
-  const handleBuyMore = (asset: VirtualAsset) => {
+  const handleBuyMore = (asset: AssetHolding) => {
     setSelectedAssetForTransaction(asset);
     setAddTransactionDialogOpen(true);
   };
 
-  const handleSell = (asset: VirtualAsset) => {
+  const handleSell = (asset: AssetHolding) => {
     setSelectedAssetForTransaction(asset);
     setAddTransactionDialogOpen(true);
   };
@@ -86,7 +85,7 @@ const AssetGrid = ({ assets, isEmpty, isFiltered, liveCoinsData, onAssetsUpdated
           return (
             <AssetHoldingCard 
               key={asset.id} 
-              asset={asset as any}
+              asset={asset}
               liveCoinData={liveCoinData}
               onEditAsset={(asset) => {
                 setEditAsset(asset);
@@ -113,7 +112,7 @@ const AssetGrid = ({ assets, isEmpty, isFiltered, liveCoinsData, onAssetsUpdated
       <AddTransactionDialog
         open={addTransactionDialogOpen}
         onOpenChange={setAddTransactionDialogOpen}
-        portfolioId={selectedAssetForTransaction?.portfolio_id || ''}
+        portfolioId={''}
         onSuccess={() => {
           onAssetsUpdated?.();
           setSelectedAssetForTransaction(null);

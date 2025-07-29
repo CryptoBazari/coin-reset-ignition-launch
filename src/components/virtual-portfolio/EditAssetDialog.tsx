@@ -6,12 +6,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { VirtualAsset } from '@/types/virtualPortfolio';
+import { AssetHolding } from '@/types/assetHoldings';
 
 interface EditAssetDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  asset: VirtualAsset | null;
+  asset: AssetHolding | null;
   onSuccess: () => void;
 }
 
@@ -91,7 +91,7 @@ const EditAssetDialog = ({ open, onOpenChange, asset, onSuccess }: EditAssetDial
           <div>
             <Label className="block text-sm font-medium mb-1">Cryptocurrency</Label>
             <Input
-              value={`${asset.virtual_coins.symbol} - ${asset.virtual_coins.name}`}
+              value={`${asset.coin_symbol} - ${asset.coin_name}`}
               disabled
               className="bg-muted"
             />
