@@ -70,6 +70,7 @@ const AssetHoldings = ({ portfolioId }: AssetHoldingsProps) => {
             setSortBy={setSortBy}
             sortOrder={sortOrder}
             setSortOrder={setSortOrder}
+            portfolioId={portfolioId}
             onAssetsUpdated={fetchAssets}
           />
         </CardContent>

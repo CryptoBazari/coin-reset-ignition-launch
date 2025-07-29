@@ -19,6 +19,7 @@ interface AssetTableProps {
   setSortBy: (sortBy: SortOption) => void;
   sortOrder: SortOrder;
   setSortOrder: (sortOrder: SortOrder) => void;
+  portfolioId: string;
   onAssetsUpdated?: () => void;
 }
 
@@ -31,6 +32,7 @@ const AssetTable = ({
   setSortBy, 
   sortOrder, 
   setSortOrder,
+  portfolioId,
   onAssetsUpdated 
 }: AssetTableProps) => {
   const { toast } = useToast();
@@ -215,7 +217,7 @@ const AssetTable = ({
       <AddTransactionDialog
         open={addTransactionDialogOpen}
         onOpenChange={setAddTransactionDialogOpen}
-        portfolioId={''}
+        portfolioId={portfolioId}
         onSuccess={() => {
           onAssetsUpdated?.();
           setSelectedAssetForTransaction(null);
