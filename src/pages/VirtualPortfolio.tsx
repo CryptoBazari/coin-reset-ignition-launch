@@ -10,6 +10,7 @@ import Navbar from '@/components/Navbar';
 import AddTransactionDialog from '@/components/virtual-portfolio/AddTransactionDialog';
 import CreatePortfolioDialog from '@/components/virtual-portfolio/CreatePortfolioDialog';
 import { LiveAvivIndicator } from '@/components/virtual-portfolio/LiveAvivIndicator';
+import PortfolioCalculatorModal from '@/components/virtual-portfolio/PortfolioCalculatorModal';
 import SubscriptionButton from '@/components/subscription/SubscriptionButton';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useRealTimePortfolio } from '@/hooks/useRealTimePortfolio';
@@ -429,13 +430,18 @@ const VirtualPortfolio = () => {
                 ${realizedPL.toLocaleString('en-US', { maximumFractionDigits: 2 })}
               </p>
             </div>
-            <Button 
-              onClick={() => setShowAddTransaction(true)}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 rounded-lg flex items-center justify-center"
-            >
-              <Plus className="h-5 w-5 mr-1" />
-              Add Transaction
-            </Button>
+            <div className="space-y-2">
+              <Button 
+                onClick={() => setShowAddTransaction(true)}
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 rounded-lg flex items-center justify-center"
+              >
+                <Plus className="h-5 w-5 mr-1" />
+                Add Transaction
+              </Button>
+              {selectedPortfolio && (
+                <PortfolioCalculatorModal portfolioId={selectedPortfolio.id} />
+              )}
+            </div>
           </div>
         </div>
         
