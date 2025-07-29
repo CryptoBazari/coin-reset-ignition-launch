@@ -19,6 +19,7 @@ import { useVirtualPortfolioAnalysis } from '@/hooks/useVirtualPortfolioAnalysis
 import { fetchCoinListings as getCoinListings } from '@/services/coinMarketCapService';
 import { realTimeDataService } from '@/services/realTimeDataService';
 import { VirtualPortfolio as VirtualPortfolioType, VirtualAsset } from '@/types/virtualPortfolio';
+import { CategoryAllocationDisplay } from '@/components/virtual-portfolio/CategoryAllocationDisplay';
 import { Lock, Database, RefreshCw, CheckCircle, AlertCircle, Plus, TrendingUp, TrendingDown } from 'lucide-react';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -452,15 +453,18 @@ const VirtualPortfolio = () => {
           {/* Live AVIV Indicator */}
           <LiveAvivIndicator />
           
-          {/* Allocation Chart */}
+          {/* Allocation Display */}
           <Card>
             <CardHeader>
               <CardTitle>Portfolio Allocation</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-64">
-                <Pie data={allocationData} />
-              </div>
+              {riskAnalysis && (
+                <CategoryAllocationDisplay 
+                  allocations={riskAnalysis.allocations}
+                  totalValue={enhancedPortfolio?.total_value || 0}
+                />
+              )}
             </CardContent>
           </Card>
           
