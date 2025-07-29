@@ -107,7 +107,21 @@ const VirtualPortfolio = () => {
       if (analysis) {
         setPortfolioAnalysis(analysis);
         setRiskAnalysis(analysis.riskAnalysis);
-        setRecommendations(analysis.riskAnalysis?.rebalanceRecommendations || []);
+        
+        // Extract recommendations properly
+        const recommendations = [
+          ...(analysis.riskAnalysis?.rebalanceRecommendations || []).map((rec: string) => ({
+            message: rec,
+            action: 'Review allocation',
+            priority: 'high'
+          })),
+          {
+            message: analysis.marketTiming?.recommendation || 'Hold current positions',
+            action: `Confidence: ${analysis.marketTiming?.confidence || 0}%`,
+            priority: 'medium'
+          }
+        ];
+        setRecommendations(recommendations);
         
         // Extract AVIV data if available
         setAvivData({
@@ -529,19 +543,23 @@ const VirtualPortfolio = () => {
             <CardContent>
               {recommendations.length > 0 ? (
                 <div className="space-y-3">
-                  {recommendations.map((rec, index) => (
-                    <div key={index} className="p-3 bg-muted rounded-lg border">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-medium">{rec.message || rec.recommendation}</p>
-                          <p className="text-sm text-muted-foreground">{rec.action || rec.confidence}</p>
-                        </div>
-                        <span className="px-2 py-1 bg-primary text-primary-foreground text-xs rounded">
-                          HIGH
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                   {recommendations.map((rec, index) => (
+                     <div key={index} className="p-3 bg-muted rounded-lg border">
+                       <div className="flex justify-between items-start">
+                         <div>
+                           <p className="font-medium">{rec.message || rec.recommendation}</p>
+                           <p className="text-sm text-muted-foreground">{rec.action || rec.confidence}</p>
+                         </div>
+                         <span className={`px-2 py-1 text-xs rounded ${
+                           rec.priority === 'high' ? 'bg-red-500 text-white' :
+                           rec.priority === 'medium' ? 'bg-yellow-500 text-white' :
+                           'bg-primary text-primary-foreground'
+                         }`}>
+                           {(rec.priority || 'LOW').toUpperCase()}
+                         </span>
+                       </div>
+                     </div>
+                   ))}
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,8 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { portfolioService } from '@/services/portfolioService';
 import { useAuth } from '@/hooks/useAuth';
-import CoinSelector from './CoinSelector';
-import { CoinMarketCapCoin } from '@/services/coinMarketCapService';
+import { fetchCoinListings, CoinMarketCapCoin } from '@/services/coinMarketCapService';
 
 interface AddTransactionDialogProps {
   open: boolean;
@@ -19,47 +18,54 @@ interface AddTransactionDialogProps {
 }
 
 const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: AddTransactionDialogProps) => {
+  const [cryptoList, setCryptoList] = useState<CoinMarketCapCoin[]>([]);
   const [formData, setFormData] = useState({
+    type: 'buy' as 'buy' | 'sell',
     coinId: '',
     coinSymbol: '',
     coinName: '',
-    transactionType: 'buy' as 'buy' | 'sell',
-    category: 'Blue Chip' as 'Bitcoin' | 'Blue Chip' | 'Small-Cap',
     amount: '',
     price: '',
     fee: '',
-    note: ''
+    note: '',
+    category: 'bitcoin' as 'bitcoin' | 'bluechip' | 'smallcap'
   });
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const { isAuthenticated, user, session } = useAuth();
 
-  const handleCoinSelect = (coinId: string, coinData: CoinMarketCapCoin) => {
-    console.log('Coin selected:', { coinId, coinData });
-    setFormData(prev => ({
-      ...prev,
-      coinId,
-      coinSymbol: coinData.symbol,
-      coinName: coinData.name,
-      price: coinData.current_price.toString()
-    }));
+  // Fetch cryptocurrencies when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchCryptocurrencies();
+    }
+  }, [open]);
+
+  const fetchCryptocurrencies = async () => {
+    try {
+      const coins = await fetchCoinListings(100);
+      setCryptoList(coins);
+    } catch (error) {
+      console.error('Error fetching cryptocurrencies:', error);
+    }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    console.log('AddTransactionDialog: Submit started');
-    console.log('AddTransactionDialog: Auth status:', { 
-      isAuthenticated, 
-      hasUser: !!user, 
-      hasSession: !!session,
-      userId: user?.id,
-      userEmail: user?.email
+  const resetForm = () => {
+    setFormData({
+      type: 'buy',
+      coinId: '',
+      coinSymbol: '',
+      coinName: '',
+      amount: '',
+      price: '',
+      fee: '',
+      note: '',
+      category: 'bitcoin'
     });
+  };
 
-    // Check authentication first
+  const handleAddTransaction = async () => {
     if (!isAuthenticated || !session) {
-      console.error('AddTransactionDialog: User not authenticated');
       toast({
         title: "Authentication Required",
         description: "Please log in to add transactions.",
@@ -68,7 +74,7 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
       return;
     }
 
-    if (!formData.coinSymbol || !formData.amount || !formData.price) {
+    if (!formData.coinId || !formData.amount || !formData.price) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields (coin, amount, price).",
@@ -86,29 +92,24 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
       const fee = formData.fee ? parseFloat(formData.fee) : 0;
       const value = amount * price;
 
-      console.log('Parsed transaction data:', {
-        coinSymbol: formData.coinSymbol,
-        coinName: formData.coinName,
-        transactionType: formData.transactionType,
-        category: formData.category,
-        amount,
-        price,
-        value,
-        fee
-      });
+      // Map category to proper format
+      const categoryMap: Record<string, 'Bitcoin' | 'Blue Chip' | 'Small-Cap'> = {
+        bitcoin: 'Bitcoin',
+        bluechip: 'Blue Chip',
+        smallcap: 'Small-Cap'
+      };
 
       // Ensure the virtual coin exists first
-      console.log('Ensuring virtual coin exists...');
       await portfolioService.ensureVirtualCoin({
         symbol: formData.coinSymbol,
         name: formData.coinName
       });
 
-      console.log('Adding transaction to portfolio...');
+      // Add the transaction
       await portfolioService.addTransaction(portfolioId, {
         coin_symbol: formData.coinSymbol,
-        transaction_type: formData.transactionType,
-        category: formData.category,
+        transaction_type: formData.type,
+        category: categoryMap[formData.category],
         amount,
         price,
         value,
@@ -116,21 +117,6 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
         note: formData.note || null
       });
 
-      console.log('Transaction added successfully');
-
-      // Reset form
-      setFormData({
-        coinId: '',
-        coinSymbol: '',
-        coinName: '',
-        transactionType: 'buy',
-        category: 'Blue Chip',
-        amount: '',
-        price: '',
-        fee: '',
-        note: ''
-      });
-      
       toast({
         title: "Success",
         description: "Transaction added successfully!",
@@ -138,15 +124,13 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
       
       onSuccess();
       onOpenChange(false);
+      resetForm();
     } catch (error) {
-      console.error('Detailed error adding transaction:', error);
+      console.error('Error adding transaction:', error);
       
-      // More specific error handling
       let errorMessage = 'Failed to add transaction';
       if (error instanceof Error) {
         errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
       }
       
       toast({
@@ -159,6 +143,19 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
     }
   };
 
+  const handleCoinSelect = (coinId: string) => {
+    const crypto = cryptoList.find(c => c.id.toString() === coinId);
+    if (crypto) {
+      setFormData(prev => ({
+        ...prev,
+        coinId,
+        coinSymbol: crypto.symbol,
+        coinName: crypto.name,
+        price: crypto.current_price.toString()
+      }));
+    }
+  };
+
   // Show authentication warning if not logged in
   if (open && !isAuthenticated) {
     return (
@@ -166,11 +163,11 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Authentication Required</DialogTitle>
-            <DialogDescription>
-              You must be logged in to add transactions to your portfolio.
-            </DialogDescription>
           </DialogHeader>
-          <div className="flex justify-end">
+          <div className="text-center py-4">
+            <p className="text-muted-foreground mb-4">
+              You must be logged in to add transactions to your portfolio.
+            </p>
             <Button onClick={() => onOpenChange(false)}>
               Close
             </Button>
@@ -185,126 +182,168 @@ const AddTransactionDialog = ({ open, onOpenChange, portfolioId, onSuccess }: Ad
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Add Transaction</DialogTitle>
-          <DialogDescription>
-            Record a transaction for your virtual portfolio. Choose your preferred category classification.
-          </DialogDescription>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-4">
+          {/* Transaction Type Toggle */}
           <div>
-            <Label htmlFor="coin">Cryptocurrency</Label>
-            <CoinSelector
-              value={formData.coinId}
-              onValueChange={handleCoinSelect}
-              placeholder="Select a cryptocurrency"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="type">Type</Label>
-              <Select value={formData.transactionType} onValueChange={(value: 'buy' | 'sell') => setFormData(prev => ({ ...prev, transactionType: value }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="buy">Buy</SelectItem>
-                  <SelectItem value="sell">Sell</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="category">Your Category</Label>
-              <Select value={formData.category} onValueChange={(value: 'Bitcoin' | 'Blue Chip' | 'Small-Cap') => setFormData(prev => ({ ...prev, category: value }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Bitcoin">Bitcoin</SelectItem>
-                  <SelectItem value="Blue Chip">Blue Chip</SelectItem>
-                  <SelectItem value="Small-Cap">Small-Cap</SelectItem>
-                </SelectContent>
-              </Select>
+            <Label className="block text-sm font-medium mb-1">Type</Label>
+            <div className="flex space-x-2">
+              <Button
+                type="button"
+                variant={formData.type === 'buy' ? 'default' : 'outline'}
+                className={`flex-1 py-2 px-4 rounded-lg ${
+                  formData.type === 'buy' 
+                    ? 'bg-green-500 hover:bg-green-600 text-white' 
+                    : 'bg-muted text-muted-foreground'
+                }`}
+                onClick={() => setFormData({...formData, type: 'buy'})}
+              >
+                Buy
+              </Button>
+              <Button
+                type="button"
+                variant={formData.type === 'sell' ? 'default' : 'outline'}
+                className={`flex-1 py-2 px-4 rounded-lg ${
+                  formData.type === 'sell' 
+                    ? 'bg-red-500 hover:bg-red-600 text-white' 
+                    : 'bg-muted text-muted-foreground'
+                }`}
+                onClick={() => setFormData({...formData, type: 'sell'})}
+              >
+                Sell
+              </Button>
             </div>
           </div>
-
+          
+          {/* Cryptocurrency Selection */}
+          <div>
+            <Label className="block text-sm font-medium mb-1">Cryptocurrency</Label>
+            <Select value={formData.coinId} onValueChange={handleCoinSelect}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select cryptocurrency" />
+              </SelectTrigger>
+              <SelectContent className="max-h-60">
+                {cryptoList.map(crypto => (
+                  <SelectItem key={crypto.id} value={crypto.id.toString()}>
+                    <div className="flex items-center gap-2">
+                      {crypto.logo && (
+                        <img 
+                          src={crypto.logo} 
+                          alt={crypto.name} 
+                          className="h-4 w-4 rounded-full" 
+                        />
+                      )}
+                      {crypto.name} ({crypto.symbol})
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {/* Amount and Price */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="amount">Amount</Label>
+              <Label className="block text-sm font-medium mb-1">Amount</Label>
               <Input
-                id="amount"
                 type="number"
-                step="any"
                 value={formData.amount}
-                onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
-                placeholder="0.001"
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="price">Price ($)</Label>
-              <Input
-                id="price"
-                type="number"
+                onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                placeholder="0.00"
                 step="any"
+              />
+            </div>
+            <div>
+              <Label className="block text-sm font-medium mb-1">Price per unit ($)</Label>
+              <Input
+                type="number"
                 value={formData.price}
-                onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
-                placeholder="65000"
-                required
+                onChange={(e) => setFormData({...formData, price: e.target.value})}
+                placeholder="0.00"
+                step="any"
               />
             </div>
           </div>
-
+          
+          {/* Category Selection */}
           <div>
-            <Label htmlFor="fee">Fee ($) - Optional</Label>
+            <Label className="block text-sm font-medium mb-1">Category</Label>
+            <Select value={formData.category} onValueChange={(value: 'bitcoin' | 'bluechip' | 'smallcap') => setFormData({...formData, category: value})}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="bitcoin">Bitcoin</SelectItem>
+                <SelectItem value="bluechip">Blue Chip</SelectItem>
+                <SelectItem value="smallcap">Small Cap</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {/* Fee (Optional) */}
+          <div>
+            <Label className="block text-sm font-medium mb-1">
+              Fee ($) <span className="text-muted-foreground">- Optional</span>
+            </Label>
             <Input
-              id="fee"
               type="number"
-              step="any"
               value={formData.fee}
-              onChange={(e) => setFormData(prev => ({ ...prev, fee: e.target.value }))}
-              placeholder="0"
+              onChange={(e) => setFormData({...formData, fee: e.target.value})}
+              placeholder="0.00"
+              step="any"
             />
           </div>
-
+          
+          {/* Note (Optional) */}
           <div>
-            <Label htmlFor="note">Note - Optional</Label>
+            <Label className="block text-sm font-medium mb-1">
+              Note <span className="text-muted-foreground">- Optional</span>
+            </Label>
             <Textarea
-              id="note"
               value={formData.note}
-              onChange={(e) => setFormData(prev => ({ ...prev, note: e.target.value }))}
-              placeholder="Any additional notes..."
+              onChange={(e) => setFormData({...formData, note: e.target.value})}
               rows={2}
+              placeholder="Any additional notes..."
             />
           </div>
 
+          {/* Transaction Preview */}
           {formData.amount && formData.price && (
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600">
-                Total Value: ${(parseFloat(formData.amount) * parseFloat(formData.price)).toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2
-                })}
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="text-sm font-medium">
+                Total Value: ${(parseFloat(formData.amount) * parseFloat(formData.price)).toLocaleString('en-US', { maximumFractionDigits: 2 })}
               </p>
               {formData.coinSymbol && (
-                <p className="text-xs text-gray-500 mt-1">
-                  {formData.coinSymbol} - {formData.coinName} (Category: {formData.category})
+                <p className="text-xs text-muted-foreground mt-1">
+                  {formData.coinSymbol} - {formData.coinName} (Category: {formData.category.charAt(0).toUpperCase() + formData.category.slice(1)})
                 </p>
               )}
             </div>
           )}
-
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isLoading || !formData.coinSymbol || !formData.amount || !formData.price}>
-              {isLoading ? 'Adding...' : 'Add Transaction'}
-            </Button>
-          </div>
-        </form>
+        </div>
+        
+        {/* Action Buttons */}
+        <div className="flex justify-end space-x-3 pt-4 border-t">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              onOpenChange(false);
+              resetForm();
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={handleAddTransaction}
+            disabled={isLoading || !formData.coinId || !formData.amount || !formData.price}
+            className="bg-primary hover:bg-primary/90"
+          >
+            {isLoading ? 'Adding...' : 'Add Transaction'}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
