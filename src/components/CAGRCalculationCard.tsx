@@ -64,25 +64,27 @@ export const CAGRCalculationCard: React.FC<CAGRCalculationCardProps> = ({ cagrDe
 
   return (
     <Card className="w-full">
-      <CardHeader className="p-3 sm:p-4 lg:p-6">
-        <CardTitle className="flex flex-col gap-2 text-sm sm:text-base lg:text-lg">
-          <div className="flex items-center gap-2 min-w-0">
-            <Calculator className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 shrink-0" />
-            <span className="truncate">CAGR Calculation Details</span>
+      <CardHeader className="p-2 sm:p-3 lg:p-4">
+        <CardTitle className="flex flex-col gap-1 sm:gap-2 text-xs sm:text-sm lg:text-base">
+          <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+            <Calculator className="h-3 w-3 sm:h-4 sm:w-4 lg:h-5 lg:w-5 text-blue-600 shrink-0" />
+            <span className="truncate text-xs sm:text-sm lg:text-base font-semibold">CAGR Calculation Details</span>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1 sm:gap-2">
             <div className="flex items-center gap-1">
-              {getDataSourceIcon(cagrDetails.dataSource)}
-              <Badge variant="outline" className={`${getDataSourceBadgeColor(cagrDetails.dataSource)} text-xs`}>
+              <div className="h-3 w-3 sm:h-4 sm:w-4 shrink-0">
+                {getDataSourceIcon(cagrDetails.dataSource)}
+              </div>
+              <Badge variant="outline" className={`${getDataSourceBadgeColor(cagrDetails.dataSource)} text-[10px] sm:text-xs px-1 sm:px-2 py-0.5 sm:py-1`}>
                 {getDataSourceLabel(cagrDetails.dataSource)}
               </Badge>
             </div>
-            <Badge variant="outline" className={`${getConfidenceBadgeColor(cagrDetails.confidence)} text-xs`}>
+            <Badge variant="outline" className={`${getConfidenceBadgeColor(cagrDetails.confidence)} text-[10px] sm:text-xs px-1 sm:px-2 py-0.5 sm:py-1`}>
               {cagrDetails.confidence.toUpperCase()} CONFIDENCE
             </Badge>
           </div>
         </CardTitle>
-        <CardDescription className="text-xs sm:text-sm">
+        <CardDescription className="text-[10px] sm:text-xs lg:text-sm leading-relaxed mt-1">
           7-step CAGR calculation using {cagrDetails.dataPoints} data points from {cagrDetails.dataSource}
           {cagrDetails.dataSource === 'test_data' && (
             <span className="text-orange-600 font-medium"> • Test data used due to API limitations</span>
