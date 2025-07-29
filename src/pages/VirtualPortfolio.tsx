@@ -575,37 +575,38 @@ const VirtualPortfolio = () => {
                   </thead>
                   <tbody className="bg-card divide-y divide-border">
                     {portfolioData.assets.map((asset: any) => {
-                      const unrealizedPL = asset.currentValue - (asset.totalAmount * asset.averagePrice);
+                      const unrealizedPL = asset.profitLoss || 0;
                       
                       return (
-                        <tr key={asset.coinId}>
+                        <tr key={asset.id}>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
                               <div>
-                                <div className="text-sm font-medium">{asset.coinName}</div>
-                                <div className="text-sm text-muted-foreground">{asset.coinSymbol}</div>
+                                <div className="text-sm font-medium">{asset.name || 'Unknown Asset'}</div>
+                                <div className="text-sm text-muted-foreground">{asset.symbol || 'N/A'}</div>
                               </div>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <Badge variant={
-                              asset.category === 'Bitcoin' ? 'default' :
-                              asset.category === 'Blue Chip' ? 'secondary' : 'outline'
+                              asset.symbol === 'BTC' ? 'default' :
+                              ['ETH', 'ADA', 'SOL'].includes(asset.symbol) ? 'secondary' : 'outline'
                             }>
-                              {asset.category}
+                              {asset.symbol === 'BTC' ? 'Bitcoin' : 
+                               ['ETH', 'ADA', 'SOL'].includes(asset.symbol) ? 'Blue Chip' : 'Small Cap'}
                             </Badge>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                            {asset.totalAmount.toLocaleString('en-US', { maximumFractionDigits: 8 })}
+                            {(asset.amount || 0).toLocaleString('en-US', { maximumFractionDigits: 8 })}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                            ${asset.averagePrice.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                            ${((asset.currentValue || 0) / (asset.amount || 1)).toLocaleString('en-US', { maximumFractionDigits: 2 })}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                            ${asset.currentPrice.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                            ${(asset.currentPrice || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                            ${asset.currentValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                            ${(asset.currentValue || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}
                           </td>
                           <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
                             unrealizedPL >= 0 ? 'text-green-500' : 'text-red-500'
