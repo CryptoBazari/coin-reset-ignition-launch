@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { TrendingUp, TrendingDown, Minus, AlertTriangle, Activity } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { TrendingUp, TrendingDown, Minus, AlertTriangle, Activity, RefreshCw } from 'lucide-react';
 import { MarketConditions } from '@/types/investment';
+import { bitcoinGlassNodeService } from '@/services/bitcoinGlassNodeService';
 
 interface MarketConditionsCardProps {
   marketConditions: MarketConditions;
@@ -12,6 +14,32 @@ interface MarketConditionsCardProps {
 export const MarketConditionsCard: React.FC<MarketConditionsCardProps> = ({
   marketConditions
 }) => {
+  const [liveAvivRatio, setLiveAvivRatio] = useState<number | null>(null);
+  const [isLoadingAviv, setIsLoadingAviv] = useState(false);
+
+  const fetchLiveAvivRatio = async () => {
+    try {
+      setIsLoadingAviv(true);
+      console.log('📊 Fetching live AVIV ratio for market conditions card...');
+      
+      const bitcoinData = await bitcoinGlassNodeService.getBitcoinCointimeData();
+      setLiveAvivRatio(bitcoinData.avivRatio);
+      
+      console.log(`📊 Live AVIV Ratio: ${bitcoinData.avivRatio.toFixed(3)} (updated in market conditions)`);
+    } catch (error) {
+      console.error('❌ Failed to fetch live AVIV ratio:', error);
+      setLiveAvivRatio(marketConditions.avivRatio || 1.0);
+    } finally {
+      setIsLoadingAviv(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLiveAvivRatio();
+  }, [marketConditions.avivRatio]);
+
+  // Use live AVIV ratio if available, otherwise fall back to market conditions
+  const currentAvivRatio = liveAvivRatio ?? marketConditions.avivRatio;
   const getBitcoinStateConfig = (state: string) => {
     switch (state) {
       case 'bullish':
@@ -91,15 +119,27 @@ export const MarketConditionsCard: React.FC<MarketConditionsCardProps> = ({
   };
 
   const bitcoinState = getBitcoinStateConfig(marketConditions.bitcoinState);
-  const avivAnalysis = getAvivAnalysis(marketConditions.avivRatio);
+  const avivAnalysis = getAvivAnalysis(currentAvivRatio);
   const fedImpact = getFedRateImpact(marketConditions.fedRateChange);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Activity className="w-5 h-5" />
-          Market Conditions Analysis
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Activity className="w-5 h-5" />
+            Market Conditions Analysis
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={fetchLiveAvivRatio}
+            disabled={isLoadingAviv}
+            className="h-7 px-2"
+          >
+            <RefreshCw className={`w-3 h-3 mr-1 ${isLoadingAviv ? 'animate-spin' : ''}`} />
+            {isLoadingAviv ? 'Updating...' : 'Refresh AVIV'}
+          </Button>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -120,18 +160,29 @@ export const MarketConditionsCard: React.FC<MarketConditionsCardProps> = ({
 
         {/* Key Metrics Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* AVIV Ratio */}
-          {marketConditions.avivRatio && avivAnalysis && (
+          {/* AVIV Ratio - Now using live data */}
+          {currentAvivRatio && avivAnalysis && (
             <div className="p-3 bg-muted/50 rounded-lg">
-              <div className="text-sm text-muted-foreground mb-1">AVIV Ratio</div>
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-sm text-muted-foreground">AVIV Ratio</div>
+                {liveAvivRatio && (
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-success rounded-full animate-pulse"></div>
+                    <span className="text-xs text-success">Live</span>
+                  </div>
+                )}
+              </div>
               <div className={`text-xl font-bold ${avivAnalysis.color}`}>
-                {marketConditions.avivRatio.toFixed(2)}
+                {isLoadingAviv ? '...' : currentAvivRatio.toFixed(3)}
               </div>
               <Badge variant="outline" className="mt-1 text-xs">
                 {avivAnalysis.status}
               </Badge>
               <div className="text-xs text-muted-foreground mt-2">
                 {avivAnalysis.description}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Source: Glass Node API
               </div>
             </div>
           )}

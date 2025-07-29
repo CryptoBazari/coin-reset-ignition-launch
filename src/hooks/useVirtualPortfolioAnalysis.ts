@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useEnhancedGlassNodeAnalysis } from './useEnhancedGlassNodeAnalysis';
 import { riskManagementService } from '@/services/riskManagementService';
 import { fetchCoinPrices } from '@/services/coinMarketCapService';
+import { bitcoinGlassNodeService } from '@/services/bitcoinGlassNodeService';
 import { VirtualAsset } from '@/types/virtualPortfolio';
 import type { InvestmentInputs, AnalysisResult } from '@/types/investment';
 
@@ -141,8 +142,13 @@ export const useVirtualPortfolioAnalysis = () => {
       const riskAnalysis = riskManagementService.analyzeRisk(assets as VirtualAsset[], liveCoinsData);
       const rebalanceRecommendations = await getRebalanceRecommendations(riskAnalysis);
 
-      // Get Bitcoin market timing from first analysis (all use Bitcoin AVIV)
-      const bitcoinAvivRatio = assetAnalyses[0]?.analysis?.metrics?.bitcoinAvivRatio || 1.0;
+      // Get real-time Bitcoin AVIV data directly from Glass Node service
+      console.log('📊 Fetching real-time Bitcoin AVIV data for portfolio analysis...');
+      const bitcoinCointimeData = await bitcoinGlassNodeService.getBitcoinCointimeData();
+      const bitcoinAvivRatio = bitcoinCointimeData.avivRatio;
+      
+      console.log(`📊 Real-time Bitcoin AVIV Ratio: ${bitcoinAvivRatio.toFixed(3)} (source: Glass Node API)`);
+      
       const marketTiming = {
         bitcoinAvivRatio,
         ...analyzeMarketTiming(bitcoinAvivRatio)

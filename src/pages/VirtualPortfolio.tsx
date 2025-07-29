@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import Navbar from '@/components/Navbar';
 import AddTransactionDialog from '@/components/virtual-portfolio/AddTransactionDialog';
 import CreatePortfolioDialog from '@/components/virtual-portfolio/CreatePortfolioDialog';
+import { LiveAvivIndicator } from '@/components/virtual-portfolio/LiveAvivIndicator';
 import SubscriptionButton from '@/components/subscription/SubscriptionButton';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useRealTimePortfolio } from '@/hooks/useRealTimePortfolio';
@@ -438,31 +439,12 @@ const VirtualPortfolio = () => {
           </div>
         </div>
         
-        {/* Market Indicator */}
-        {avivData && (
-          <div className="mb-6 p-4 rounded-lg bg-gradient-to-r from-warning to-warning/80 text-warning-foreground">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-lg font-bold">Market Condition</h3>
-                <p className="text-2xl font-bold">{avivData.marketCondition.replace(/_/g, ' ')}</p>
-                <p className="text-sm mt-1">
-                  {avivData.marketCondition === 'STRONG_BUY' 
-                    ? 'Bitcoin AVIV indicates extreme undervaluation - maximum opportunity' 
-                    : avivData.marketCondition === 'STRONG_SELL'
-                    ? 'Bitcoin AVIV shows extreme overvaluation - reduce exposure'
-                    : 'Market is in equilibrium - maintain positions'}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm">Bitcoin AVIV</p>
-                <p className="text-3xl font-mono">{avivData.avivRatio.toFixed(2)}</p>
-              </div>
-            </div>
-          </div>
-        )}
         
         {/* Portfolio Analytics */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
+          {/* Live AVIV Indicator */}
+          <LiveAvivIndicator />
+          
           {/* Allocation Chart */}
           <Card>
             <CardHeader>
