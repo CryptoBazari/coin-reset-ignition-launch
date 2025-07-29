@@ -1,13 +1,15 @@
 
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Edit } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { portfolioService } from '@/services/portfolioService';
 import { VirtualTransaction } from '@/types/virtualPortfolio';
+import EditTransactionDialog from './EditTransactionDialog';
 
 interface TransactionHistoryProps {
   open: boolean;
@@ -18,6 +20,8 @@ interface TransactionHistoryProps {
 
 const TransactionHistory = ({ open, onOpenChange, portfolioId, onTransactionUpdated }: TransactionHistoryProps) => {
   const { toast } = useToast();
+  const [editTransaction, setEditTransaction] = useState<VirtualTransaction | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   const { data: transactions, isLoading, refetch } = useQuery({
     queryKey: ['virtual-transactions', portfolioId],
@@ -119,6 +123,16 @@ const TransactionHistory = ({ open, onOpenChange, portfolioId, onTransactionUpda
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => {
+                          setEditTransaction(transaction);
+                          setEditDialogOpen(true);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => handleDeleteTransaction(transaction.id)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -131,6 +145,17 @@ const TransactionHistory = ({ open, onOpenChange, portfolioId, onTransactionUpda
           )}
         </div>
       </DialogContent>
+
+      <EditTransactionDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        transaction={editTransaction}
+        onSuccess={() => {
+          refetch();
+          onTransactionUpdated();
+          setEditTransaction(null);
+        }}
+      />
     </Dialog>
   );
 };

@@ -18,7 +18,9 @@ const AssetHoldings = ({ portfolioId }: AssetHoldingsProps) => {
     sortBy,
     setSortBy,
     sortOrder,
-    setSortOrder
+    setSortOrder,
+    liveCoinsData,
+    fetchAssets
   } = useAssetHoldings(portfolioId);
 
   const categories = ['all', ...Array.from(new Set(assets.map(asset => asset.category)))];
@@ -63,6 +65,8 @@ const AssetHoldings = ({ portfolioId }: AssetHoldingsProps) => {
             assets={filteredAssets}
             isEmpty={assets.length === 0}
             isFiltered={filteredAssets.length === 0 && assets.length > 0}
+            liveCoinsData={liveCoinsData}
+            onAssetsUpdated={fetchAssets}
           />
         </CardContent>
       </Card>

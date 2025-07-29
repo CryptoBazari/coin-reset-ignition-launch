@@ -1,5 +1,8 @@
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { MoreVertical, Edit, Trash2, Plus, Minus } from 'lucide-react';
 import { VirtualAsset } from '@/types/virtualPortfolio';
 import { CoinMarketCapCoin } from '@/services/coinMarketCapService';
 import AssetMetrics from './AssetMetrics';
@@ -8,9 +11,13 @@ import AssetLiveData from './AssetLiveData';
 interface AssetHoldingCardProps {
   asset: VirtualAsset;
   liveCoinData: CoinMarketCapCoin | null;
+  onEditAsset?: (asset: VirtualAsset) => void;
+  onDeleteAsset?: (asset: VirtualAsset) => void;
+  onBuyMore?: (asset: VirtualAsset) => void;
+  onSell?: (asset: VirtualAsset) => void;
 }
 
-const AssetHoldingCard = ({ asset, liveCoinData }: AssetHoldingCardProps) => {
+const AssetHoldingCard = ({ asset, liveCoinData, onEditAsset, onDeleteAsset, onBuyMore, onSell }: AssetHoldingCardProps) => {
   const getCategoryColor = (category: string) => {
     switch (category) {
       case 'Bitcoin': return 'bg-orange-100 text-orange-800';
@@ -76,16 +83,45 @@ const AssetHoldingCard = ({ asset, liveCoinData }: AssetHoldingCardProps) => {
             </div>
           </div>
         </div>
-        <div className="text-right">
-          <div className="font-semibold text-lg">
-            ${currentValue.toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2
-            })}
+        <div className="flex items-center gap-2">
+          <div className="text-right">
+            <div className="font-semibold text-lg">
+              ${currentValue.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+              })}
+            </div>
+            <div className={`text-sm font-medium ${totalPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {totalPnL >= 0 ? '+' : ''}${totalPnL.toFixed(2)} ({totalPnLPercent >= 0 ? '+' : ''}{totalPnLPercent.toFixed(2)}%)
+            </div>
           </div>
-          <div className={`text-sm font-medium ${totalPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {totalPnL >= 0 ? '+' : ''}${totalPnL.toFixed(2)} ({totalPnLPercent >= 0 ? '+' : ''}{totalPnLPercent.toFixed(2)}%)
-          </div>
+          
+          {/* Action Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => onBuyMore?.(asset)} className="cursor-pointer">
+                <Plus className="h-4 w-4 mr-2" />
+                Buy More
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onSell?.(asset)} className="cursor-pointer">
+                <Minus className="h-4 w-4 mr-2" />
+                Sell
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onEditAsset?.(asset)} className="cursor-pointer">
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Asset
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onDeleteAsset?.(asset)} className="cursor-pointer text-red-600">
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Asset
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
       
