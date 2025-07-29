@@ -49,7 +49,7 @@ function App() {
           <Route path="/learning/:id" element={<ProtectedRoute><LearningDetail /></ProtectedRoute>} />
           <Route path="/news" element={<ProtectedRoute><News /></ProtectedRoute>} />
           <Route path="/news/:id" element={<ProtectedRoute><NewsDetail /></ProtectedRoute>} />
-          <Route path="/portfolio" element={<ProtectedRoute><VirtualPortfolio /></ProtectedRoute>} />
+          <Route path="/virtual-portfolio" element={<ProtectedRoute><VirtualPortfolio /></ProtectedRoute>} />
           
           {/* Analysis routes - fix the routing issue */}
           <Route path="/analysis" element={<Navigate to="/analysis/bitcoin" replace />} />
