@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import Navbar from '@/components/Navbar';
 import AddTransactionDialog from '@/components/virtual-portfolio/AddTransactionDialog';
 import CreatePortfolioDialog from '@/components/virtual-portfolio/CreatePortfolioDialog';
+import AssetHoldings from '@/components/virtual-portfolio/AssetHoldings';
 import { LiveAvivIndicator } from '@/components/virtual-portfolio/LiveAvivIndicator';
 import PortfolioCalculatorModal from '@/components/virtual-portfolio/PortfolioCalculatorModal';
 import SubscriptionButton from '@/components/subscription/SubscriptionButton';
@@ -559,74 +560,9 @@ const VirtualPortfolio = () => {
           </Card>
         </div>
         
-        {/* Holdings Table */}
-        {portfolioData?.assets && portfolioData.assets.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Asset Holdings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-border">
-                  <thead className="bg-muted">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Asset</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Category</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Holdings</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Avg. Price</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Current Price</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Market Value</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Unrealized P/L</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-card divide-y divide-border">
-                    {portfolioData.assets.map((asset: any) => {
-                      const unrealizedPL = asset.profitLoss || 0;
-                      
-                      return (
-                        <tr key={asset.id}>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div>
-                                <div className="text-sm font-medium">{asset.name || 'Unknown Asset'}</div>
-                                <div className="text-sm text-muted-foreground">{asset.symbol || 'N/A'}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <Badge variant={
-                              asset.symbol === 'BTC' ? 'default' :
-                              ['ETH', 'ADA', 'SOL'].includes(asset.symbol) ? 'secondary' : 'outline'
-                            }>
-                              {asset.symbol === 'BTC' ? 'Bitcoin' : 
-                               ['ETH', 'ADA', 'SOL'].includes(asset.symbol) ? 'Blue Chip' : 'Small Cap'}
-                            </Badge>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                            {(asset.amount || 0).toLocaleString('en-US', { maximumFractionDigits: 8 })}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                            ${((asset.currentValue || 0) / (asset.amount || 1)).toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                            ${(asset.currentPrice || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                            ${(asset.currentValue || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                          </td>
-                          <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
-                            unrealizedPL >= 0 ? 'text-green-500' : 'text-red-500'
-                          }`}>
-                            ${unrealizedPL.toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Enhanced Asset Holdings */}
+        {selectedPortfolio && (
+          <AssetHoldings portfolioId={selectedPortfolio.id} />
         )}
 
         {/* Dialogs */}
