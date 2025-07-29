@@ -5,6 +5,7 @@ import { Newspaper, BookOpen, Coins, Users, CreditCard, TrendingUp } from 'lucid
 import AdminLayout from '@/components/admin/AdminLayout';
 import ApiStatusMonitor from '@/components/admin/ApiStatusMonitor';
 import { RealDataInitializer } from '@/components/admin/RealDataInitializer';
+import PortfolioMigration from '@/components/admin/PortfolioMigration';
 
 interface DashboardStats {
   totalNews: number;
@@ -181,6 +182,8 @@ const AdminDashboard = () => {
         </div>
 
         <RealDataInitializer />
+        
+        <PortfolioMigration />
       </div>
     </AdminLayout>
   );
