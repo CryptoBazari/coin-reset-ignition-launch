@@ -25,13 +25,22 @@ const AssetGrid = ({ assets, isEmpty, isFiltered, liveCoinsData, onAssetsUpdated
 
   const handleDeleteAsset = async (asset: AssetHolding) => {
     try {
-      // First delete all related transactions
+      // First delete all related transactions by asset_id
       const { error: transactionError } = await supabase
         .from('virtual_transactions')
         .delete()
         .eq('asset_id', asset.id);
 
       if (transactionError) throw transactionError;
+
+      // Also clean up any orphaned transactions for this coin (fallback for old data)
+      const { error: orphanedError } = await supabase
+        .from('virtual_transactions')
+        .delete()
+        .eq('coin_id', asset.id)
+        .is('asset_id', null);
+
+      if (orphanedError) throw orphanedError;
 
       // Then delete the asset
       const { error: assetError } = await supabase

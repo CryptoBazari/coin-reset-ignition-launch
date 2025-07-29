@@ -70,15 +70,13 @@ const AssetHoldingCard = ({ asset, liveCoinData, onEditAsset, onDeleteAsset, onB
             <h3 className="font-semibold flex items-center gap-2">
               {asset.coin_symbol} - {asset.coin_name}
             </h3>
+            <p className="text-sm text-muted-foreground">
+              {asset.total_amount.toFixed(8)} {asset.coin_symbol}
+            </p>
             <div className="flex gap-2 mt-1">
               <Badge className={getCategoryColor(asset.category)}>
                 {asset.category}
               </Badge>
-              {liveCoinData && (
-                <Badge variant="outline" className="text-xs">
-                  Live Data
-                </Badge>
-              )}
             </div>
           </div>
         </div>
