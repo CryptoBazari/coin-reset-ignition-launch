@@ -6,6 +6,7 @@ import { VirtualAsset } from '@/types/virtualPortfolio';
 export interface RealTimePortfolioData {
   totalValue: number;
   totalProfit: number;
+  totalInvestment: number;
   dayChange: number;
   dayChangePercent: number;
   assets: Array<{
@@ -38,6 +39,18 @@ class RealTimePortfolioService {
     try {
       console.log('🔄 Fetching real-time portfolio data for:', portfolioId);
 
+      // Get total investment from transactions
+      const { data: transactions, error: transactionError } = await supabase
+        .from('virtual_transactions')
+        .select('value, transaction_type')
+        .eq('portfolio_id', portfolioId);
+
+      if (transactionError) throw transactionError;
+
+      const totalInvestment = transactions
+        ?.filter(t => t.transaction_type === 'buy')
+        .reduce((sum, t) => sum + t.value, 0) || 0;
+
       // Get portfolio assets
       const { data: assets, error } = await supabase
         .from('virtual_assets')
@@ -54,6 +67,7 @@ class RealTimePortfolioService {
         const emptyData: RealTimePortfolioData = {
           totalValue: 0,
           totalProfit: 0,
+          totalInvestment,
           dayChange: 0,
           dayChangePercent: 0,
           assets: []
@@ -110,6 +124,7 @@ class RealTimePortfolioService {
       const portfolioData: RealTimePortfolioData = {
         totalValue,
         totalProfit,
+        totalInvestment,
         dayChange,
         dayChangePercent,
         assets: assetData
@@ -130,6 +145,7 @@ class RealTimePortfolioService {
       const fallbackData: RealTimePortfolioData = {
         totalValue: 0,
         totalProfit: 0,
+        totalInvestment: 0,
         dayChange: 0,
         dayChangePercent: 0,
         assets: []

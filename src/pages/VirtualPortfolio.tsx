@@ -184,7 +184,7 @@ const VirtualPortfolio = () => {
 
   // Calculate portfolio metrics
   const portfolioValue = enhancedPortfolio?.total_value || 0;
-  const totalInvestment = 1000; // Will be properly calculated after migration
+  const totalInvestment = portfolioData?.totalInvestment || 0;
   const unrealizedPL = enhancedPortfolio?.all_time_profit || 0;
   const realizedPL = 0; // Will be populated by migration service
   const roi = totalInvestment > 0 ? (unrealizedPL / totalInvestment) * 100 : 0;
