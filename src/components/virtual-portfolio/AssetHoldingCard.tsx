@@ -5,7 +5,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { MoreVertical, Edit, Trash2, Plus, Minus } from 'lucide-react';
 import { AssetHolding } from '@/types/assetHoldings';
 import { CoinMarketCapCoin } from '@/services/coinMarketCapService';
-import AssetMetrics from './AssetMetrics';
+
 import AssetLiveData from './AssetLiveData';
 
 interface AssetHoldingCardProps {
