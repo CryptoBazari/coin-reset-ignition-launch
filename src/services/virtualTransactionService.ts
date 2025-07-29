@@ -1,6 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { TransactionData } from '@/types/portfolio';
+import { portfolioTotalsService } from './portfolioTotalsService';
 
 class VirtualTransactionService {
   async createTransaction(portfolioId: string, coinId: string, assetId: string, transactionData: TransactionData) {
@@ -20,6 +21,9 @@ class VirtualTransactionService {
       }]);
 
     if (transactionError) throw transactionError;
+
+    // Update portfolio totals and create snapshot after transaction
+    await portfolioTotalsService.updatePortfolioTotals(portfolioId);
   }
 
   async getTransaction(transactionId: string) {
@@ -34,12 +38,18 @@ class VirtualTransactionService {
   }
 
   async deleteTransaction(transactionId: string) {
+    // Get transaction details before deletion to update portfolio
+    const transaction = await this.getTransaction(transactionId);
+    
     const { error: deleteError } = await supabase
       .from('virtual_transactions')
       .delete()
       .eq('id', transactionId);
 
     if (deleteError) throw deleteError;
+
+    // Update portfolio totals after transaction deletion
+    await portfolioTotalsService.updatePortfolioTotals(transaction.portfolio_id);
   }
 }
 

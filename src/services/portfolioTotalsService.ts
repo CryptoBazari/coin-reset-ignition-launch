@@ -95,13 +95,78 @@ class PortfolioTotalsService {
       .update({
         total_value: totalValue,
         all_time_profit: allTimeProfit,
+        total_invested: totalCostBasis,
+        realized_profit: totalRealizedProfit,
+        unrealized_profit: totalUnrealizedProfit,
         updated_at: new Date().toISOString()
       })
       .eq('id', portfolioId);
 
     if (updateError) throw updateError;
 
+    // Create daily snapshot for performance tracking
+    await this.createDailySnapshot(portfolioId, totalValue, allTimeProfit);
+
+    if (updateError) throw updateError;
+
     console.log('Portfolio totals updated successfully');
+  }
+
+  async createDailySnapshot(portfolioId: string, totalValue: number, totalProfit: number) {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Check if snapshot already exists for today
+      const { data: existingSnapshot } = await supabase
+        .from('portfolio_daily_snapshots')
+        .select('id')
+        .eq('portfolio_id', portfolioId)
+        .eq('snapshot_date', today)
+        .single();
+
+      if (existingSnapshot) {
+        console.log('Daily snapshot already exists for today');
+        return;
+      }
+
+      // Get yesterday's snapshot for calculating day change
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayDate = yesterday.toISOString().split('T')[0];
+
+      const { data: yesterdaySnapshot } = await supabase
+        .from('portfolio_daily_snapshots')
+        .select('total_value, total_profit')
+        .eq('portfolio_id', portfolioId)
+        .eq('snapshot_date', yesterdayDate)
+        .single();
+
+      const dayChange = yesterdaySnapshot ? totalValue - yesterdaySnapshot.total_value : 0;
+      const dayChangePercent = yesterdaySnapshot && yesterdaySnapshot.total_value > 0 
+        ? ((totalValue - yesterdaySnapshot.total_value) / yesterdaySnapshot.total_value) * 100 
+        : 0;
+
+      // Create new snapshot
+      const { error } = await supabase
+        .from('portfolio_daily_snapshots')
+        .insert({
+          portfolio_id: portfolioId,
+          snapshot_date: today,
+          total_value: totalValue,
+          total_profit: totalProfit,
+          day_change: dayChange,
+          day_change_percent: dayChangePercent,
+          asset_breakdown: []
+        });
+
+      if (error) {
+        console.error('Error creating daily snapshot:', error);
+      } else {
+        console.log('Daily snapshot created successfully');
+      }
+    } catch (error) {
+      console.error('Error in createDailySnapshot:', error);
+    }
   }
 }
 

@@ -1227,8 +1227,12 @@ export type Database = {
           all_time_profit: number
           created_at: string
           id: string
+          last_snapshot_date: string | null
           name: string
+          realized_profit: number | null
+          total_invested: number | null
           total_value: number
+          unrealized_profit: number | null
           updated_at: string
           user_id: string
         }
@@ -1236,8 +1240,12 @@ export type Database = {
           all_time_profit?: number
           created_at?: string
           id?: string
+          last_snapshot_date?: string | null
           name: string
+          realized_profit?: number | null
+          total_invested?: number | null
           total_value?: number
+          unrealized_profit?: number | null
           updated_at?: string
           user_id: string
         }
@@ -1245,8 +1253,12 @@ export type Database = {
           all_time_profit?: number
           created_at?: string
           id?: string
+          last_snapshot_date?: string | null
           name?: string
+          realized_profit?: number | null
+          total_invested?: number | null
           total_value?: number
+          unrealized_profit?: number | null
           updated_at?: string
           user_id?: string
         }
