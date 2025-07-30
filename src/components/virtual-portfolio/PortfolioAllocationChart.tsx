@@ -29,9 +29,16 @@ const PortfolioAllocationChart = ({ portfolioId, title = "Portfolio Allocation" 
     fetchAllocationData();
   }, [portfolioId]);
 
+  // Add a ref for manual refresh capability
+  const refreshData = () => {
+    console.log('🔄 Manually refreshing allocation data for portfolio:', portfolioId);
+    fetchAllocationData();
+  };
+
   const fetchAllocationData = async () => {
     try {
       setLoading(true);
+      console.log('📊 Fetching fresh allocation data for portfolio:', portfolioId);
       
       const { data: assets, error } = await supabase
         .from('virtual_assets')
@@ -43,13 +50,22 @@ const PortfolioAllocationChart = ({ portfolioId, title = "Portfolio Allocation" 
         .gt('total_amount', 0);
 
       if (error) throw error;
+      
+      console.log(`📊 Found ${assets?.length || 0} assets with holdings > 0`);
+      if (assets) {
+        assets.forEach(asset => {
+          console.log(`   - ${asset.virtual_coins.symbol}: ${asset.total_amount} @ $${asset.average_price}`);
+        });
+      }
 
       // Fetch live prices for current market value calculation
       const symbols = assets.map(asset => asset.virtual_coins.symbol);
       let liveCoinsData = [];
       
+      console.log('💰 Fetching live prices for symbols:', symbols);
       try {
         liveCoinsData = await fetchCoinPrices(symbols);
+        console.log('💰 Live prices fetched successfully:', liveCoinsData.map(coin => `${coin.symbol}: $${coin.current_price}`));
       } catch (error) {
         console.warn('Could not fetch live prices, using average price:', error);
       }
@@ -60,9 +76,14 @@ const PortfolioAllocationChart = ({ portfolioId, title = "Portfolio Allocation" 
         const liveCoinData = liveCoinsData.find(coin => coin.symbol === asset.virtual_coins.symbol);
         const currentPrice = liveCoinData?.current_price || asset.average_price;
         const currentValue = asset.total_amount * currentPrice;
+        
+        console.log(`💎 ${asset.virtual_coins.symbol}: ${asset.total_amount} * $${currentPrice} = $${currentValue.toFixed(2)} ${liveCoinData ? '(live)' : '(avg)'}`);
+        
         totalValue += currentValue;
         return { asset, currentValue };
       });
+      
+      console.log(`💰 Total portfolio value: $${totalValue.toFixed(2)}`);
       
       const allocationData: AllocationData[] = assetValues.map(({ asset, currentValue }, index) => {
         const percentage = totalValue > 0 ? (currentValue / totalValue) * 100 : 0;
@@ -75,8 +96,9 @@ const PortfolioAllocationChart = ({ portfolioId, title = "Portfolio Allocation" 
       });
 
       setData(allocationData);
+      console.log('✅ Allocation data updated:', allocationData.map(item => `${item.name}: ${item.percentage.toFixed(1)}% ($${item.value.toFixed(2)})`));
     } catch (error) {
-      console.error('Error fetching allocation data:', error);
+      console.error('❌ Error fetching allocation data:', error);
     } finally {
       setLoading(false);
     }
@@ -151,7 +173,16 @@ const PortfolioAllocationChart = ({ portfolioId, title = "Portfolio Allocation" 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>{title}</CardTitle>
+          <button
+            onClick={refreshData}
+            className="p-1 hover:bg-muted rounded-md transition-colors"
+            title="Refresh allocation data"
+          >
+            🔄
+          </button>
+        </div>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>

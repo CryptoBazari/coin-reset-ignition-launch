@@ -20,6 +20,7 @@ import { fetchCoinListings as getCoinListings } from '@/services/coinMarketCapSe
 import { realTimeDataService } from '@/services/realTimeDataService';
 import { VirtualPortfolio as VirtualPortfolioType, VirtualAsset } from '@/types/virtualPortfolio';
 import { CategoryAllocationDisplay } from '@/components/virtual-portfolio/CategoryAllocationDisplay';
+import PortfolioAllocationChart from '@/components/virtual-portfolio/PortfolioAllocationChart';
 import { Lock, Database, RefreshCw, CheckCircle, AlertCircle, Plus, TrendingUp, TrendingDown } from 'lucide-react';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -107,8 +108,10 @@ const VirtualPortfolio = () => {
     if (!selectedPortfolioId) return;
 
     try {
+      console.log('🔍 Starting fresh portfolio analysis...');
       const analysis = await analyzeVirtualPortfolio(selectedPortfolioId);
       if (analysis) {
+        console.log('📊 Portfolio analysis completed, updating state...');
         setPortfolioAnalysis(analysis);
         setRiskAnalysis(analysis.riskAnalysis);
         
@@ -132,9 +135,11 @@ const VirtualPortfolio = () => {
           avivRatio: analysis.marketTiming?.bitcoinAvivRatio || 0,
           marketCondition: analysis.marketTiming?.recommendation || 'NEUTRAL'
         });
+        
+        console.log('✅ Portfolio analysis state updated');
       }
     } catch (error) {
-      console.error('Error analyzing portfolio:', error);
+      console.error('❌ Error analyzing portfolio:', error);
     }
   };
 
@@ -173,9 +178,19 @@ const VirtualPortfolio = () => {
   } : selectedPortfolio;
 
   const handleTransactionSuccess = async () => {
-    await fetchPortfolios();
-    await refetchPortfolioData();
+    console.log('🔄 Transaction completed, refreshing all portfolio data...');
+    
+    // Force immediate refresh of all data sources
+    await Promise.all([
+      fetchPortfolios(),
+      refetchPortfolioData(),
+      fetchCryptocurrencies() // Update current prices
+    ]);
+    
+    // Trigger analysis with fresh data
     await analyzePortfolio();
+    
+    console.log('✅ All portfolio data refreshed after transaction');
   };
 
   const isDataEmpty = dataQualityStatus && (
@@ -449,123 +464,137 @@ const VirtualPortfolio = () => {
         
         
         {/* Portfolio Analytics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="space-y-6 mb-6">
           {/* Live AVIV Indicator */}
           <LiveAvivIndicator />
           
           {/* Allocation Display */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Portfolio Allocation</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {portfolioAnalysis?.basketAllocations && (
-                <CategoryAllocationDisplay 
-                  allocations={{
-                    bitcoin: portfolioAnalysis.basketAllocations['Bitcoin'] || 0,
-                    bluechip: portfolioAnalysis.basketAllocations['Blue Chip'] || 0,
-                    smallcap: portfolioAnalysis.basketAllocations['Small-Cap'] || 0
-                  }}
-                  totalValue={enhancedPortfolio?.total_value || 0}
-                />
-              )}
-            </CardContent>
-          </Card>
-          
-          {/* Risk Analysis */}
-          {riskAnalysis && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {selectedPortfolioId && (
+              <PortfolioAllocationChart 
+                portfolioId={selectedPortfolioId}
+                title="Portfolio Allocation (Live Data)"
+                key={`allocation-${selectedPortfolioId}-${Date.now()}`} // Force refresh on changes
+              />
+            )}
+            
             <Card>
               <CardHeader>
-                <CardTitle>Risk Analysis</CardTitle>
+                <CardTitle>Category Allocation (Analysis)</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="mb-4">
-                  <div className="flex justify-between mb-1">
-                    <span className="font-medium">Compliance Status:</span>
-                    <span className={`font-bold ${riskAnalysis.complianceStatus === 'compliant' ? 'text-green-500' : 'text-red-500'}`}>
-                      {riskAnalysis.complianceStatus?.toUpperCase() || 'UNKNOWN'}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between mb-1">
-                      <span className="font-medium">Bitcoin:</span>
-                      <span>{(riskAnalysis.allocations?.bitcoin || 0).toFixed(1)}%</span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2.5">
-                      <div 
-                        className="bg-warning h-2.5 rounded-full" 
-                        style={{ width: `${Math.min(riskAnalysis.allocations?.bitcoin || 0, 100)}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <div className="flex justify-between mb-1">
-                      <span className="font-medium">Blue Chip:</span>
-                      <span>{(riskAnalysis.allocations?.bluechip || 0).toFixed(1)}%</span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2.5">
-                      <div 
-                        className="bg-primary h-2.5 rounded-full" 
-                        style={{ width: `${Math.min(riskAnalysis.allocations?.bluechip || 0, 100)}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <div className="flex justify-between mb-1">
-                      <span className="font-medium">Small Cap:</span>
-                      <span>{(riskAnalysis.allocations?.smallcap || 0).toFixed(1)}%</span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2.5">
-                      <div 
-                        className="bg-accent h-2.5 rounded-full" 
-                        style={{ width: `${Math.min(riskAnalysis.allocations?.smallcap || 0, 100)}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
+                {portfolioAnalysis?.basketAllocations && (
+                  <CategoryAllocationDisplay 
+                    allocations={{
+                      bitcoin: portfolioAnalysis.basketAllocations['Bitcoin'] || 0,
+                      bluechip: portfolioAnalysis.basketAllocations['Blue Chip'] || 0,
+                      smallcap: portfolioAnalysis.basketAllocations['Small-Cap'] || 0
+                    }}
+                    totalValue={enhancedPortfolio?.total_value || 0}
+                  />
+                )}
               </CardContent>
             </Card>
-          )}
+          </div>
           
-          {/* Recommendations */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recommendations</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {recommendations.length > 0 ? (
-                <div className="space-y-3">
-                   {recommendations.map((rec, index) => (
-                     <div key={index} className="p-3 bg-muted rounded-lg border">
-                       <div className="flex justify-between items-start">
-                         <div>
-                           <p className="font-medium">{rec.message || rec.recommendation}</p>
-                           <p className="text-sm text-muted-foreground">{rec.action || rec.confidence}</p>
+          {/* Risk and Recommendations Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+            {/* Risk Analysis */}
+            {riskAnalysis && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Risk Analysis</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="mb-4">
+                    <div className="flex justify-between mb-1">
+                      <span className="font-medium">Compliance Status:</span>
+                      <span className={`font-bold ${riskAnalysis.complianceStatus === 'compliant' ? 'text-green-500' : 'text-red-500'}`}>
+                        {riskAnalysis.complianceStatus?.toUpperCase() || 'UNKNOWN'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <span className="font-medium">Bitcoin:</span>
+                        <span>{(riskAnalysis.allocations?.bitcoin || 0).toFixed(1)}%</span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2.5">
+                        <div 
+                          className="bg-warning h-2.5 rounded-full" 
+                          style={{ width: `${Math.min(riskAnalysis.allocations?.bitcoin || 0, 100)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <span className="font-medium">Blue Chip:</span>
+                        <span>{(riskAnalysis.allocations?.bluechip || 0).toFixed(1)}%</span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2.5">
+                        <div 
+                          className="bg-primary h-2.5 rounded-full" 
+                          style={{ width: `${Math.min(riskAnalysis.allocations?.bluechip || 0, 100)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <span className="font-medium">Small Cap:</span>
+                        <span>{(riskAnalysis.allocations?.smallcap || 0).toFixed(1)}%</span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2.5">
+                        <div 
+                          className="bg-accent h-2.5 rounded-full" 
+                          style={{ width: `${Math.min(riskAnalysis.allocations?.smallcap || 0, 100)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* Recommendations */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Recommendations</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {recommendations.length > 0 ? (
+                  <div className="space-y-3">
+                     {recommendations.map((rec, index) => (
+                       <div key={index} className="p-3 bg-muted rounded-lg border">
+                         <div className="flex justify-between items-start">
+                           <div>
+                             <p className="font-medium">{rec.message || rec.recommendation}</p>
+                             <p className="text-sm text-muted-foreground">{rec.action || rec.confidence}</p>
+                           </div>
+                           <span className={`px-2 py-1 text-xs rounded ${
+                             rec.priority === 'high' ? 'bg-red-500 text-white' :
+                             rec.priority === 'medium' ? 'bg-yellow-500 text-white' :
+                             'bg-primary text-primary-foreground'
+                           }`}>
+                             {(rec.priority || 'LOW').toUpperCase()}
+                           </span>
                          </div>
-                         <span className={`px-2 py-1 text-xs rounded ${
-                           rec.priority === 'high' ? 'bg-red-500 text-white' :
-                           rec.priority === 'medium' ? 'bg-yellow-500 text-white' :
-                           'bg-primary text-primary-foreground'
-                         }`}>
-                           {(rec.priority || 'LOW').toUpperCase()}
-                         </span>
                        </div>
-                     </div>
-                   ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <CheckCircle className="h-12 w-12 mx-auto text-green-400 mb-2" />
-                  <p>Your portfolio is compliant with risk guidelines</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                     ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <CheckCircle className="h-12 w-12 mx-auto text-green-400 mb-2" />
+                    <p>Your portfolio is compliant with risk guidelines</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
         
         {/* Enhanced Asset Holdings */}
