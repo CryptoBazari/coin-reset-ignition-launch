@@ -229,16 +229,18 @@ class EnhancedVirtualPortfolioCalculatorService {
       } catch (error) {
         console.warn(`Failed to calculate metrics for ${symbol}:`, error);
         
-        // More realistic fallback calculations
+        // More realistic fallback calculations with tier-based CAGR bounds
         const realizedCAGR = holdingPeriodYears > 0 ? Math.pow(currentValue / costBasis, 1 / holdingPeriodYears) - 1 : 0;
         
-        // Cap unrealistic returns - no asset should show more than 300% annual returns
-        const cappedCAGR = Math.min(3.0, Math.max(-0.9, realizedCAGR)); // Between -90% and 300%
+        // Apply tier-based realistic CAGR bounds
+        const bounds = this.getRealisticCAGRBounds(symbol);
+        const cappedCAGR = Math.min(bounds.max, Math.max(bounds.min, realizedCAGR));
+        
+        console.log(`📊 Using fallback CAGR for ${symbol}: ${(cappedCAGR * 100).toFixed(1)}% (bounds: ${(bounds.min * 100).toFixed(0)}% to ${(bounds.max * 100).toFixed(0)}%)`);
         
         // More conservative NPV calculation for fallback
-        // Use a higher discount rate (25%) to be more conservative
         const conservativeDiscountRate = 0.25;
-        const projectedValue = currentValue * Math.pow(1 + cappedCAGR * 0.5, 1); // Use half the CAGR for projection
+        const projectedValue = currentValue * Math.pow(1 + cappedCAGR * 0.6, 1); // Use 60% of the CAGR for projection
         const conservativeNPV = -costBasis + (projectedValue / (1 + conservativeDiscountRate));
         
         assetMetrics.push({
@@ -277,6 +279,29 @@ class EnhancedVirtualPortfolioCalculatorService {
     if (bluechipSymbols.includes(symbolUpper)) return 'bluechip';
     
     return 'smallcap';
+  }
+
+  /**
+   * Get realistic CAGR bounds based on asset tier
+   */
+  private getRealisticCAGRBounds(symbol: string): { min: number; max: number } {
+    const symbolUpper = symbol.toUpperCase();
+    
+    // Tier-based realistic CAGR bounds (annual)
+    if (symbolUpper === 'BTC') {
+      return { min: -0.60, max: 0.50 }; // BTC: -60% to +50%
+    }
+    
+    if (['ETH', 'SOL'].includes(symbolUpper)) {
+      return { min: -0.70, max: 0.65 }; // Major altcoins: -70% to +65%
+    }
+    
+    if (['ADA', 'DOT', 'AVAX', 'LINK', 'MATIC', 'UNI', 'ATOM'].includes(symbolUpper)) {
+      return { min: -0.75, max: 0.65 }; // Mid-cap alts: -75% to +65%
+    }
+    
+    // Small caps: -80% to +78% (user requested range)
+    return { min: -0.80, max: 0.78 };
   }
 
   /**
