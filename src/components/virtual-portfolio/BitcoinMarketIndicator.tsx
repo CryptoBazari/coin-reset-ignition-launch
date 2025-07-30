@@ -9,11 +9,6 @@ interface AvivData {
   avivRatio: number;
   marketCondition: string;
   timestamp: string;
-  metrics?: {
-    btcCagr: number;
-    btcBeta: number;
-    riskFreeRate: number;
-  };
   isMockData?: boolean;
 }
 
@@ -166,22 +161,6 @@ export default function BitcoinMarketIndicator() {
           </div>
         </div>
 
-        {avivData.metrics && (
-          <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/20">
-            <div className="text-center">
-              <p className="text-xs opacity-75">CAGR</p>
-              <p className="font-semibold">{(avivData.metrics.btcCagr * 100).toFixed(1)}%</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs opacity-75">Beta</p>
-              <p className="font-semibold">{avivData.metrics.btcBeta.toFixed(2)}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs opacity-75">Risk-Free</p>
-              <p className="font-semibold">{(avivData.metrics.riskFreeRate * 100).toFixed(1)}%</p>
-            </div>
-          </div>
-        )}
 
         <div className="text-xs opacity-75 text-center pt-2">
           Last updated: {new Date(avivData.timestamp).toLocaleTimeString()}

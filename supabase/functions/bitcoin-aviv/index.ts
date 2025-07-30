@@ -35,11 +35,14 @@ serve(async (req) => {
       throw new Error('Glass Node API key not configured');
     }
 
-    // Fetch real AVIV data directly from Glass Node API
-    console.log('Fetching real AVIV data from Glass Node API...');
+    // Fetch current AVIV data from Glass Node API with proper time range
+    console.log('Fetching current AVIV data from Glass Node API...');
+    
+    // Get data from the last 30 days to ensure we get the most recent value
+    const thirtyDaysAgo = Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000);
     
     const avivResponse = await fetch(
-      `https://api.glassnode.com/v1/metrics/indicators/aviv?a=BTC&api_key=${glassnodeApiKey}&limit=1`
+      `https://api.glassnode.com/v1/metrics/indicators/aviv?a=BTC&api_key=${glassnodeApiKey}&since=${thirtyDaysAgo}&limit=1`
     );
 
     let avivRatio = 1.5; // fallback
@@ -71,11 +74,7 @@ serve(async (req) => {
       console.error('AVIV API error:', errorText);
     }
 
-    // Set basic metrics without complex calculations
-    metrics = {
-      btcBeta: 1.2, // Standard Bitcoin beta
-      riskFreeRate: 0.045 // 4.5% risk-free rate
-    };
+    // No need for additional metrics - just AVIV ratio and market condition
 
     // Determine market condition based on AVIV ratio
     const marketCondition = Object.entries(AVIV_THRESHOLDS).find(
@@ -85,8 +84,7 @@ serve(async (req) => {
     const result = {
       avivRatio: Number(avivRatio.toFixed(3)),
       marketCondition,
-      timestamp: new Date().toISOString(),
-      metrics
+      timestamp: new Date().toISOString()
     };
 
     // Cache result
