@@ -41,14 +41,26 @@ serve(async (req) => {
       throw new Error('Glass Node API key not configured');
     }
 
-    // Fetch ONLY the most recent AVIV data point from Glass Node API
-    console.log('Fetching most recent AVIV data from Glass Node API...');
+    // Fetch the most recent AVIV data from Glass Node API
+    console.log('Fetching current AVIV data from Glass Node API...');
     
-    // Get only the most recent data point using the 'u' (until) parameter set to current timestamp
-    const currentTimestamp = Math.floor(Date.now() / 1000);
-    const avivResponse = await fetch(
-      `https://api.glassnode.com/v1/metrics/indicators/aviv?a=BTC&api_key=${glassnodeApiKey}&u=${currentTimestamp}&limit=1`
-    );
+    let avivResponse;
+    
+    // First try: Get most recent data without time constraints
+    try {
+      avivResponse = await fetch(
+        `https://api.glassnode.com/v1/metrics/indicators/aviv?a=BTC&api_key=${glassnodeApiKey}&limit=1`
+      );
+    } catch (error) {
+      console.error('Primary AVIV API call failed:', error);
+      
+      // Fallback: Try with 'since' parameter for last 30 days
+      const thirtyDaysAgo = Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000);
+      console.log('Trying fallback with recent timeframe...');
+      avivResponse = await fetch(
+        `https://api.glassnode.com/v1/metrics/indicators/aviv?a=BTC&api_key=${glassnodeApiKey}&s=${thirtyDaysAgo}&limit=1`
+      );
+    }
 
     let avivRatio = 1.5; // fallback
 
@@ -61,13 +73,21 @@ serve(async (req) => {
         const mostRecentEntry = avivData[avivData.length - 1];
         const rawValue = mostRecentEntry.v;
         const timestamp = new Date(mostRecentEntry.t * 1000);
+        const now = new Date();
+        const daysDiff = (now.getTime() - timestamp.getTime()) / (1000 * 60 * 60 * 24);
         
         console.log(`📊 Most recent AVIV entry from ${timestamp.toISOString()}: ${rawValue}`);
+        console.log(`📅 Data age: ${daysDiff.toFixed(1)} days old`);
+        
+        // Check if data is recent (within last 7 days)
+        if (daysDiff > 7) {
+          console.warn(`⚠️ AVIV data is ${daysDiff.toFixed(1)} days old, may not be current`);
+        }
         
         // Validate AVIV ratio is reasonable (typically 0.1-10 range for current market)
         if (rawValue && typeof rawValue === 'number' && rawValue >= 0.1 && rawValue <= 10) {
           avivRatio = rawValue;
-          console.log(`✅ Valid current AVIV ratio from Glass Node: ${avivRatio}`);
+          console.log(`✅ Valid AVIV ratio from Glass Node: ${avivRatio}`);
         } else {
           console.warn(`⚠️ AVIV value outside expected range: ${rawValue}, using fallback: 1.5`);
           avivRatio = 1.5;
