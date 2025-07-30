@@ -16,120 +16,35 @@ import {
   Shield
 } from 'lucide-react';
 import { 
-  analyzePortfolio,
-  PortfolioAnalysis,
-  Portfolio,
-  Asset
-} from '@/services/comprehensiveFinancialCalculationService';
-import { supabase } from '@/integrations/supabase/client';
+  enhancedVirtualPortfolioCalculatorService,
+  EnhancedPortfolioAnalysis 
+} from '@/services/enhancedVirtualPortfolioCalculatorService';
 
 interface AdvancedMetricsCardProps {
   portfolioId: string;
 }
 
-// Helper function to categorize assets
-function categorizeAsset(symbol: string): 'bitcoin' | 'bluechip' | 'smallcap' {
-  const symbol_upper = symbol.toUpperCase();
-  
-  if (symbol_upper === 'BTC') return 'bitcoin';
-  
-  const bluechipSymbols = ['ETH', 'SOL', 'ADA', 'DOT', 'AVAX', 'MATIC', 'LINK', 'UNI', 'ATOM'];
-  if (bluechipSymbols.includes(symbol_upper)) return 'bluechip';
-  
-  return 'smallcap';
-}
 
 const AdvancedMetricsCard: React.FC<AdvancedMetricsCardProps> = ({ portfolioId }) => {
-  const [analysis, setAnalysis] = useState<PortfolioAnalysis | null>(null);
+  const [analysis, setAnalysis] = useState<EnhancedPortfolioAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-
-  const fetchPortfolioData = async (): Promise<Portfolio | null> => {
-    try {
-      // Fetch portfolio assets with coin data from Supabase
-      const { data: assets, error: assetsError } = await supabase
-        .from('virtual_assets')
-        .select(`
-          *,
-          virtual_coins (
-            symbol,
-            name
-          )
-        `)
-        .eq('portfolio_id', portfolioId);
-
-      if (assetsError) {
-        console.error('Error fetching assets:', assetsError);
-        return null;
-      }
-
-      if (!assets || assets.length === 0) {
-        console.log('No assets found for portfolio');
-        return null;
-      }
-
-      // Transform assets to the required format
-      const transformedAssets: Asset[] = assets.map(asset => ({
-        id: asset.id,
-        symbol: asset.virtual_coins.symbol,
-        name: asset.virtual_coins.name,
-        category: categorizeAsset(asset.virtual_coins.symbol),
-        quantity: asset.total_amount,
-        purchasePrice: asset.average_price,
-        purchaseDate: new Date(asset.created_at), // Use created_at as purchase date
-        currentPrice: asset.average_price, // We'll update this from API
-        historicalPrices: [], // Will be populated by fetchHistoricalData
-        transactionVolumes: [] // Will be populated by fetchHistoricalData
-      }));
-
-      const currentValue = transformedAssets.reduce((sum, asset) => 
-        sum + (asset.currentPrice * asset.quantity), 0);
-      const costBasis = transformedAssets.reduce((sum, asset) => 
-        sum + (asset.purchasePrice * asset.quantity), 0);
-
-      return {
-        id: portfolioId,
-        userId: '', // Not needed for calculations
-        name: 'Portfolio',
-        assets: transformedAssets,
-        createdAt: new Date(),
-        lastAnalyzed: null,
-        currentValue,
-        costBasis
-      };
-
-    } catch (error) {
-      console.error('Error in fetchPortfolioData:', error);
-      return null;
-    }
-  };
 
   const runAnalysis = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const portfolio = await fetchPortfolioData();
-      
-      if (!portfolio) {
-        setError('No portfolio data found');
-        return;
-      }
-
-      if (portfolio.assets.length === 0) {
-        setError('No assets in portfolio to analyze');
-        return;
-      }
-
-      console.log('Running comprehensive analysis for portfolio:', portfolio);
-      const analysisResult = await analyzePortfolio(portfolio);
+      console.log('🔄 Running enhanced virtual portfolio analysis...');
+      const analysisResult = await enhancedVirtualPortfolioCalculatorService.analyzeVirtualPortfolio(portfolioId);
       
       setAnalysis(analysisResult);
       setLastUpdated(new Date());
+      console.log('✅ Analysis completed successfully');
       
     } catch (error) {
-      console.error('Analysis error:', error);
+      console.error('❌ Analysis error:', error);
       setError(error instanceof Error ? error.message : 'Analysis failed');
     } finally {
       setLoading(false);
@@ -299,7 +214,7 @@ const AdvancedMetricsCard: React.FC<AdvancedMetricsCardProps> = ({ portfolioId }
           <div className="space-y-2">
             <p className="text-sm font-medium text-muted-foreground">Diversification</p>
             <p className="text-2xl font-bold flex items-center gap-2">
-              {analysis.portfolio.diversificationScore.toFixed(1)}/10
+              {analysis.portfolio.diversificationScore.toFixed(1)}/100
               <PieChart className="w-4 h-4 text-blue-500" />
             </p>
           </div>
