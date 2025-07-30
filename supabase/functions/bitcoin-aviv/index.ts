@@ -66,33 +66,11 @@ serve(async (req) => {
       console.warn('⚠️ Glass Node AVIV API call failed, using fallback');
     }
 
-    // Try to get additional metrics from Glass Node
-    try {
-      const [priceResponse, liquidSupplyResponse] = await Promise.all([
-        fetch(`https://api.glassnode.com/v1/metrics/market/price_usd_close?a=BTC&api_key=${glassnodeApiKey}&limit=30`),
-        fetch(`https://api.glassnode.com/v1/metrics/supply/liquid_sum?a=BTC&api_key=${glassnodeApiKey}&limit=1`)
-      ]);
-
-      if (priceResponse.ok && liquidSupplyResponse.ok) {
-        const priceData = await priceResponse.json();
-        const liquidData = await liquidSupplyResponse.json();
-        
-        if (priceData.length >= 30) {
-          // Calculate simple CAGR from 30-day price data
-          const oldPrice = priceData[0].v;
-          const newPrice = priceData[priceData.length - 1].v;
-          const btcCagr = (Math.pow(newPrice / oldPrice, 365/30) - 1);
-          
-          metrics = {
-            btcCagr: Number(btcCagr.toFixed(4)),
-            btcBeta: 1.2, // Reasonable default for Bitcoin
-            riskFreeRate: 0.045 // 4.5% default risk-free rate
-          };
-        }
-      }
-    } catch (metricsError) {
-      console.warn('Could not fetch additional metrics:', metricsError);
-    }
+    // Set basic metrics without complex calculations
+    metrics = {
+      btcBeta: 1.2, // Standard Bitcoin beta
+      riskFreeRate: 0.045 // 4.5% risk-free rate
+    };
 
     // Determine market condition based on AVIV ratio
     const marketCondition = Object.entries(AVIV_THRESHOLDS).find(
