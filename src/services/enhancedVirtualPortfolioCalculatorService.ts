@@ -164,7 +164,7 @@ class EnhancedVirtualPortfolioCalculatorService {
   }
 
   /**
-   * Calculate metrics for each asset using hybrid calculators
+   * Calculate metrics for each asset using hybrid calculators with realistic fallbacks
    */
   private async calculateAssetMetrics(
     portfolioAssets: any[], 
@@ -187,7 +187,6 @@ class EnhancedVirtualPortfolioCalculatorService {
       const holdingPeriodDays = Math.max(1, Math.floor((Date.now() - earliestDate.getTime()) / (1000 * 60 * 60 * 24)));
       const holdingPeriodYears = Math.max(0.1, holdingPeriodDays / 365.25);
 
-      // Use hybrid calculators with current market value and actual holding period
       console.log(`📊 Calculating metrics for ${symbol}: $${currentValue.toFixed(2)}, ${holdingPeriodYears.toFixed(2)} years`);
 
       try {
@@ -223,14 +222,25 @@ class EnhancedVirtualPortfolioCalculatorService {
           holdingPeriodYears,
           npv: npvResult.npv || 0,
           cagr: (cagrResult.cagr || 0) / 100, // Convert percentage to decimal
-          beta: betaResult.beta || 1.0,
+          beta: betaResult.beta || this.getEstimatedBeta(symbol),
           confidence: cagrResult.confidence || 'medium'
         });
 
       } catch (error) {
         console.warn(`Failed to calculate metrics for ${symbol}:`, error);
         
-        // Fallback values
+        // More realistic fallback calculations
+        const realizedCAGR = holdingPeriodYears > 0 ? Math.pow(currentValue / costBasis, 1 / holdingPeriodYears) - 1 : 0;
+        
+        // Cap unrealistic returns - no asset should show more than 300% annual returns
+        const cappedCAGR = Math.min(3.0, Math.max(-0.9, realizedCAGR)); // Between -90% and 300%
+        
+        // More conservative NPV calculation for fallback
+        // Use a higher discount rate (25%) to be more conservative
+        const conservativeDiscountRate = 0.25;
+        const projectedValue = currentValue * Math.pow(1 + cappedCAGR * 0.5, 1); // Use half the CAGR for projection
+        const conservativeNPV = -costBasis + (projectedValue / (1 + conservativeDiscountRate));
+        
         assetMetrics.push({
           id: asset.id,
           symbol,
@@ -244,8 +254,8 @@ class EnhancedVirtualPortfolioCalculatorService {
           profit,
           holdingPeriodDays,
           holdingPeriodYears,
-          npv: profit, // Use simple profit as NPV fallback
-          cagr: holdingPeriodYears > 0 ? Math.pow(currentValue / costBasis, 1 / holdingPeriodYears) - 1 : 0,
+          npv: Math.min(conservativeNPV, profit * 0.8), // NPV should not exceed 80% of current profit
+          cagr: cappedCAGR,
           beta: this.getEstimatedBeta(symbol),
           confidence: 'low'
         });
@@ -270,14 +280,16 @@ class EnhancedVirtualPortfolioCalculatorService {
   }
 
   /**
-   * Get estimated beta for fallback
+   * Get estimated beta for fallback - more realistic values
    */
   private getEstimatedBeta(symbol: string): number {
     const symbolUpper = symbol.toUpperCase();
     
-    if (symbolUpper === 'BTC') return 1.0;
-    if (['ETH', 'SOL', 'ADA'].includes(symbolUpper)) return 1.5;
-    return 2.0; // Small caps typically have higher beta
+    // More conservative beta estimates based on actual market behavior
+    if (symbolUpper === 'BTC') return 1.2; // Bitcoin is volatile relative to traditional markets
+    if (['ETH', 'SOL'].includes(symbolUpper)) return 1.8; // Major altcoins are more volatile
+    if (['ADA', 'DOT', 'AVAX', 'LINK'].includes(symbolUpper)) return 2.2; // Mid-cap alts
+    return 2.5; // Small caps have highest beta
   }
 
   /**
