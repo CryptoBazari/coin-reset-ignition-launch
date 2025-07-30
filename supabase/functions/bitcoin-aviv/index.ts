@@ -28,21 +28,23 @@ serve(async (req) => {
     const glassnodeApiKey = Deno.env.get('GLASSNODE_API_KEY');
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Skip cache for now to force fresh data - will re-enable after fixing data issues
+    // Clear cache to force fresh data fetch
+    await supabase
+      .from('glassnode_cache')
+      .delete()
+      .eq('cache_key', 'bitcoin-aviv');
+
     console.log('Forcing fresh AVIV data fetch from Glass Node API...');
 
     if (!glassnodeApiKey) {
       throw new Error('Glass Node API key not configured');
     }
 
-    // Fetch current AVIV data from Glass Node API with proper time range
+    // Fetch current AVIV data from Glass Node API - get only most recent value
     console.log('Fetching current AVIV data from Glass Node API...');
     
-    // Get data from the last 30 days to ensure we get the most recent value
-    const thirtyDaysAgo = Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000);
-    
     const avivResponse = await fetch(
-      `https://api.glassnode.com/v1/metrics/indicators/aviv?a=BTC&api_key=${glassnodeApiKey}&since=${thirtyDaysAgo}&limit=1`
+      `https://api.glassnode.com/v1/metrics/indicators/aviv?a=BTC&api_key=${glassnodeApiKey}&limit=1`
     );
 
     let avivRatio = 1.5; // fallback
