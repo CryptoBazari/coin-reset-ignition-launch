@@ -75,8 +75,11 @@ export const useUnifiedPortfolioData = (portfolioId: string) => {
   useEffect(() => {
     if (!portfolioId) return;
 
+    console.log('🔄 [Unified] Setting up real-time subscription for portfolio:', portfolioId);
+
+    const channelName = `portfolio-changes-${portfolioId}-${Date.now()}`;
     const channel = supabase
-      .channel(`portfolio-changes-${portfolioId}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -85,11 +88,32 @@ export const useUnifiedPortfolioData = (portfolioId: string) => {
           table: 'virtual_assets',
           filter: `portfolio_id=eq.${portfolioId}`
         },
-        (payload) => {
+        async (payload) => {
           console.log('🔄 [Unified] Asset change detected:', payload);
           // Clear cache and refetch data
           realTimePortfolioService.clearCache();
-          fetchPortfolioData();
+          
+          // Refetch data without depending on the callback
+          try {
+            const realTimeData = await realTimePortfolioService.getPortfolioRealTimeData(portfolioId);
+            const allocations = realTimeData.assets.map((asset, index) => ({
+              symbol: asset.symbol,
+              name: asset.name,
+              value: asset.currentValue,
+              percentage: realTimeData.totalValue > 0 ? (asset.currentValue / realTimeData.totalValue) * 100 : 0,
+              color: ALLOCATION_COLORS[index % ALLOCATION_COLORS.length]
+            }));
+
+            const unifiedData: UnifiedPortfolioData = {
+              ...realTimeData,
+              allocations,
+              lastUpdated: new Date()
+            };
+
+            setPortfolioData(unifiedData);
+          } catch (err) {
+            console.error('❌ [Unified] Error in real-time update:', err);
+          }
         }
       )
       .on(
@@ -100,19 +124,43 @@ export const useUnifiedPortfolioData = (portfolioId: string) => {
           table: 'virtual_transactions',
           filter: `portfolio_id=eq.${portfolioId}`
         },
-        (payload) => {
+        async (payload) => {
           console.log('🔄 [Unified] Transaction change detected:', payload);
           // Clear cache and refetch data
           realTimePortfolioService.clearCache();
-          fetchPortfolioData();
+          
+          // Refetch data without depending on the callback
+          try {
+            const realTimeData = await realTimePortfolioService.getPortfolioRealTimeData(portfolioId);
+            const allocations = realTimeData.assets.map((asset, index) => ({
+              symbol: asset.symbol,
+              name: asset.name,
+              value: asset.currentValue,
+              percentage: realTimeData.totalValue > 0 ? (asset.currentValue / realTimeData.totalValue) * 100 : 0,
+              color: ALLOCATION_COLORS[index % ALLOCATION_COLORS.length]
+            }));
+
+            const unifiedData: UnifiedPortfolioData = {
+              ...realTimeData,
+              allocations,
+              lastUpdated: new Date()
+            };
+
+            setPortfolioData(unifiedData);
+          } catch (err) {
+            console.error('❌ [Unified] Error in real-time update:', err);
+          }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('🔄 [Unified] Subscription status:', status);
+      });
 
     return () => {
+      console.log('🔄 [Unified] Cleaning up subscription for portfolio:', portfolioId);
       supabase.removeChannel(channel);
     };
-  }, [portfolioId, fetchPortfolioData]);
+  }, [portfolioId]); // Removed fetchPortfolioData dependency
 
   useEffect(() => {
     fetchPortfolioData();
