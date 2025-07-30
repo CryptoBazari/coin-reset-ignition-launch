@@ -28,19 +28,8 @@ serve(async (req) => {
     const glassnodeApiKey = Deno.env.get('GLASSNODE_API_KEY');
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Check cache first
-    const { data: cached } = await supabase
-      .from('glassnode_cache')
-      .select('data, created_at')
-      .eq('cache_key', 'bitcoin-aviv')
-      .single();
-
-    if (cached && new Date(cached.created_at) > new Date(Date.now() - 15 * 60 * 1000)) {
-      console.log('Returning cached Bitcoin AVIV data');
-      return new Response(JSON.stringify(cached.data), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
+    // Skip cache for now to force fresh data - will re-enable after fixing data issues
+    console.log('Forcing fresh AVIV data fetch from Glass Node API...');
 
     if (!glassnodeApiKey) {
       throw new Error('Glass Node API key not configured');
@@ -58,12 +47,28 @@ serve(async (req) => {
 
     if (avivResponse.ok) {
       const avivData = await avivResponse.json();
+      console.log('🔍 Raw Glass Node AVIV response:', JSON.stringify(avivData));
+      
       if (avivData && avivData.length > 0) {
-        avivRatio = avivData[0].v || 1.5;
-        console.log(`✅ Real AVIV ratio from Glass Node: ${avivRatio}`);
+        const rawValue = avivData[0].v;
+        console.log(`📊 Raw AVIV value from API: ${rawValue}`);
+        
+        // Validate AVIV ratio is reasonable (typically 0-10 range)
+        if (rawValue && typeof rawValue === 'number' && rawValue >= 0 && rawValue <= 10) {
+          avivRatio = rawValue;
+          console.log(`✅ Valid AVIV ratio from Glass Node: ${avivRatio}`);
+        } else {
+          console.warn(`⚠️ Invalid AVIV value: ${rawValue}, using fallback: 1.5`);
+          avivRatio = 1.5;
+        }
+      } else {
+        console.warn('⚠️ No AVIV data in response, using fallback');
+        avivRatio = 1.5;
       }
     } else {
       console.warn('⚠️ Glass Node AVIV API call failed, using fallback');
+      const errorText = await avivResponse.text();
+      console.error('AVIV API error:', errorText);
     }
 
     // Set basic metrics without complex calculations
