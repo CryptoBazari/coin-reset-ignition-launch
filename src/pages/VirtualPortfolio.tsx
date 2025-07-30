@@ -21,6 +21,7 @@ import { realTimePortfolioService } from '@/services/realTimePortfolioService';
 import { VirtualPortfolio as VirtualPortfolioType, VirtualAsset } from '@/types/virtualPortfolio';
 
 import PortfolioAllocationChart from '@/components/virtual-portfolio/PortfolioAllocationChart';
+import AdvancedMetricsCard from '@/components/virtual-portfolio/AdvancedMetricsCard';
 import { Lock, CheckCircle, Plus, TrendingUp, TrendingDown } from 'lucide-react';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -367,6 +368,14 @@ const VirtualPortfolio = () => {
               portfolioId={selectedPortfolioId}
               title="Portfolio Allocation (Live Data)"
               key={`allocation-${selectedPortfolioId}-${Date.now()}`} // Force refresh on changes
+            />
+          )}
+          
+          {/* Advanced Metrics Card */}
+          {selectedPortfolioId && (
+            <AdvancedMetricsCard 
+              portfolioId={selectedPortfolioId}
+              key={`advanced-metrics-${selectedPortfolioId}-${Date.now()}`}
             />
           )}
           
