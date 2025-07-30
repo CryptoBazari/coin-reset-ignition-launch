@@ -17,12 +17,11 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { useRealTimePortfolio } from '@/hooks/useRealTimePortfolio';
 import { useVirtualPortfolioAnalysis } from '@/hooks/useVirtualPortfolioAnalysis';
 import { fetchCoinListings as getCoinListings } from '@/services/coinMarketCapService';
-import { realTimeDataService } from '@/services/realTimeDataService';
 import { realTimePortfolioService } from '@/services/realTimePortfolioService';
 import { VirtualPortfolio as VirtualPortfolioType, VirtualAsset } from '@/types/virtualPortfolio';
 
 import PortfolioAllocationChart from '@/components/virtual-portfolio/PortfolioAllocationChart';
-import { Lock, Database, RefreshCw, CheckCircle, AlertCircle, Plus, TrendingUp, TrendingDown } from 'lucide-react';
+import { Lock, CheckCircle, Plus, TrendingUp, TrendingDown } from 'lucide-react';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -35,8 +34,6 @@ const VirtualPortfolio = () => {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [cryptoList, setCryptoList] = useState([]);
-  const [dataQualityStatus, setDataQualityStatus] = useState<any>(null);
-  const [initializingData, setInitializingData] = useState(false);
   const [currentPrices, setCurrentPrices] = useState<Record<string, number>>({});
 
   const { hasActiveSubscription, user } = useSubscription();
@@ -52,7 +49,6 @@ const VirtualPortfolio = () => {
   useEffect(() => {
     if (user && hasActiveSubscription) {
       fetchPortfolios();
-      checkDataQuality();
       fetchCryptocurrencies();
     } else {
       setLoading(false);
@@ -145,32 +141,6 @@ const VirtualPortfolio = () => {
     }
   };
 
-  const checkDataQuality = async () => {
-    try {
-      const status = await realTimeDataService.getDataQualityStatus();
-      setDataQualityStatus(status);
-    } catch (error) {
-      console.error('Error checking data quality:', error);
-    }
-  };
-
-  const initializeRealDataPipeline = async () => {
-    try {
-      setInitializingData(true);
-      const result = await realTimeDataService.initializeRealDataPipeline();
-      
-      if (result.success) {
-        console.log('Real data pipeline initialized successfully:', result);
-        await checkDataQuality();
-      } else {
-        console.error('Failed to initialize real data pipeline:', result.error);
-      }
-    } catch (error) {
-      console.error('Error initializing real data pipeline:', error);
-    } finally {
-      setInitializingData(false);
-    }
-  };
 
   const selectedPortfolio = portfolios.find(p => p.id === selectedPortfolioId);
   const enhancedPortfolio = selectedPortfolio && portfolioData ? {
@@ -203,10 +173,6 @@ const VirtualPortfolio = () => {
     console.log('✅ [VirtualPortfolio] All portfolio data refreshed after transaction');
   };
 
-  const isDataEmpty = dataQualityStatus && (
-    dataQualityStatus.priceHistoryRecords === 0 || 
-    dataQualityStatus.healthyCoins === 0
-  );
 
   // Calculate portfolio metrics
   const portfolioValue = enhancedPortfolio?.total_value || 0;
@@ -328,89 +294,6 @@ const VirtualPortfolio = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container mx-auto px-4 py-8">
-        {/* Data Quality Status */}
-        {dataQualityStatus && (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5" />
-                Real Data Pipeline Status
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{dataQualityStatus.totalCoins}</div>
-                  <div className="text-sm text-muted-foreground">Total Coins</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">{dataQualityStatus.healthyCoins}</div>
-                  <div className="text-sm text-muted-foreground">Healthy APIs</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{dataQualityStatus.priceHistoryRecords}</div>
-                  <div className="text-sm text-muted-foreground">Price Records</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{dataQualityStatus.glassNodeMetricsRecords}</div>
-                  <div className="text-sm text-muted-foreground">Glass Node Records</div>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Badge 
-                    variant={dataQualityStatus.dataQualityScore > 70 ? "default" : "destructive"}
-                    className="flex items-center gap-1"
-                  >
-                    {dataQualityStatus.dataQualityScore > 70 ? (
-                      <CheckCircle className="h-3 w-3" />
-                    ) : (
-                      <AlertCircle className="h-3 w-3" />
-                    )}
-                    Data Quality: {dataQualityStatus.dataQualityScore}%
-                  </Badge>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={checkDataQuality}>
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
-                  
-                  {isDataEmpty && (
-                    <Button 
-                      onClick={initializeRealDataPipeline}
-                      disabled={initializingData}
-                      className="flex items-center gap-2"
-                    >
-                      {initializingData ? (
-                        <>
-                          <RefreshCw className="h-4 w-4 animate-spin" />
-                          Initializing...
-                        </>
-                      ) : (
-                        <>
-                          <Database className="h-4 w-4" />
-                          Initialize Real Data
-                        </>
-                      )}
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              {isDataEmpty && (
-                <Alert className="mt-4">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Your database is empty. Click "Initialize Real Data" to populate it with real market data, 
-                    price history, and Glass Node metrics. This process may take a few minutes.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
-        )}
 
         {/* Portfolio Header */}
         <div className="mb-8 p-6 bg-card rounded-xl border">
