@@ -20,7 +20,7 @@ import { fetchCoinListings as getCoinListings } from '@/services/coinMarketCapSe
 import { realTimeDataService } from '@/services/realTimeDataService';
 import { realTimePortfolioService } from '@/services/realTimePortfolioService';
 import { VirtualPortfolio as VirtualPortfolioType, VirtualAsset } from '@/types/virtualPortfolio';
-import { CategoryAllocationDisplay } from '@/components/virtual-portfolio/CategoryAllocationDisplay';
+
 import PortfolioAllocationChart from '@/components/virtual-portfolio/PortfolioAllocationChart';
 import { Lock, Database, RefreshCw, CheckCircle, AlertCircle, Plus, TrendingUp, TrendingDown } from 'lucide-react';
 
@@ -478,34 +478,14 @@ const VirtualPortfolio = () => {
           {/* Live AVIV Indicator */}
           <LiveAvivIndicator />
           
-          {/* Allocation Display */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {selectedPortfolioId && (
-              <PortfolioAllocationChart 
-                portfolioId={selectedPortfolioId}
-                title="Portfolio Allocation (Live Data)"
-                key={`allocation-${selectedPortfolioId}-${Date.now()}`} // Force refresh on changes
-              />
-            )}
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Category Allocation (Analysis)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {portfolioAnalysis?.basketAllocations && (
-                  <CategoryAllocationDisplay 
-                    allocations={{
-                      bitcoin: portfolioAnalysis.basketAllocations['Bitcoin'] || 0,
-                      bluechip: portfolioAnalysis.basketAllocations['Blue Chip'] || 0,
-                      smallcap: portfolioAnalysis.basketAllocations['Small-Cap'] || 0
-                    }}
-                    totalValue={enhancedPortfolio?.total_value || 0}
-                  />
-                )}
-              </CardContent>
-            </Card>
-          </div>
+          {/* Portfolio Allocation Chart - Full Width */}
+          {selectedPortfolioId && (
+            <PortfolioAllocationChart 
+              portfolioId={selectedPortfolioId}
+              title="Portfolio Allocation (Live Data)"
+              key={`allocation-${selectedPortfolioId}-${Date.now()}`} // Force refresh on changes
+            />
+          )}
           
           {/* Risk and Recommendations Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
