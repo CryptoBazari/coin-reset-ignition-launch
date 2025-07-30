@@ -18,6 +18,7 @@ import { useRealTimePortfolio } from '@/hooks/useRealTimePortfolio';
 import { useVirtualPortfolioAnalysis } from '@/hooks/useVirtualPortfolioAnalysis';
 import { fetchCoinListings as getCoinListings } from '@/services/coinMarketCapService';
 import { realTimeDataService } from '@/services/realTimeDataService';
+import { realTimePortfolioService } from '@/services/realTimePortfolioService';
 import { VirtualPortfolio as VirtualPortfolioType, VirtualAsset } from '@/types/virtualPortfolio';
 import { CategoryAllocationDisplay } from '@/components/virtual-portfolio/CategoryAllocationDisplay';
 import PortfolioAllocationChart from '@/components/virtual-portfolio/PortfolioAllocationChart';
@@ -104,12 +105,13 @@ const VirtualPortfolio = () => {
     }
   };
 
-  const analyzePortfolio = async () => {
-    if (!selectedPortfolioId) return;
+  const analyzePortfolio = async (portfolioId?: string) => {
+    const targetPortfolioId = portfolioId || selectedPortfolioId;
+    if (!targetPortfolioId) return;
 
     try {
-      console.log('🔍 Starting fresh portfolio analysis...');
-      const analysis = await analyzeVirtualPortfolio(selectedPortfolioId);
+      console.log('🔍 Starting fresh portfolio analysis for:', targetPortfolioId);
+      const analysis = await analyzeVirtualPortfolio(targetPortfolioId);
       if (analysis) {
         console.log('📊 Portfolio analysis completed, updating state...');
         setPortfolioAnalysis(analysis);
@@ -178,7 +180,12 @@ const VirtualPortfolio = () => {
   } : selectedPortfolio;
 
   const handleTransactionSuccess = async () => {
-    console.log('🔄 Transaction completed, refreshing all portfolio data...');
+    console.log('🔄 [VirtualPortfolio] Transaction completed, refreshing all portfolio data...');
+    
+    // Clear cache to force fresh data fetch
+    if (realTimePortfolioService?.clearCache) {
+      realTimePortfolioService.clearCache();
+    }
     
     // Force immediate refresh of all data sources
     await Promise.all([
@@ -188,9 +195,12 @@ const VirtualPortfolio = () => {
     ]);
     
     // Trigger analysis with fresh data
-    await analyzePortfolio();
+    if (selectedPortfolio?.id) {
+      console.log('🔄 [VirtualPortfolio] Re-analyzing portfolio after transaction...');
+      await analyzePortfolio(selectedPortfolio.id);
+    }
     
-    console.log('✅ All portfolio data refreshed after transaction');
+    console.log('✅ [VirtualPortfolio] All portfolio data refreshed after transaction');
   };
 
   const isDataEmpty = dataQualityStatus && (

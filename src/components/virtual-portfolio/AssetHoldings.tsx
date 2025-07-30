@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useAssetHoldings } from '@/hooks/useAssetHoldings';
+import { useUnifiedAssetHoldings } from '@/hooks/useUnifiedAssetHoldings';
 import { AssetHoldingsProps } from '@/types/assetHoldings';
 import AssetSummaryStats from './AssetSummaryStats';
 import AssetFiltersControls from './AssetFiltersControls';
@@ -11,6 +11,7 @@ const AssetHoldings = ({ portfolioId }: AssetHoldingsProps) => {
     assets,
     filteredAssets,
     loading,
+    error,
     searchTerm,
     setSearchTerm,
     categoryFilter,
@@ -21,7 +22,7 @@ const AssetHoldings = ({ portfolioId }: AssetHoldingsProps) => {
     setSortOrder,
     liveCoinsData,
     fetchAssets
-  } = useAssetHoldings(portfolioId);
+  } = useUnifiedAssetHoldings(portfolioId);
 
   const categories = ['all', ...Array.from(new Set(assets.map(asset => asset.category)))];
 
