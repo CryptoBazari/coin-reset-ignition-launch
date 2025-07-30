@@ -56,11 +56,8 @@ const VirtualPortfolio = () => {
     }
   }, [user, hasActiveSubscription]);
 
-  useEffect(() => {
-    if (selectedPortfolioId) {
-      analyzePortfolio();
-    }
-  }, [selectedPortfolioId, portfolioData]);
+  // Removed automatic portfolio analysis
+  // Analysis now only runs when manually triggered
 
   const fetchPortfolios = async () => {
     if (!user) return;

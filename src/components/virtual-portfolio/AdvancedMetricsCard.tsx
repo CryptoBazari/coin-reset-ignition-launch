@@ -51,11 +51,8 @@ const AdvancedMetricsCard: React.FC<AdvancedMetricsCardProps> = ({ portfolioId }
     }
   };
 
-  useEffect(() => {
-    if (portfolioId) {
-      runAnalysis();
-    }
-  }, [portfolioId]);
+  // Removed automatic analysis on portfolioId change
+  // Analysis now only runs when manually triggered by user button click
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
