@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { RefreshCw, AlertCircle, Clock, TrendingUp, TrendingDown, Coins, DollarSign, Zap, Info, CheckCircle, AlertTriangle } from 'lucide-react';
+import { RefreshCw, AlertCircle, Clock, TrendingUp, TrendingDown, Coins, DollarSign, Zap, Info } from 'lucide-react';
 import { useUnifiedPortfolioData } from '@/hooks/useUnifiedPortfolioData';
 
 interface PortfolioAllocationChartProps {
@@ -26,13 +26,6 @@ const CRYPTO_COLORS = {
   'ATOM': { primary: '#2E3148', gradient: 'linear-gradient(135deg, #2E3148, #6B7280)' }
 } as const;
 
-// Allocation health thresholds
-const ALLOCATION_THRESHOLDS = {
-  OVER_ALLOCATED: 30, // Over 30% is considered over-allocated
-  WELL_BALANCED: 10,  // Between 10-30% is well balanced
-  UNDER_ALLOCATED: 5  // Under 5% is under-allocated
-};
-
 const getCryptoColor = (symbol: string, index: number): string => {
   const colorConfig = CRYPTO_COLORS[symbol as keyof typeof CRYPTO_COLORS];
   return colorConfig?.primary || `hsl(${(index * 137.5) % 360}, 70%, 50%)`;
@@ -41,16 +34,6 @@ const getCryptoColor = (symbol: string, index: number): string => {
 const getCryptoGradient = (symbol: string, index: number): string => {
   const colorConfig = CRYPTO_COLORS[symbol as keyof typeof CRYPTO_COLORS];
   return colorConfig?.gradient || `linear-gradient(135deg, hsl(${(index * 137.5) % 360}, 70%, 50%), hsl(${(index * 137.5 + 30) % 360}, 70%, 60%))`;
-};
-
-const getHealthIndicator = (percentage: number) => {
-  if (percentage > ALLOCATION_THRESHOLDS.OVER_ALLOCATED) {
-    return { status: 'over', icon: AlertTriangle, color: 'text-orange-500', message: 'Over-allocated' };
-  } else if (percentage < ALLOCATION_THRESHOLDS.UNDER_ALLOCATED) {
-    return { status: 'under', icon: AlertCircle, color: 'text-yellow-500', message: 'Under-allocated' };
-  } else {
-    return { status: 'balanced', icon: CheckCircle, color: 'text-green-500', message: 'Well balanced' };
-  }
 };
 
 const getCryptoIcon = (symbol: string) => {
@@ -71,13 +54,12 @@ const PortfolioAllocationChart: React.FC<PortfolioAllocationChartProps> = ({
   const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
   const { portfolioData, loading, error, refreshData, lastUpdated } = useUnifiedPortfolioData(portfolioId);
 
-  // Enhanced allocations with crypto colors, gradients, and health indicators
+  // Enhanced allocations with crypto colors and gradients
   const enhancedAllocations = portfolioData?.allocations.map((allocation, index) => ({
     ...allocation,
     color: getCryptoColor(allocation.symbol, index),
     gradient: getCryptoGradient(allocation.symbol, index),
     icon: getCryptoIcon(allocation.symbol),
-    health: getHealthIndicator(allocation.percentage),
     // Mock 24h change data (in real app, this would come from API)
     change24h: (Math.random() - 0.5) * 10, // Random change between -5% to +5%
     isStale: false // Mock data staleness indicator
@@ -91,7 +73,6 @@ const PortfolioAllocationChart: React.FC<PortfolioAllocationChartProps> = ({
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       const IconComponent = getCryptoIcon(data.symbol);
-      const HealthIcon = data.health.icon;
       
       return (
         <div 
@@ -131,10 +112,6 @@ const PortfolioAllocationChart: React.FC<PortfolioAllocationChartProps> = ({
                 {Math.abs(data.change24h).toFixed(2)}%
               </span>
             </div>
-            <div className="flex items-center gap-2 pt-1 border-t border-border/50">
-              <HealthIcon className={`w-3 h-3 ${data.health.color}`} />
-              <span className={`text-xs ${data.health.color}`}>{data.health.message}</span>
-            </div>
           </div>
         </div>
       );
@@ -147,7 +124,6 @@ const PortfolioAllocationChart: React.FC<PortfolioAllocationChartProps> = ({
       <div className="grid grid-cols-1 gap-3">
         {enhancedAllocations.map((entry, index) => {
           const IconComponent = entry.icon;
-          const HealthIcon = entry.health.icon;
           const isSelected = selectedAsset === entry.symbol;
           
           return (
@@ -198,7 +174,6 @@ const PortfolioAllocationChart: React.FC<PortfolioAllocationChartProps> = ({
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <p className="font-semibold text-sm">{entry.symbol}</p>
-                    <HealthIcon className={`w-3 h-3 ${entry.health.color}`} />
                     {entry.isStale && (
                       <Badge variant="outline" className="text-xs">Stale</Badge>
                     )}
@@ -222,9 +197,6 @@ const PortfolioAllocationChart: React.FC<PortfolioAllocationChartProps> = ({
                 </div>
                 <p className="text-xs text-muted-foreground">
                   ${entry.value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                </p>
-                <p className={`text-xs ${entry.health.color}`}>
-                  {entry.health.message}
                 </p>
               </div>
             </div>
