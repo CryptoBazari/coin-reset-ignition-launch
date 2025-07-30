@@ -14,6 +14,7 @@ interface AvivData {
     btcBeta: number;
     riskFreeRate: number;
   };
+  isMockData?: boolean;
 }
 
 export default function BitcoinMarketIndicator() {
@@ -24,18 +25,51 @@ export default function BitcoinMarketIndicator() {
   const fetchAvivData = async () => {
     try {
       setRefreshing(true);
+      console.log('🚀 Fetching Bitcoin AVIV data...');
+      
       const { data, error } = await supabase.functions.invoke('bitcoin-aviv');
       
-      if (error) throw error;
+      if (error) {
+        console.error('❌ AVIV API error:', error);
+        throw error;
+      }
       
-      setAvivData(data);
+      console.log('✅ AVIV data received:', data);
+      
+      // Handle both direct data and fallback structure
+      if (data?.fallback) {
+        console.warn('⚠️ Using fallback AVIV data:', data.fallback);
+        setAvivData(data.fallback);
+      } else {
+        setAvivData(data);
+      }
     } catch (error) {
-      console.error('Failed to fetch AVIV data:', error);
-      // Fallback data
+      console.error('❌ Failed to fetch AVIV data:', error);
+      
+      // Try to get cached data from the edge function first
+      try {
+        const { data: cachedData } = await supabase
+          .from('glassnode_cache')
+          .select('data')
+          .eq('cache_key', 'bitcoin-aviv')
+          .single();
+          
+        if (cachedData?.data) {
+          console.log('📦 Using cached AVIV data:', cachedData.data);
+          setAvivData(cachedData.data as unknown as AvivData);
+          return;
+        }
+      } catch (cacheError) {
+        console.warn('⚠️ No cached AVIV data available:', cacheError);
+      }
+      
+      // Only fall back to mock data as last resort
+      console.warn('⚠️ Using mock AVIV data as last resort');
       setAvivData({
         avivRatio: 1.5,
         marketCondition: 'NEUTRAL',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        isMockData: true
       });
     } finally {
       setLoading(false);
@@ -151,6 +185,11 @@ export default function BitcoinMarketIndicator() {
 
         <div className="text-xs opacity-75 text-center pt-2">
           Last updated: {new Date(avivData.timestamp).toLocaleTimeString()}
+          {avivData.isMockData && (
+            <div className="text-xs opacity-60 mt-1">
+              ⚠️ Using simulated data - API unavailable
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
