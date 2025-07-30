@@ -1,4 +1,5 @@
 
+
 import { serve } from "https://deno.land/std@0.192.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
 
@@ -40,30 +41,35 @@ serve(async (req) => {
       throw new Error('Glass Node API key not configured');
     }
 
-    // Fetch current AVIV data from Glass Node API - get only most recent value
-    console.log('Fetching current AVIV data from Glass Node API...');
+    // Fetch ONLY the most recent AVIV data point from Glass Node API
+    console.log('Fetching most recent AVIV data from Glass Node API...');
     
+    // Get only the most recent data point using the 'u' (until) parameter set to current timestamp
+    const currentTimestamp = Math.floor(Date.now() / 1000);
     const avivResponse = await fetch(
-      `https://api.glassnode.com/v1/metrics/indicators/aviv?a=BTC&api_key=${glassnodeApiKey}&limit=1`
+      `https://api.glassnode.com/v1/metrics/indicators/aviv?a=BTC&api_key=${glassnodeApiKey}&u=${currentTimestamp}&limit=1`
     );
 
     let avivRatio = 1.5; // fallback
-    let metrics = null;
 
     if (avivResponse.ok) {
       const avivData = await avivResponse.json();
       console.log('🔍 Raw Glass Node AVIV response:', JSON.stringify(avivData));
       
       if (avivData && avivData.length > 0) {
-        const rawValue = avivData[0].v;
-        console.log(`📊 Raw AVIV value from API: ${rawValue}`);
+        // Get the LAST (most recent) value from the array, not the first
+        const mostRecentEntry = avivData[avivData.length - 1];
+        const rawValue = mostRecentEntry.v;
+        const timestamp = new Date(mostRecentEntry.t * 1000);
         
-        // Validate AVIV ratio is reasonable (typically 0-10 range)
-        if (rawValue && typeof rawValue === 'number' && rawValue >= 0 && rawValue <= 10) {
+        console.log(`📊 Most recent AVIV entry from ${timestamp.toISOString()}: ${rawValue}`);
+        
+        // Validate AVIV ratio is reasonable (typically 0.1-10 range for current market)
+        if (rawValue && typeof rawValue === 'number' && rawValue >= 0.1 && rawValue <= 10) {
           avivRatio = rawValue;
-          console.log(`✅ Valid AVIV ratio from Glass Node: ${avivRatio}`);
+          console.log(`✅ Valid current AVIV ratio from Glass Node: ${avivRatio}`);
         } else {
-          console.warn(`⚠️ Invalid AVIV value: ${rawValue}, using fallback: 1.5`);
+          console.warn(`⚠️ AVIV value outside expected range: ${rawValue}, using fallback: 1.5`);
           avivRatio = 1.5;
         }
       } else {
@@ -75,8 +81,6 @@ serve(async (req) => {
       const errorText = await avivResponse.text();
       console.error('AVIV API error:', errorText);
     }
-
-    // No need for additional metrics - just AVIV ratio and market condition
 
     // Determine market condition based on AVIV ratio
     const marketCondition = Object.entries(AVIV_THRESHOLDS).find(
@@ -140,3 +144,4 @@ serve(async (req) => {
     });
   }
 });
+
