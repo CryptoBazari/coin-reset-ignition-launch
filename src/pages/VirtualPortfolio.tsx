@@ -26,7 +26,7 @@ import { Lock, CheckCircle, Plus, TrendingUp, TrendingDown } from 'lucide-react'
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 const VirtualPortfolio = () => {
-  console.log('VirtualPortfolio component loading...');
+  console.log('VirtualPortfolio component loading - updated...');
   // Portfolio state
   const [portfolios, setPortfolios] = useState<VirtualPortfolioType[]>([]);
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
