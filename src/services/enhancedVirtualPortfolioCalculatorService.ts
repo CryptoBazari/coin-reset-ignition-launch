@@ -3,6 +3,7 @@ import { hybridNPVCalculationService } from './hybridNPVCalculationService';
 import { standaloneCAGRCalculationService } from './standaloneCAGRCalculationService';
 import { glassnodeBetaCalculationService } from './glassnodeBetaCalculationService';
 import { fetchCoinPrices } from './coinMarketCapService';
+import { VirtualAsset } from '@/types/virtualPortfolio';
 
 export interface AssetMetrics {
   id: string;
@@ -90,7 +91,7 @@ class EnhancedVirtualPortfolioCalculatorService {
       const portfolioMetrics = this.calculatePortfolioMetrics(assetMetrics, categoryMetrics);
       
       // Step 6: Generate recommendations
-      const decisions = this.generateRecommendations(portfolioMetrics, categoryMetrics, assetMetrics);
+      const decisions = await this.generateRecommendations(portfolioMetrics, categoryMetrics, assetMetrics, portfolioAssets, marketPrices);
       
       console.log('✅ Enhanced portfolio analysis completed');
       
@@ -420,9 +421,67 @@ class EnhancedVirtualPortfolioCalculatorService {
   }
 
   /**
-   * Generate actionable recommendations
+   * Generate sophisticated recommendations using advanced analysis
    */
-  private generateRecommendations(
+  private async generateRecommendations(
+    portfolio: PortfolioMetrics,
+    categories: Record<string, CategoryMetrics>,
+    assets: AssetMetrics[],
+    portfolioAssets: any[],
+    marketPrices: Record<string, number>
+  ): Promise<Array<{
+    type: string;
+    priority: 'critical' | 'high' | 'medium' | 'low';
+    action: string;
+    reason: string;
+    amountUSD?: number;
+  }>> {
+    try {
+      // Import the sophisticated recommendation service
+      const { sophisticatedRecommendationService } = await import('./sophisticatedRecommendationService');
+      
+      // Transform market prices to live coin data format
+      const liveCoinsData = Object.entries(marketPrices).map(([symbol, price]) => ({
+        symbol,
+        current_price: price
+      }));
+
+      // Prepare input for advanced analysis
+      const analysisInput = {
+        assets: portfolioAssets,
+        liveCoinsData,
+        assetMetrics: assets,
+        portfolioMetrics: portfolio
+      };
+      
+      console.log('🧠 Generating sophisticated recommendations using AVIV, risk management, and advanced metrics...');
+      
+      // Get advanced recommendations
+      const sophisticatedRecommendations = await sophisticatedRecommendationService.generateAdvancedRecommendations(analysisInput);
+      
+      // Transform to match the expected format
+      return sophisticatedRecommendations.map(rec => ({
+        type: rec.type,
+        priority: rec.priority,
+        action: rec.action,
+        reason: rec.reasoning.join('. '),
+        amountUSD: rec.amountUSD,
+        marketCondition: rec.marketCondition,
+        confidence: rec.confidence
+      }));
+      
+    } catch (error) {
+      console.error('❌ Failed to generate sophisticated recommendations, falling back to basic analysis:', error);
+      
+      // Fallback to basic recommendations
+      return this.generateBasicRecommendations(portfolio, categories, assets);
+    }
+  }
+
+  /**
+   * Basic fallback recommendations
+   */
+  private generateBasicRecommendations(
     portfolio: PortfolioMetrics,
     categories: Record<string, CategoryMetrics>,
     assets: AssetMetrics[]
@@ -433,7 +492,7 @@ class EnhancedVirtualPortfolioCalculatorService {
     const btcAllocation = categories.bitcoin?.allocation || 0;
     if (btcAllocation < 40) {
       decisions.push({
-        type: 'rebalance',
+        type: 'allocation',
         priority: 'high' as const,
         action: `Increase Bitcoin allocation from ${btcAllocation.toFixed(1)}% to 40-60%`,
         reason: 'Bitcoin should be the core holding for portfolio stability',
@@ -441,7 +500,7 @@ class EnhancedVirtualPortfolioCalculatorService {
       });
     } else if (btcAllocation > 70) {
       decisions.push({
-        type: 'rebalance',
+        type: 'allocation',
         priority: 'medium' as const,
         action: `Reduce Bitcoin allocation from ${btcAllocation.toFixed(1)}% to 60-70%`,
         reason: 'Over-concentration in Bitcoin reduces growth potential',
@@ -452,7 +511,7 @@ class EnhancedVirtualPortfolioCalculatorService {
     // Diversification check
     if (portfolio.diversificationScore < 50) {
       decisions.push({
-        type: 'diversify',
+        type: 'risk_adjustment',
         priority: 'high' as const,
         action: 'Add more assets to improve diversification',
         reason: `Current diversification score: ${portfolio.diversificationScore.toFixed(1)}/100`
@@ -462,7 +521,7 @@ class EnhancedVirtualPortfolioCalculatorService {
     // Risk management
     if (portfolio.riskScore > 70) {
       decisions.push({
-        type: 'risk_management',
+        type: 'risk_adjustment',
         priority: 'critical' as const,
         action: 'Reduce portfolio risk through rebalancing',
         reason: `High risk score: ${portfolio.riskScore.toFixed(1)}/100`
@@ -472,7 +531,7 @@ class EnhancedVirtualPortfolioCalculatorService {
     // Performance insights
     if (portfolio.cagr < 0.1) {
       decisions.push({
-        type: 'performance',
+        type: 'optimization',
         priority: 'medium' as const,
         action: 'Consider reviewing underperforming assets',
         reason: `Portfolio CAGR below 10%: ${(portfolio.cagr * 100).toFixed(1)}%`

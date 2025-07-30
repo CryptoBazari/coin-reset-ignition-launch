@@ -17,9 +17,13 @@ import { useToast } from '@/hooks/use-toast';
 
 interface Recommendation {
   priority: 'critical' | 'high' | 'medium' | 'low';
-  type: 'market' | 'allocation' | 'risk' | 'opportunity';
+  type: 'market_timing' | 'allocation' | 'risk_adjustment' | 'opportunity' | 'profit_taking' | 'optimization';
   message: string;
   action: string;
+  reason?: string;
+  amountUSD?: number;
+  marketCondition?: string;
+  confidence?: 'high' | 'medium' | 'low';
 }
 
 interface PortfolioRecommendationsProps {
@@ -85,10 +89,12 @@ export default function PortfolioRecommendations({
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'market': return <TrendingUp className="h-4 w-4" />;
+      case 'market_timing': return <TrendingUp className="h-4 w-4" />;
       case 'allocation': return <Target className="h-4 w-4" />;
-      case 'risk': return <Shield className="h-4 w-4" />;
-      case 'opportunity': return <TrendingDown className="h-4 w-4" />;
+      case 'risk_adjustment': return <Shield className="h-4 w-4" />;
+      case 'opportunity': return <TrendingUp className="h-4 w-4 text-green-500" />;
+      case 'profit_taking': return <TrendingDown className="h-4 w-4 text-orange-500" />;
+      case 'optimization': return <Target className="h-4 w-4 text-blue-500" />;
       default: return <AlertTriangle className="h-4 w-4" />;
     }
   };
@@ -145,6 +151,19 @@ export default function PortfolioRecommendations({
                 <div>
                   <h4 className="font-semibold text-foreground">{rec.message}</h4>
                   <p className="text-sm text-muted-foreground mt-1">{rec.action}</p>
+                  {rec.reason && (
+                    <p className="text-xs text-muted-foreground mt-1 italic">{rec.reason}</p>
+                  )}
+                  {rec.amountUSD && (
+                    <p className="text-xs font-medium text-primary mt-1">
+                      Amount: ${rec.amountUSD.toFixed(0)}
+                    </p>
+                  )}
+                  {rec.marketCondition && (
+                    <span className="inline-block text-xs px-2 py-1 rounded bg-muted text-muted-foreground mt-1">
+                      Market: {rec.marketCondition}
+                    </span>
+                  )}
                 </div>
               </div>
               
@@ -182,7 +201,8 @@ export default function PortfolioRecommendations({
         
         <div className="pt-4 border-t text-center">
           <p className="text-xs text-muted-foreground">
-            Recommendations are based on Bitcoin AVIV analysis, portfolio tier rules, and current market conditions.
+            Sophisticated recommendations based on Bitcoin AVIV ratio, risk management analysis, 
+            advanced portfolio metrics (NPV, CAGR, Beta), and current market conditions.
             All actions are simulated for demonstration purposes.
           </p>
         </div>
